@@ -10,6 +10,8 @@ export class AuthController{
 
     async getAuth(req: Request, res: Response){
         await this.authService.getAuth();
-        res.send('Auth route')
+        res.json({
+            auth: true
+        })
     }
 }

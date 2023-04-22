@@ -13,6 +13,7 @@ createApp(App)
     clientId: process.env.VUE_APP_AUTH0_CLIENID,
     authorizationParams: {
       redirect_uri: `${process.env.VUE_APP_APP_DOMAIN}/home`,
+      audience: process.env.VUE_APP_AUDIENCE,
     },
   }))
   .mount('#app');

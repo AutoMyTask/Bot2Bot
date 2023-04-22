@@ -36,12 +36,24 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, onMounted } from 'vue';
+import { useAuth0 } from '@auth0/auth0-vue';
 
 export default defineComponent({
   name: 'HelloWorld',
-  props: {
-    msg: String,
+  setup() {
+    onMounted(async () => {
+      const { getAccessTokenSilently } = useAuth0();
+      const token = await getAccessTokenSilently();
+      const response = await fetch(process.env.VUE_APP_API_SERVER, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      console.log(data);
+    });
   },
 });
 </script>
