@@ -4,6 +4,9 @@ import {AuthModule} from "./auth/auth.module";
 import cors from './middlewares/cors';
 import {rateLimiter} from "./middlewares/rate-limiter";
 import helmet from "helmet";
+import dotenv from 'dotenv';
+
+dotenv.config()
 
 export class App {
     public app: Application
@@ -16,9 +19,9 @@ export class App {
         this.registerModules()
     }
 
-    private configure(): void{
+    private configure(): void {
         this.app.use(express.json())
-        this.app.use(express.urlencoded())
+        this.app.use(express.urlencoded({ extended: true }))
         this.app.use(rateLimiter)
         this.app.use(cors)
         this.app.use(helmet())
