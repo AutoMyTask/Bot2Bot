@@ -1,6 +1,5 @@
 import {injectable, inject} from "inversify";
 import {AuthService} from "./auth.service";
-import {IAuthService} from "./IAuthService";
 import {Request, Response} from "express";
 
 @injectable()

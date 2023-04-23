@@ -2,7 +2,7 @@ import {Container} from 'inversify'
 import {AuthService} from "./auth.service";
 import {AuthController} from "./auth.controller";
 import {Application} from "express";
-import { jwtCheck } from "./middlewares/jwt.check";
+import {jwtCheck} from "./middlewares/jwt.check";
 
 
 export class AuthModule {

@@ -4,9 +4,8 @@ import {AuthModule} from "./auth/auth.module";
 import cors from './middlewares/cors';
 import {rateLimiter} from "./middlewares/rate-limiter";
 import helmet from "helmet";
-import dotenv from 'dotenv';
-
-dotenv.config()
+import { Model } from 'objection';
+import {knex} from "./database/knex";
 
 export class App {
     public app: Application
@@ -21,10 +20,11 @@ export class App {
 
     private configure(): void {
         this.app.use(express.json())
-        this.app.use(express.urlencoded({ extended: true }))
+        this.app.use(express.urlencoded({extended: true}))
         this.app.use(rateLimiter)
         this.app.use(cors)
         this.app.use(helmet())
+        Model.knex(knex)
     }
 
     private registerModules(): void {
