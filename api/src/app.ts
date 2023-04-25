@@ -6,6 +6,7 @@ import {rateLimiter} from "./middlewares/rate-limiter";
 import helmet from "helmet";
 import { Model } from 'objection';
 import {knex} from "./database/knex";
+import start from '@automytask/bot-music/lib'
 
 export class App {
     public app: Application
@@ -16,6 +17,10 @@ export class App {
         this._container = new Container()
         this.configure()
         this.registerModules()
+    }
+
+    public async startBots(){
+        await start();
     }
 
     private configure(): void {
@@ -34,5 +39,5 @@ export class App {
     }
 }
 
-export default new App().app
+export default new App()
 

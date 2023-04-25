@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@automytask/bot-music": "^1.0.0",
     "@types/express": "^4.17.17",
     "@types/knex": "^0.16.1",
     "@types/pg": "^8.6.6",
