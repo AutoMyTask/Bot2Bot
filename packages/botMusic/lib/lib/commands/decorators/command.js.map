@@ -1,0 +1,1 @@
+{"version":3,"file":"command.js","sourceRoot":"","sources":["../../../../src/lib/commands/decorators/command.ts"],"names":[],"mappings":";;;AAAA,4BAAyB;AAMzB,SAAgB,OAAO,CAAE,OAAuB;IAC5C,OAAO,UAAC,MAAW;QACf,OAAO,CAAC,cAAc,CAAC,SAAS,EAAE,OAAO,EAAE,MAAM,CAAC,SAAS,EAAE,KAAK,CAAC,CAAA;IACvE,CAAC,CAAA;AACL,CAAC;AAJD,0BAIC"}
