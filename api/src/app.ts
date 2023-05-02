@@ -2,24 +2,29 @@ import express, {Application} from "express";
 import {Container} from "inversify";
 import {AuthModule} from "./auth/auth.module";
 import cors from './middlewares/cors';
-import {rateLimiter} from "./middlewares/rate-limiter";
+import {rateLimiter} from "./middlewares/rate.limiter";
 import helmet from "helmet";
-import { Model } from 'objection';
+import {Model} from 'objection';
 import {knex} from "./database/knex";
 import start from '@automytask/bot-music/lib'
+import {Endpoints} from "./endpoints";
+import container from "./container";
+import {errorHandler} from "./middlewares/error.handler";
+import {logError} from "./middlewares/log.error";
 
 export class App {
-    public app: Application
-    private readonly _container: Container
+    private readonly container: Container =  container
+    private readonly _endpoints: Endpoints = this.container.get(Endpoints)
+    public app: Application = this.container.get('Application')
 
     constructor() {
-        this.app = express()
-        this._container = new Container()
         this.configure()
         this.registerModules()
+        this.createSwagger()
+        this.setupErrorHandler()
     }
 
-    public async startBots(){
+    public async startBots() {
         await start();
     }
 
@@ -33,9 +38,17 @@ export class App {
     }
 
     private registerModules(): void {
-        const module = new AuthModule(this._container, this.app)
-        module.register()
+        const module = container.get(AuthModule)
         module.mapAuthEndpoints()
+    }
+
+    private createSwagger(): void {
+        this._endpoints.setupSwaggerRoute()
+    }
+
+    private setupErrorHandler(){
+        this.app.use(logError)
+        this.app.use(errorHandler)
     }
 }
 

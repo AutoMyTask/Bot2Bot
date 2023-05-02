@@ -1,21 +1,33 @@
-import {Container} from 'inversify'
-import {AuthService} from "./auth.service";
-import {AuthController} from "./auth.controller";
-import {Application} from "express";
-import {jwtCheck} from "./middlewares/jwt.check";
+import 'reflect-metadata'
+import {inject, injectable} from 'inversify'
+import {Endpoints} from "./../endpoints";
+import {AuthController, AuthRegisterResponse} from "./auth.controller";
+import {StatutCodes} from "./../http/StatutCodes";
 
-
+@injectable()
 export class AuthModule {
-    constructor(private container: Container, public app: Application) {
-    }
 
-    register(): void {
-        this.container.bind<AuthService>(AuthService).toSelf();
-        this.container.bind<AuthController>(AuthController).toSelf()
+    constructor(
+        @inject(Endpoints) private _endpoints: Endpoints,
+        @inject(AuthController) private _authController: AuthController
+    ) {
     }
 
     mapAuthEndpoints() {
-        const authController = this.container.resolve<AuthController>(AuthController);
-        this.app.post('/', jwtCheck, authController.getAuth.bind(authController))
+        const auth = this._endpoints
+            .mapGroup('/auth')
+            .withTags('Auth')
+
+        auth
+            .map('/register', 'post', this._authController.register.bind(this._authController))
+            .request(
+                `${__dirname}/auth.controller.ts`,
+                'AuthRegisterRequest'
+                )
+            .produce(
+                StatutCodes.Status200OK,
+                `${__dirname}/auth.controller.ts`,
+                'AuthRegisterResponse'
+            )
     }
 }
