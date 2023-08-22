@@ -6,7 +6,7 @@ import {rateLimiter} from "./middlewares/rate.limiter";
 import helmet from "helmet";
 import {Model} from 'objection';
 import {knex} from "./database/knex";
-import start from '@automytask/bot-music/lib'
+// import start from 'bot-music';
 import {Endpoints} from "./endpoints";
 import container from "./container";
 import {errorHandler} from "./middlewares/error.handler";
@@ -25,7 +25,7 @@ export class App {
     }
 
     public async startBots() {
-        await start();
+        // await start();
     }
 
     private configure(): void {

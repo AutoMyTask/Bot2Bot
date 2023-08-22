@@ -1,0 +1,17 @@
+{
+  "name": "Bot2Bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:AutoMyTask/Bot2Bot.git",
+  "author": "François-Pierre",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "turbo": "^1.10.12"
+  },
+  "packageManager": "yarn@1.22.15",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "extends": ["//"],
+  "globalDotEnv": [".env"],
+  "pipeline": {
+    "dev": {
+      "dotEnv": [".env.development"]
+    }
+  }
+}
