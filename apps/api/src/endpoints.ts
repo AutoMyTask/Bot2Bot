@@ -5,7 +5,7 @@ import {inject, injectable} from "inversify";
 import e from "express";
 import {StatutCodes} from "./http/StatutCodes";
 import {Swagger} from "./swagger/swagger";
-import {SwaggerSchema} from "./swagger";
+import {SwaggerSchema} from "./swagger/swagger.schema";
 import {SwaggerResponse} from "./swagger/swagger.response";
 import {SwaggerOperation} from "./swagger/swagger.operation";
 import {SwaggerPathItem} from "./swagger/swagger.pathitem";

@@ -2,10 +2,6 @@ import {Operation, PathItem, Schema} from "swagger-jsdoc";
 import 'reflect-metadata'
 import * as TJS from 'typescript-json-schema'
 import {resolve} from "path"
-import {SwaggerOperation} from "./swagger/swagger.operation";
-
-
-
 
 
 export class SwaggerSchema {
