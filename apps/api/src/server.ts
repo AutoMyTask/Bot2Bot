@@ -25,40 +25,41 @@ app
     .addMiddleware(helmet())
 
 
-// Création de MapGroup (la il va falloir stocké tout les endpoints dans un seul et même endroit)
-// Le mieux serrait au niveau de APP. Cela permettrait par la suite d'utiliser les endpoints pour
-// la definition open api. Implémenter dans ce cas là l'interface IRouteMapBuilder au niveau d'APP
-// Vérifier le bon format de la chaine '/auth' au niveau de ... ?
-// Regarder 'tsyringe' pour l'injection de dépendance
+// Stocker des metadata pour l'auto documentation
+// Vérifier le bon format des routes '/route' au niveau de ... ?
 app
     .addEndpoint(routeMapBuilder => {
-            const groupAuth = routeMapBuilder.mapGroup('/auth')
 
-            groupAuth.withMiddleware((req, res, next) => {
-                console.log('je suis dans la route "/auth" ')
-                next()
-            })
-
-            const routeOui = groupAuth
+            routeMapBuilder
                 .map('/oui', 'get', (req, res) => {
-                    res.json({oui: true})
-                }).withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
+                    return res.json({oui: true})
                 })
 
-            const routeNon = groupAuth
+
+            routeMapBuilder
+                .map('/non', 'get', (req, res) => {
+                    return res.json({oui: false})
+                })
+
+            const groupAuth = routeMapBuilder.mapGroup('/ouiNon')
+
+
+            groupAuth
+                .map('/oui', 'get', (req, res) => {
+                    res.json({oui: true})
+                })
+
+
+            groupAuth
                 .map('/non', "get", (req, res) => {
                     return res.json({oui: false})
                 })
-                .withMiddleware((req, res, next) => {
-                    console.log('non non je suis un middleware')
-                    next()
-                })
+
 
             // Je devrais pouvoir faire routeMapBuilder.build() et construire ainsi mes routes
-            return groupAuth.build()
+            return routeMapBuilder
         }
     )
 
+app.build()
 app.run()

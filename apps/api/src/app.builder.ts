@@ -14,7 +14,7 @@ class RouteHandler {
     constructor(
         public path: string,
         public method: HTTPMethod,
-        public callback: CallbackRequest,
+        public callbackRequest: CallbackRequest,
     ) {
     }
 }
@@ -24,8 +24,8 @@ class RouteGroupBuilder {
     private routeHandlers: RouteHandler[] = []
     private currentRouteHandler: RouteHandler | null = null;
 
-    add(path: string, method: HTTPMethod, callback: CallbackRequest): void {
-        const routeHandler = new RouteHandler(path, method, callback)
+    add(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): void {
+        const routeHandler = new RouteHandler(path, method, callbackRequest)
         this.routeHandlers.push(routeHandler)
         this.currentRouteHandler = routeHandler
     }
@@ -39,7 +39,7 @@ class RouteGroupBuilder {
     build(): e.Router {
         const router = e.Router()
         this.routeHandlers.forEach(endpoint => {
-            router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.callback)
+            router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.callbackRequest)
         })
         return router;
     }
@@ -56,20 +56,25 @@ interface IGroupedRouteBuilder extends ISingleRouteBuilder {
     withMiddleware: (middleware: MiddlewareFunction) => IGroupedRouteBuilder
 }
 
-class GroupedRouteBuilder implements IGroupedRouteBuilder {
+interface IRouteBuilder {
+    build: () => IRouteCollection
+}
+
+
+class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteBuilder {
     private middlewares: MiddlewareFunction[] = []
 
     private routes: ISingleRouteBuilder[] = []
 
     constructor(
-        private routeMapBuilder: IRouteMapBuilder ,
+        private routeMapBuilder: IRouteMapBuilder,
         private prefix: string) {
     }
 
     map(path: string, method: HTTPMethod, callback: CallbackRequest): ISingleRouteBuilder {
-        const routeBuilder = new SingleRouteBuilder().map(path, method, callback)
-        this.routes.push(routeBuilder)
-        return routeBuilder;
+        const singleRouteBuilder = new SingleRouteBuilder().map(path, method, callback)
+        this.routes.push(singleRouteBuilder)
+        return singleRouteBuilder;
     }
 
     withMiddleware(middleware: MiddlewareFunction): IGroupedRouteBuilder {
@@ -96,11 +101,12 @@ class RouteCollection implements IRouteCollection {
     constructor(
         public routers: e.Router[][],
         public middlewares: MiddlewareFunction[] = [],
-        public prefix: string = '/') {}
+        public prefix: string = '/') {
+    }
 }
 
 // Créé un endpoint
-class SingleRouteBuilder implements ISingleRouteBuilder {
+class SingleRouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
 
     private routeGroupBuilder: RouteGroupBuilder = new RouteGroupBuilder()
 
@@ -114,35 +120,53 @@ class SingleRouteBuilder implements ISingleRouteBuilder {
         return this;
     }
 
-    map(path: string, method: HTTPMethod, callback: CallbackRequest): ISingleRouteBuilder {
-        this.routeGroupBuilder.add(path, method, callback)
+    map(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): ISingleRouteBuilder {
+        this.routeGroupBuilder.add(path, method, callbackRequest)
         return this;
     }
 }
 
-
 interface IRouteMapBuilder {
     map: (path: string, methode: HTTPMethod, callback: CallbackRequest) => ISingleRouteBuilder
-    mapGroup: (prefix: string) => IGroupedRouteBuilder
+    mapGroup: (prefix: string) => IGroupedRouteBuilder;
+    dataSources: EndpointDataSource[];
 }
 
-type EndpointBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteCollection
+type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
 
 interface IApp {
     addMiddleware: (...callbacks: RequestHandler[]) => IApp;
-    addEndpoint: (callback: EndpointBuilderCallBack) => void;
+    addEndpoint: (callback: RouteMapBuilderCallBack) => void;
+    build: () => void
     run: () => void;
-    dataSources: DataSourceEndpoint[]
 }
 
-class DataSourceEndpoint {
+// Je devrais gérer ici tout le processus de construction des routes
+class EndpointDataSource {
+    private routeBuilder!: IRouteBuilder
+
+    constructor() {
+        // Il retourne les endpoints (EndpointBuilder)
+        // Les endpoints seront utilisés par Swagger pour générer l'auto documentation
+        // this.routeBuilder = new SingleRouteBuilder().map(path, method, callbackRequest)
+    }
+
+    public addRouteBuilder(builder: ISingleRouteBuilder): ISingleRouteBuilder {
+        this.routeBuilder = builder
+        return builder
+    }
+
+    public getRouters(): IRouteCollection {
+        return this.routeBuilder.build()
+    }
 
 }
 
 export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
-    public dataSources: DataSourceEndpoint[] = []
+    public dataSources: EndpointDataSource[] = []
+
     public readonly services: interfaces.Container = App.services
 
     addMiddleware(...callbacks: RequestHandler[]): IApp {
@@ -154,25 +178,42 @@ export class App implements IApp, IRouteMapBuilder {
         return new App()
     }
 
-    addEndpoint(callback: EndpointBuilderCallBack): void {
-        const {prefix, middlewares, routers} = callback(this)
-        if (routers.length > 0) {
-            this.app.use(prefix, ...middlewares, ...routers)
-        }
+    addEndpoint(callbackEndpointBuilder: RouteMapBuilderCallBack): void {
+        callbackEndpointBuilder(this)
     }
 
+    // Run ne doit pas être présent dans le appBuilder
     run(): void {
         this.app.listen(process.env.PORT, () => {
             console.log(`Server started on port: http://localhost:${process.env.PORT}/docs`)
         })
     }
 
-    map(path: string, method: HTTPMethod, callback: CallbackRequest): ISingleRouteBuilder {
-        return new SingleRouteBuilder().map(path, method, callback);
+    map(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): ISingleRouteBuilder {
+        const singleRouteBuilder = new SingleRouteBuilder().map(path, method, callbackRequest)
+        return this.createAndAddDataSource(singleRouteBuilder);
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder {
-        return new GroupedRouteBuilder(this, prefix)
+        const groupedRouteBuilder = new GroupedRouteBuilder(this, prefix)
+        return this.createAndAddDataSource(groupedRouteBuilder)
+    }
+
+    build(): void {
+        for (const dataSource of this.dataSources) {
+            const {prefix, middlewares, routers} = dataSource.getRouters()
+            if (routers.length > 0) {
+                this.app.use(prefix, ...middlewares, ...routers)
+            }
+        }
+    }
+
+    private createAndAddDataSource<T extends ISingleRouteBuilder>(
+        routeBuilder: T,
+    ): ISingleRouteBuilder {
+        const dataSource = new EndpointDataSource()
+        const length = this.dataSources.push(dataSource);
+        return this.dataSources[length - 1]!.addRouteBuilder(routeBuilder);
     }
 
 }
