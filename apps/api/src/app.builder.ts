@@ -19,29 +19,38 @@ class RouteHandler {
     }
 }
 
+// Mécanisme qui me permettrait de refractorer mon code avec un extend (a voir)
+class RouteBuilder implements ISingleRouteBuilder {
+    protected routeHandlers: RouteHandler[] = [];
+    protected currentRouteHandler: RouteHandler | null = null;
+    protected middlewares: MiddlewareFunction[] = [];
 
-class RouteGroupBuilder {
-    private routeHandlers: RouteHandler[] = []
-    private currentRouteHandler: RouteHandler | null = null;
+    constructor(protected prefix: string) {}
 
-    add(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): void {
-        const routeHandler = new RouteHandler(path, method, callbackRequest)
-        this.routeHandlers.push(routeHandler)
-        this.currentRouteHandler = routeHandler
+    map(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): ISingleRouteBuilder{
+        const routeHandler = new RouteHandler(path, method, callbackRequest);
+        this.routeHandlers.push(routeHandler);
+        this.currentRouteHandler = routeHandler;
+        return this
     }
 
-    addMiddleware(middleware: MiddlewareFunction): void {
-        if (this.routeHandlers.length > 0) {
-            this.routeHandlers[this.routeHandlers.length - 1].middlewares.push(middleware)
-        }
+    withMiddleware(middleware: MiddlewareFunction): ISingleRouteBuilder {
+        this.middlewares.push(middleware);
+        return this;
     }
 
-    build(): e.Router {
-        const router = e.Router()
-        this.routeHandlers.forEach(endpoint => {
-            router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.callbackRequest)
-        })
-        return router;
+    build(): IRouteCollection {
+        const routers = this.routeHandlers.map(endpoint => {
+            const router = express.Router();
+            router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.callbackRequest);
+            return router;
+        });
+
+        return {
+            routers: [routers],
+            middlewares: this.middlewares,
+            prefix: this.prefix,
+        };
     }
 }
 
@@ -61,32 +70,15 @@ interface IRouteBuilder {
 }
 
 
-class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteBuilder {
-    private middlewares: MiddlewareFunction[] = []
+class GroupedRouteBuilder extends RouteBuilder implements IGroupedRouteBuilder, IRouteBuilder {
 
-    private routes: ISingleRouteBuilder[] = []
-
-    constructor(
-        private routeMapBuilder: IRouteMapBuilder,
-        private prefix: string) {
-    }
-
-    map(path: string, method: HTTPMethod, callback: CallbackRequest): ISingleRouteBuilder {
-        const singleRouteBuilder = new SingleRouteBuilder().map(path, method, callback)
-        this.routes.push(singleRouteBuilder)
-        return singleRouteBuilder;
+    constructor(protected prefix: string) {
+        super(prefix)
     }
 
     withMiddleware(middleware: MiddlewareFunction): IGroupedRouteBuilder {
         this.middlewares.push(middleware);
         return this
-    }
-
-    build(): IRouteCollection {
-        const routers = this.routes
-            .map(routeBuilder => routeBuilder.build().routers).flat()
-
-        return new RouteCollection(routers, this.middlewares, this.prefix);
     }
 }
 
@@ -97,34 +89,6 @@ interface IRouteCollection {
     prefix: string;
 }
 
-class RouteCollection implements IRouteCollection {
-    constructor(
-        public routers: e.Router[][],
-        public middlewares: MiddlewareFunction[] = [],
-        public prefix: string = '/') {
-    }
-}
-
-// Créé un endpoint
-class SingleRouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
-
-    private routeGroupBuilder: RouteGroupBuilder = new RouteGroupBuilder()
-
-    build(): IRouteCollection {
-        const router = this.routeGroupBuilder.build()
-        return new RouteCollection([[router]]);
-    }
-
-    withMiddleware(middleware: MiddlewareFunction): ISingleRouteBuilder {
-        this.routeGroupBuilder.addMiddleware(middleware)
-        return this;
-    }
-
-    map(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): ISingleRouteBuilder {
-        this.routeGroupBuilder.add(path, method, callbackRequest)
-        return this;
-    }
-}
 
 interface IRouteMapBuilder {
     map: (path: string, methode: HTTPMethod, callback: CallbackRequest) => ISingleRouteBuilder
@@ -190,12 +154,12 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     map(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): ISingleRouteBuilder {
-        const singleRouteBuilder = new SingleRouteBuilder().map(path, method, callbackRequest)
+        const singleRouteBuilder = new RouteBuilder('/').map(path, method, callbackRequest)
         return this.createAndAddDataSource(singleRouteBuilder);
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder {
-        const groupedRouteBuilder = new GroupedRouteBuilder(this, prefix)
+        const groupedRouteBuilder = new GroupedRouteBuilder(prefix)
         return this.createAndAddDataSource(groupedRouteBuilder)
     }
 

@@ -34,19 +34,36 @@ app
                 .map('/oui', 'get', (req, res) => {
                     return res.json({oui: true})
                 })
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
 
 
             routeMapBuilder
                 .map('/non', 'get', (req, res) => {
                     return res.json({oui: false})
                 })
+                .withMiddleware((req, res, next) => {
+                    console.log('non non je suis un middleware')
+                    next()
+                })
 
-            const groupAuth = routeMapBuilder.mapGroup('/ouiNon')
+            const groupAuth = routeMapBuilder
+                .mapGroup('/ouiNon')
+                .withMiddleware((req, res, next) => {
+                    console.log('"ouiNon" préfix')
+                    next()
+                })
 
 
             groupAuth
                 .map('/oui', 'get', (req, res) => {
                     res.json({oui: true})
+                })
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
                 })
 
 
