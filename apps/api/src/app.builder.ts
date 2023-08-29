@@ -1,10 +1,9 @@
 import {Container, interfaces} from "inversify";
 import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
+import {RequestHandlerParams} from "express-serve-static-core";
 
 type MiddlewareFunction = (req: Request, res: Response, next: NextFunction) => void;
-
-type CallbackRequest = (req: Request, res: Response) => void;
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 
@@ -14,21 +13,20 @@ class RouteHandler {
     constructor(
         public path: string,
         public method: HTTPMethod,
-        public callbackRequest: CallbackRequest,
+        public requestHandler: RequestHandler,
     ) {
     }
 }
 
-// Mécanisme qui me permettrait de refractorer mon code avec un extend (a voir)
-class RouteBuilder implements ISingleRouteBuilder {
+class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
     protected routeHandlers: RouteHandler[] = [];
     protected currentRouteHandler: RouteHandler | null = null;
     protected middlewares: MiddlewareFunction[] = [];
 
     constructor(protected prefix: string) {}
 
-    map(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): ISingleRouteBuilder{
-        const routeHandler = new RouteHandler(path, method, callbackRequest);
+    map(path: string, method: HTTPMethod, requestHandler: RequestHandler): ISingleRouteBuilder{
+        const routeHandler = new RouteHandler(path, method, requestHandler);
         this.routeHandlers.push(routeHandler);
         this.currentRouteHandler = routeHandler;
         return this
@@ -42,7 +40,7 @@ class RouteBuilder implements ISingleRouteBuilder {
     build(): IRouteCollection {
         const routers = this.routeHandlers.map(endpoint => {
             const router = express.Router();
-            router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.callbackRequest);
+            router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.requestHandler);
             return router;
         });
 
@@ -55,7 +53,7 @@ class RouteBuilder implements ISingleRouteBuilder {
 }
 
 interface ISingleRouteBuilder {
-    map: (path: string, methode: HTTPMethod, callback: CallbackRequest) => ISingleRouteBuilder
+    map: (path: string, methode: HTTPMethod, requestHandler: RequestHandler) => ISingleRouteBuilder
     withMiddleware: (middleware: MiddlewareFunction) => ISingleRouteBuilder
     build: () => IRouteCollection
 }
@@ -70,7 +68,7 @@ interface IRouteBuilder {
 }
 
 
-class GroupedRouteBuilder extends RouteBuilder implements IGroupedRouteBuilder, IRouteBuilder {
+class GroupedRouteBuilder extends RouteBuilder implements IGroupedRouteBuilder, ISingleRouteBuilder, IRouteBuilder {
 
     constructor(protected prefix: string) {
         super(prefix)
@@ -91,7 +89,7 @@ interface IRouteCollection {
 
 
 interface IRouteMapBuilder {
-    map: (path: string, methode: HTTPMethod, callback: CallbackRequest) => ISingleRouteBuilder
+    map: (path: string, methode: HTTPMethod, requestHandler: RequestHandler) => ISingleRouteBuilder
     mapGroup: (prefix: string) => IGroupedRouteBuilder;
     dataSources: EndpointDataSource[];
 }
@@ -99,20 +97,18 @@ interface IRouteMapBuilder {
 type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
 
 interface IApp {
-    addMiddleware: (...callbacks: RequestHandler[]) => IApp;
+    addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => void;
     build: () => void
     run: () => void;
 }
 
-// Je devrais gérer ici tout le processus de construction des routes
 class EndpointDataSource {
     private routeBuilder!: IRouteBuilder
 
     constructor() {
         // Il retourne les endpoints (EndpointBuilder)
         // Les endpoints seront utilisés par Swagger pour générer l'auto documentation
-        // this.routeBuilder = new SingleRouteBuilder().map(path, method, callbackRequest)
     }
 
     public addRouteBuilder(builder: ISingleRouteBuilder): ISingleRouteBuilder {
@@ -133,7 +129,7 @@ export class App implements IApp, IRouteMapBuilder {
 
     public readonly services: interfaces.Container = App.services
 
-    addMiddleware(...callbacks: RequestHandler[]): IApp {
+    addMiddleware(...callbacks: RequestHandlerParams[]): IApp {
         this.app.use(...callbacks)
         return this
     }
@@ -153,8 +149,8 @@ export class App implements IApp, IRouteMapBuilder {
         })
     }
 
-    map(path: string, method: HTTPMethod, callbackRequest: CallbackRequest): ISingleRouteBuilder {
-        const singleRouteBuilder = new RouteBuilder('/').map(path, method, callbackRequest)
+    map(path: string, method: HTTPMethod, requestHandler: RequestHandler): ISingleRouteBuilder {
+        const singleRouteBuilder = new RouteBuilder('/').map(path, method, requestHandler)
         return this.createAndAddDataSource(singleRouteBuilder);
     }
 
@@ -179,5 +175,4 @@ export class App implements IApp, IRouteMapBuilder {
         const length = this.dataSources.push(dataSource);
         return this.dataSources[length - 1]!.addRouteBuilder(routeBuilder);
     }
-
 }

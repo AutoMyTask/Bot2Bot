@@ -12,6 +12,8 @@ import express from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
 import helmet from "helmet";
+import {logError} from "./middlewares/log.error";
+import {errorHandler} from "./middlewares/error.handler";
 
 // Sera mis dans un package APP Core
 const app = App.createBuilder()
@@ -31,7 +33,7 @@ app
     .addEndpoint(routeMapBuilder => {
 
             routeMapBuilder
-                .map('/oui', 'get', (req, res) => {
+                .map('/oui', 'get', (req, res, next) => {
                     return res.json({oui: true})
                 })
                 .withMiddleware((req, res, next) => {
@@ -73,10 +75,13 @@ app
                 })
 
 
-            // Je devrais pouvoir faire routeMapBuilder.build() et construire ainsi mes routes
             return routeMapBuilder
         }
     )
+
+app
+    .addMiddleware(logError)
+    .addMiddleware(errorHandler)
 
 app.build()
 app.run()
