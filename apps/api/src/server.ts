@@ -20,7 +20,7 @@ import {errorHandler} from "./middlewares/error.handler";
 //
 
 // Sera mis dans un package APP Core
-const app = App.createBuilder()
+const app = App.createApp()
 
 // Global Middlewares
 app
@@ -87,5 +87,5 @@ app
     .addMiddleware(logError)
     .addMiddleware(errorHandler)
 
-app.build()
+// app.build()
 app.run()

@@ -7,32 +7,32 @@ type MiddlewareFunction = (req: Request, res: Response, next: NextFunction) => v
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 
-interface IRouteHandler{
+interface IRouteHandler {
     middlewares: MiddlewareFunction[];
     path: string;
     method: HTTPMethod;
     requestHandler: RequestHandler;
+    metadata: any[]
 }
 
-class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
+class RouteBuilder implements ISingleRouteBuilder {
     protected routeHandlers: IRouteHandler[] = [];
-    protected currentRouteHandler?: IRouteHandler;
     protected middlewares: MiddlewareFunction[] = [];
 
-    constructor(protected prefix: string) {}
+    constructor(protected prefix: string) {
+    }
 
-    map(path: string, method: HTTPMethod, requestHandler: RequestHandler): ISingleRouteBuilder{
-        const length = this.routeHandlers.push({path, method, requestHandler, middlewares: []})
-        this.currentRouteHandler = this.routeHandlers.at(length - 1)
+    map(path: string, method: HTTPMethod, requestHandler: RequestHandler): ISingleRouteBuilder {
+        this.routeHandlers.push({path, method, requestHandler, middlewares: [], metadata: []})
         return this
     }
 
     withMiddleware(middleware: MiddlewareFunction): ISingleRouteBuilder {
-        this.middlewares.push(middleware);
+        this.routeHandlers.at(this.routeHandlers.length - 1)?.middlewares.push(middleware)
         return this;
     }
 
-    build(): IRouteCollection {
+    buildRouters(): IRouteCollection {
         const routers = this.routeHandlers.map(endpoint => {
             const router = express.Router()
             router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.requestHandler);
@@ -47,10 +47,9 @@ class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
     }
 }
 
-interface ISingleRouteBuilder {
+interface ISingleRouteBuilder extends IRouteBuilder {
     map: (path: string, methode: HTTPMethod, requestHandler: RequestHandler) => ISingleRouteBuilder
     withMiddleware: (middleware: MiddlewareFunction) => ISingleRouteBuilder
-    build: () => IRouteCollection
 }
 
 
@@ -59,11 +58,11 @@ interface IGroupedRouteBuilder extends ISingleRouteBuilder {
 }
 
 interface IRouteBuilder {
-    build: () => IRouteCollection
+    buildRouters: () => IRouteCollection
 }
 
 
-class GroupedRouteBuilder extends RouteBuilder implements IGroupedRouteBuilder, ISingleRouteBuilder, IRouteBuilder {
+class GroupedRouteBuilder extends RouteBuilder implements IGroupedRouteBuilder {
 
     constructor(protected prefix: string) {
         super(prefix)
@@ -94,7 +93,6 @@ type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapB
 interface IApp {
     addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => void;
-    build: () => void
     run: () => void;
 }
 
@@ -112,24 +110,27 @@ class EndpointDataSource {
     }
 
     public getRouters(): IRouteCollection {
-        return this.routeBuilder.build()
+        return this.routeBuilder.buildRouters()
     }
 
 }
 
+// Pour améliorer la performance, cela serrait intéressant de créer une premiere phase
+// de build. Cela permettrait de créer et de mettre en cache les données
+// Dans la fonction run, je configure express
 export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
     public dataSources: EndpointDataSource[] = []
-
+    private middlewares: RequestHandlerParams[] = []
     public readonly services: interfaces.Container = App.services
 
     addMiddleware(...callbacks: RequestHandlerParams[]): IApp {
-        this.app.use(...callbacks)
+        this.middlewares = callbacks
         return this
     }
 
-    public static createBuilder(): IApp {
+    public static createApp(): IApp {
         return new App()
     }
 
@@ -139,6 +140,15 @@ export class App implements IApp, IRouteMapBuilder {
 
     // Run ne doit pas être présent dans le appBuilder
     run(): void {
+        this.app.use(...this.middlewares)
+
+        for (const dataSource of this.dataSources) {
+            const {prefix, middlewares, routers} = dataSource.getRouters()
+            if (routers.length > 0) {
+                this.app.use(prefix, ...middlewares, ...routers)
+            }
+        }
+
         this.app.listen(process.env.PORT, () => {
             console.log(`Server started on port: http://localhost:${process.env.PORT}/docs`)
         })
@@ -152,15 +162,6 @@ export class App implements IApp, IRouteMapBuilder {
     mapGroup(prefix: string): IGroupedRouteBuilder {
         const groupedRouteBuilder = new GroupedRouteBuilder(prefix)
         return this.createAndAddDataSource(groupedRouteBuilder)
-    }
-
-    build(): void {
-        for (const dataSource of this.dataSources) {
-            const {prefix, middlewares, routers} = dataSource.getRouters()
-            if (routers.length > 0) {
-                this.app.use(prefix, ...middlewares, ...routers)
-            }
-        }
     }
 
     private createAndAddDataSource<T extends ISingleRouteBuilder>(
