@@ -7,28 +7,23 @@ type MiddlewareFunction = (req: Request, res: Response, next: NextFunction) => v
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 
-class RouteHandler {
-    public middlewares: MiddlewareFunction[] = []
-
-    constructor(
-        public path: string,
-        public method: HTTPMethod,
-        public requestHandler: RequestHandler,
-    ) {
-    }
+interface IRouteHandler{
+    middlewares: MiddlewareFunction[];
+    path: string;
+    method: HTTPMethod;
+    requestHandler: RequestHandler;
 }
 
 class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
-    protected routeHandlers: RouteHandler[] = [];
-    protected currentRouteHandler: RouteHandler | null = null;
+    protected routeHandlers: IRouteHandler[] = [];
+    protected currentRouteHandler?: IRouteHandler;
     protected middlewares: MiddlewareFunction[] = [];
 
     constructor(protected prefix: string) {}
 
     map(path: string, method: HTTPMethod, requestHandler: RequestHandler): ISingleRouteBuilder{
-        const routeHandler = new RouteHandler(path, method, requestHandler);
-        this.routeHandlers.push(routeHandler);
-        this.currentRouteHandler = routeHandler;
+        const length = this.routeHandlers.push({path, method, requestHandler, middlewares: []})
+        this.currentRouteHandler = this.routeHandlers.at(length - 1)
         return this
     }
 
@@ -39,7 +34,7 @@ class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
 
     build(): IRouteCollection {
         const routers = this.routeHandlers.map(endpoint => {
-            const router = express.Router();
+            const router = express.Router()
             router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.requestHandler);
             return router;
         });
@@ -173,6 +168,6 @@ export class App implements IApp, IRouteMapBuilder {
     ): ISingleRouteBuilder {
         const dataSource = new EndpointDataSource()
         const length = this.dataSources.push(dataSource);
-        return this.dataSources[length - 1]!.addRouteBuilder(routeBuilder);
+        return this.dataSources.at(length - 1)!.addRouteBuilder(routeBuilder);
     }
 }

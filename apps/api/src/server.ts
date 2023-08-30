@@ -15,6 +15,10 @@ import helmet from "helmet";
 import {logError} from "./middlewares/log.error";
 import {errorHandler} from "./middlewares/error.handler";
 
+
+// Pour gérer les erreurs http : http-errors, express-promise-router
+//
+
 // Sera mis dans un package APP Core
 const app = App.createBuilder()
 
