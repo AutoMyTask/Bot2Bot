@@ -3,27 +3,44 @@ import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
 import {RequestHandlerParams} from "express-serve-static-core";
 
+
 type MiddlewareFunction = (req: Request, res: Response, next: NextFunction) => void;
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
+
+class MetadataCollection {
+    public items: object[] = []
+
+    push(metadata: object){
+        this.items.push(metadata)
+    }
+
+    getMetadata<T extends object>(index: number): T{
+        return this.items.at(index) as T
+    }
+}
 
 interface IRouteHandler {
     middlewares: MiddlewareFunction[];
     path: string;
     method: HTTPMethod;
     requestHandler: RequestHandler;
-    metadata: any[]
 }
 
-class RouteBuilder implements ISingleRouteBuilder {
+
+class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
     protected routeHandlers: IRouteHandler[] = [];
     protected middlewares: MiddlewareFunction[] = [];
 
-    constructor(protected prefix: string) {
+    constructor(protected prefix: string) {}
+
+    extension(callback: CallbackRouteBuilder): this{
+        callback(this)
+        return this
     }
 
-    map(path: string, method: HTTPMethod, requestHandler: RequestHandler): ISingleRouteBuilder {
-        this.routeHandlers.push({path, method, requestHandler, middlewares: [], metadata: []})
+    map(path: string, method: HTTPMethod, requestHandler: RequestHandler): RouteBuilder {
+        this.routeHandlers.push({path, method, requestHandler, middlewares: []})
         return this
     }
 
@@ -33,9 +50,9 @@ class RouteBuilder implements ISingleRouteBuilder {
     }
 
     buildRouters(): IRouteCollection {
-        const routers = this.routeHandlers.map(endpoint => {
+        const routers = this.routeHandlers.map(route => {
             const router = express.Router()
-            router[endpoint.method](endpoint.path, ...endpoint.middlewares, endpoint.requestHandler);
+            router[route.method](route.path, ...route.middlewares, route.requestHandler);
             return router;
         });
 
@@ -47,14 +64,16 @@ class RouteBuilder implements ISingleRouteBuilder {
     }
 }
 
-interface ISingleRouteBuilder extends IRouteBuilder {
-    map: (path: string, methode: HTTPMethod, requestHandler: RequestHandler) => ISingleRouteBuilder
-    withMiddleware: (middleware: MiddlewareFunction) => ISingleRouteBuilder
+type CallbackRouteBuilder = (builder: ISingleRouteBuilder | IGroupedRouteBuilder ) => void
+
+interface ISingleRouteBuilder {
+    map:(path: string, methode: HTTPMethod, requestHandler: RequestHandler) => ISingleRouteBuilder
+    withMiddleware: (middleware: MiddlewareFunction) => ISingleRouteBuilder | IGroupedRouteBuilder
+    extension: (callback: CallbackRouteBuilder) => ISingleRouteBuilder | IGroupedRouteBuilder
 }
 
 
 interface IGroupedRouteBuilder extends ISingleRouteBuilder {
-    withMiddleware: (middleware: MiddlewareFunction) => IGroupedRouteBuilder
 }
 
 interface IRouteBuilder {
@@ -83,6 +102,7 @@ interface IRouteCollection {
 
 
 interface IRouteMapBuilder {
+    services: interfaces.Container;
     map: (path: string, methode: HTTPMethod, requestHandler: RequestHandler) => ISingleRouteBuilder
     mapGroup: (prefix: string) => IGroupedRouteBuilder;
     dataSources: EndpointDataSource[];
@@ -90,21 +110,21 @@ interface IRouteMapBuilder {
 
 type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
 
+type ConfigureServiceCallback = (services: interfaces.Container) => void
+
 interface IApp {
     addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => void;
     run: () => void;
+    configure: (configureServiceCallback: ConfigureServiceCallback) => void
 }
 
 class EndpointDataSource {
     private routeBuilder!: IRouteBuilder
 
-    constructor() {
-        // Il retourne les endpoints (EndpointBuilder)
-        // Les endpoints seront utilisés par Swagger pour générer l'auto documentation
-    }
+    constructor() {}
 
-    public addRouteBuilder(builder: ISingleRouteBuilder): ISingleRouteBuilder {
+    public addRouteBuilder(builder: RouteBuilder): ISingleRouteBuilder {
         this.routeBuilder = builder
         return builder
     }
@@ -115,15 +135,17 @@ class EndpointDataSource {
 
 }
 
-// Pour améliorer la performance, cela serrait intéressant de créer une premiere phase
-// de build. Cela permettrait de créer et de mettre en cache les données
-// Dans la fonction run, je configure express
+
 export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
     public dataSources: EndpointDataSource[] = []
     private middlewares: RequestHandlerParams[] = []
     public readonly services: interfaces.Container = App.services
+
+    configure(configureServiceCallback: ConfigureServiceCallback): void {
+        configureServiceCallback(this.services)
+    }
 
     addMiddleware(...callbacks: RequestHandlerParams[]): IApp {
         this.middlewares = callbacks
@@ -164,7 +186,7 @@ export class App implements IApp, IRouteMapBuilder {
         return this.createAndAddDataSource(groupedRouteBuilder)
     }
 
-    private createAndAddDataSource<T extends ISingleRouteBuilder>(
+    private createAndAddDataSource<T extends RouteBuilder>(
         routeBuilder: T,
     ): ISingleRouteBuilder {
         const dataSource = new EndpointDataSource()

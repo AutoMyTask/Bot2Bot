@@ -14,13 +14,50 @@ import cors from "./middlewares/cors";
 import helmet from "helmet";
 import {logError} from "./middlewares/log.error";
 import {errorHandler} from "./middlewares/error.handler";
+import 'reflect-metadata';
+
+
+// MODULE OPENAPISCHEMA
+function OpenApiSchema(target: any) {
+    const propertyNames = Object.getOwnPropertyNames(target.prototype)
+
+    const properties = propertyNames.filter(name => {
+        const descriptor = Object.getOwnPropertyDescriptor(target.prototype, name)
+        return descriptor && typeof descriptor.value !== 'function'
+    })
+
+    Reflect.defineMetadata('openApiSchema', properties, target)
+}
+
+
+// Schema
+@OpenApiSchema
+class Request {
+    id: number
+
+    constructor(id: number) {
+        this.id = id
+    }
+}
+
+// Add metadata RequestMetadata
+function request() {
+
+}
+
+// Add metadata ProduceResponseMetadata
+function Produce() {
+
+}
 
 
 // Pour gérer les erreurs http : http-errors, express-promise-router
-//
 
-// Sera mis dans un package APP Core
+// MODULE API CORE
 const app = App.createApp()
+
+app.configure((services) => {
+})
 
 // Global Middlewares
 app
@@ -31,18 +68,18 @@ app
     .addMiddleware(helmet())
 
 
-// Stocker des metadata pour l'auto documentation
 // Vérifier le bon format des routes '/route' au niveau de ... ?
 app
     .addEndpoint(routeMapBuilder => {
-
             routeMapBuilder
-                .map('/oui', 'get', (req, res, next) => {
+                .map('/oui', 'get', (req, res) => {
                     return res.json({oui: true})
                 })
                 .withMiddleware((req, res, next) => {
                     console.log('oui oui je suis un middleware')
                     next()
+                }).extension((builder) => {
+
                 })
 
 
@@ -77,7 +114,6 @@ app
                 .map('/non', "get", (req, res) => {
                     return res.json({oui: false})
                 })
-
 
             return routeMapBuilder
         }
