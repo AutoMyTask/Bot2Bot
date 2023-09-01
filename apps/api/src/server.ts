@@ -7,48 +7,14 @@
 // })
 
 
-import {App} from "./app.builder";
-import express from "express";
+import {App, CallbackGroupedRouteBuilder, CallbackSingleRouteBuilder} from "./app.builder";
+import express, {Response} from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
 import helmet from "helmet";
 import {logError} from "./middlewares/log.error";
 import {errorHandler} from "./middlewares/error.handler";
 import 'reflect-metadata';
-
-
-// MODULE OPENAPISCHEMA
-function OpenApiSchema(target: any) {
-    const propertyNames = Object.getOwnPropertyNames(target.prototype)
-
-    const properties = propertyNames.filter(name => {
-        const descriptor = Object.getOwnPropertyDescriptor(target.prototype, name)
-        return descriptor && typeof descriptor.value !== 'function'
-    })
-
-    Reflect.defineMetadata('openApiSchema', properties, target)
-}
-
-
-// Schema
-@OpenApiSchema
-class Request {
-    id: number
-
-    constructor(id: number) {
-        this.id = id
-    }
-}
-
-// Add metadata RequestMetadata
-function request() {
-
-}
-
-// Add metadata ProduceResponseMetadata
-function Produce() {
-
-}
 
 
 // Pour gérer les erreurs http : http-errors, express-promise-router
@@ -68,52 +34,69 @@ app
     .addMiddleware(helmet())
 
 
+// Decorators
+function Params(paramName: string) {
+    return (target: any, propertyKey: string, parameterIndex: number) => {
+        const existingMetadata = Reflect.getMetadata('params', target, propertyKey) || {}
+        const updateMetadata = {...existingMetadata, [parameterIndex]: paramName}
+        Reflect.defineMetadata('params', updateMetadata, target, propertyKey);
+    }
+}
+
+class UserController {
+    public static findOne(@Params('id') id: number): {oui: boolean} {
+        return {oui: true}
+    }
+}
+
+
 // Vérifier le bon format des routes '/route' au niveau de ... ?
 app
     .addEndpoint(routeMapBuilder => {
             routeMapBuilder
-                .map('/oui', 'get', (req, res) => {
-                    return res.json({oui: true})
-                })
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
                 .withMiddleware((req, res, next) => {
                     console.log('oui oui je suis un middleware')
                     next()
                 }).extension((builder) => {
 
-                })
+            })
 
 
-            routeMapBuilder
-                .map('/non', 'get', (req, res) => {
-                    return res.json({oui: false})
-                })
-                .withMiddleware((req, res, next) => {
-                    console.log('non non je suis un middleware')
-                    next()
-                })
+            //routeMapBuilder
+            //    .map('/non', 'get', (req, res) => {
+            //        return res.json({oui: false})
+            //    })
+            //    .withMiddleware((req, res, next) => {
+            //        console.log('non non je suis un middleware')
+            //        next()
+            //    })
+            //    .extension(builder => {
+            //
+            //    })
 
-            const groupAuth = routeMapBuilder
-                .mapGroup('/ouiNon')
-                .withMiddleware((req, res, next) => {
-                    console.log('"ouiNon" préfix')
-                    next()
-                })
-
-
-            groupAuth
-                .map('/oui', 'get', (req, res) => {
-                    res.json({oui: true})
-                })
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+            // const groupAuth = routeMapBuilder
+            //     .mapGroup('/ouiNon')
+            //     .withMiddleware((req, res, next) => {
+            //         console.log('"ouiNon" préfix')
+            //         next()
+            //     })
 
 
-            groupAuth
-                .map('/non', "get", (req, res) => {
-                    return res.json({oui: false})
-                })
+            // groupAuth
+            //     .map('/oui', 'get', (req, res) => {
+            //         res.json({oui: true})
+            //     })
+            //     .withMiddleware((req, res, next) => {
+            //         console.log('oui oui je suis un middleware')
+            //         next()
+            //     })
+
+
+            // groupAuth
+            //     .map('/non', "get", (req, res) => {
+            //         return res.json({oui: false})
+            //     })
 
             return routeMapBuilder
         }
