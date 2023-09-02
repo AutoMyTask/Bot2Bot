@@ -8,7 +8,7 @@
 
 
 import {App} from "./app.builder";
-import express, {Response} from "express";
+import express from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
 import helmet from "helmet";
@@ -49,6 +49,9 @@ class UserController {
     }
 }
 
+
+// Revoir le processus de build des routers. Tout empaqueter dans les EndpointSource
+// Construire ensuite les routers par cet intermediaire
 
 // Vérifier le bon format des routes '/route' au niveau de ... ?
 // Je recrée trop à l'infi de router. Il faut que je condense en un seul router final
@@ -94,6 +97,27 @@ app
                 .mapGroup('/ouiN')
                 .withMiddleware((req, res, next) => {
                     console.log('"auth/ouiN" préfix')
+                    next()
+                })
+
+            const groupAuthNon = groupAuth
+                .mapGroup('/nonN')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/nonN" préfix')
+                    next()
+                })
+
+            groupAuthNon
+                .mapGroup('/jaja')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/nonN/jaja" préfix')
+                    next()
+                })
+
+            groupAuthNon
+                .map('/oui', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
                     next()
                 })
 

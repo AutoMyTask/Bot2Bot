@@ -67,7 +67,7 @@ class RequestHandlerBuilder {
 }
 
 interface IRouteBuilder {
-    buildRouters: () => express.Router
+    buildRouter: () => express.Router
 }
 
 interface IRouteHandler {
@@ -127,7 +127,7 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder{
         return this
     }
 
-    buildRouters(): e.Router {
+    buildRouter(): e.Router {
         return this.build().router
     }
 }
@@ -150,15 +150,17 @@ interface IGroupedRouteBuilder {
     mapGroup: (prefix: string) => IGroupedRouteBuilder
 }
 
-
 class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRouteBuilder {
     public services: interfaces.Container
+    public dataSources: EndpointDataSource[] = []
     private middlewares: MiddlewareFunction[] = []
     private metadataCollection: MetadataCollection = new MetadataCollection()
     private routeHandleBuilder?: RouteHandlerBuilder
-    public dataSources: EndpointDataSource[] = []
+    private router: e.Router = e.Router()
+    private subgroupsRouteBuilder : { [key: string]: GroupedRouteBuilder } = {}
 
-    constructor(protected prefix: string, private routeMapBuilder: IRouteMapBuilder) {
+    // Avec l'imbrication, supprimer routeMapBuilder
+    constructor(private prefix: string, private routeMapBuilder: IRouteMapBuilder) {
         this.services = routeMapBuilder.services
     }
 
@@ -182,21 +184,26 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
 
         if (!hasRouteBuilder) {
             const dataSource = new EndpointDataSource(this)
-            this.routeMapBuilder.dataSources.push(dataSource);
+            this.routeMapBuilder.dataSources.push(dataSource)
         }
 
         return this.routeHandleBuilder;
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder{
-        return new GroupedRouteBuilder(prefix, this)
+        const groupedBuilder = new GroupedRouteBuilder(prefix, this)
+        this.subgroupsRouteBuilder = {
+            ...this.subgroupsRouteBuilder,
+            [this.prefix]: groupedBuilder
+        }
+        console.log(this.subgroupsRouteBuilder)
+        return groupedBuilder
     }
 
-    buildRouters(): express.Router {
-        const routerHandler = this.routeHandleBuilder!.buildRouters()
-        const router = e.Router()
-        router.use(this.prefix, this.middlewares, routerHandler)
-        return router
+    buildRouter(): express.Router {
+        const routerHandler = this.routeHandleBuilder!.buildRouter()
+        this.router.use(this.prefix, this.middlewares, routerHandler)
+        return this.router
     }
 
 }
@@ -225,7 +232,7 @@ class EndpointDataSource {
     }
 
     public getRouters(): express.Router {
-        return this.routeBuilder.buildRouters()
+        return this.routeBuilder.buildRouter()
     }
 
 }
