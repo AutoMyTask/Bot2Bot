@@ -44,43 +44,44 @@ function Params(paramName: string) {
 }
 
 class UserController {
-    public static findOne(@Params('id') id: number): {oui: boolean} {
+    public static findOne(@Params('id') id: number): { oui: boolean } {
         return {oui: true}
     }
 }
+
+// A voir si je n'étend plus le groupedBuilder (héritage) et que à la place j'utilise une liste
+// de route builder
 
 
 // Vérifier le bon format des routes '/route' au niveau de ... ?
 app
     .addEndpoint(routeMapBuilder => {
-            //routeMapBuilder
-            //    .map('/oui/:id', 'get', UserController, UserController.findOne)
-            //    .withMiddleware((req, res, next) => {
-            //        console.log('oui oui je suis un middleware')
-            //        next()
-            //    }).extension((builder) => {
-//
-            //})
+            routeMapBuilder
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                }).extension((builder) => {
+
+            })
 
 
-            //routeMapBuilder
-            //    .map('/non', 'get', (req, res) => {
-            //        return res.json({oui: false})
-            //    })
-            //    .withMiddleware((req, res, next) => {
-            //        console.log('non non je suis un middleware')
-            //        next()
-            //    })
-            //    .extension(builder => {
-            //
-            //    })
+            routeMapBuilder
+                .map('/non/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('non non je suis un middleware')
+                    next()
+                })
+                .extension(builder => {
 
-             const groupAuth = routeMapBuilder
-                 .mapGroup('/ouiNon')
-                 ._withMiddleware((req, res, next) => {
-                     console.log('"ouiNon" préfix')
-                     next()
-                 })
+                })
+
+            const groupAuth = routeMapBuilder
+                .mapGroup('/ouiNon')
+                ._withMiddleware((req, res, next) => {
+                    console.log('"ouiNon" préfix')
+                    next()
+                })
 
 
             groupAuth
@@ -91,8 +92,8 @@ app
                 })
 
 
-             groupAuth
-                 .map('/non', "get", UserController, UserController.findOne)
+            groupAuth
+                .map('/non', "get", UserController, UserController.findOne)
 
             return routeMapBuilder
         }

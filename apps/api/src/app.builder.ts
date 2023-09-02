@@ -63,8 +63,6 @@ interface IRouteHandler {
 class RouteHandlerBuilder {
     private middlewares: MiddlewareFunction[] = []
 
-    private metadata: MetadataCollection = new MetadataCollection()
-
     constructor(
         private requestHandlerBuilder: RequestHandlerBuilder,
         private path: string,
@@ -241,7 +239,7 @@ export class App implements IApp, IRouteMapBuilder {
     // Run ne doit pas être présent dans le appBuilder
     run(): void {
         this.app.use(...this.middlewares)
-
+        console.log(this.dataSources.length)
         for (const dataSource of this.dataSources) {
             const {prefix, middlewares, routers} = dataSource.getRouters()
             if (routers.length > 0) {
