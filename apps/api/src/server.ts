@@ -7,7 +7,7 @@
 // })
 
 
-import {App, CallbackGroupedRouteBuilder, CallbackSingleRouteBuilder} from "./app.builder";
+import {App} from "./app.builder";
 import express, {Response} from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
@@ -54,6 +54,7 @@ class UserController {
 
 
 // Vérifier le bon format des routes '/route' au niveau de ... ?
+// Je recrée trop à l'infi de router. Il faut que je condense en un seul router final
 app
     .addEndpoint(routeMapBuilder => {
             routeMapBuilder
@@ -78,7 +79,7 @@ app
 
             const groupAuth = routeMapBuilder
                 .mapGroup('/ouiNon')
-                ._withMiddleware((req, res, next) => {
+                .withMiddleware((req, res, next) => {
                     console.log('"ouiNon" préfix')
                     next()
                 })

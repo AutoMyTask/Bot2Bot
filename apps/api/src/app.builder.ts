@@ -21,20 +21,28 @@ class MetadataCollection {
 }
 
 
-interface IRequestHandler{
+interface IRequestHandler {
     handler: RequestHandler,
-    params: { key: any }
-
+    params: { key: any },
+    path: string,
+    prefix: string,
+    method: HTTPMethod
 }
 
 
 class RequestHandlerBuilder {
-    constructor(private instance: object, private controllerRequest: ControllerRequestHandler) {
+    constructor(
+        private instance: object,
+        private controllerRequest: ControllerRequestHandler,
+        private path: string,
+        private prefix: string,
+        private method: HTTPMethod
+    ) {
     }
 
     build(): IRequestHandler {
         const params = Reflect.getMetadata('params', this.instance, this.controllerRequest.name)
-        const handler =  (req: Request, res: Response, next: NextFunction) => {
+        const handler = (req: Request, res: Response, next: NextFunction) => {
             const args = Array
                 .from({length: this.controllerRequest.length}, (_, index) => index)
                 .reduce((args, index) => {
@@ -44,44 +52,9 @@ class RequestHandlerBuilder {
             const result = this.controllerRequest.apply(this.instance, args)
             return res.json(result)
         }
-        return  {
-            params,
-            handler
-        }
-    }
-}
-
-
-interface IRouteHandler {
-    router: e.Router,
-    requestHandler: IRequestHandler,
-    path: string,
-    method: HTTPMethod,
-    prefix: string
-}
-
-class RouteHandlerBuilder {
-    private middlewares: MiddlewareFunction[] = []
-
-    constructor(
-        private requestHandlerBuilder: RequestHandlerBuilder,
-        private path: string,
-        private method: HTTPMethod,
-        private prefix: string
-    ) {
-    }
-
-    addMiddleware(middleware: MiddlewareFunction){
-        this.middlewares.push(middleware)
-    }
-
-    build(): IRouteHandler{
-        const router = express.Router()
-        const requestHandler = this.requestHandlerBuilder.build()
-        router[this.method](this.path, ...this.middlewares, requestHandler.handler)
         return {
-            router,
-            requestHandler,
+            params,
+            handler,
             path: this.path,
             method: this.method,
             prefix: this.prefix
@@ -89,39 +62,81 @@ class RouteHandlerBuilder {
     }
 }
 
-class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
-    protected routeHandlerBuilders: RouteHandlerBuilder[] = [];
-    protected middlewares: MiddlewareFunction[] = [];
 
-    constructor(protected prefix: string) {
+interface IRouteHandler {
+    router: e.Router,
+    requestHandlers: IRequestHandler[],
+    prefix: string,
+    metadataCollection: MetadataCollection
+}
+
+
+
+class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder{
+    private router: e.Router = e.Router()
+    private middlewares: MiddlewareFunction[] = []
+    private metadataCollection: MetadataCollection = new MetadataCollection()
+    private requestHandlerBuilders: RequestHandlerBuilder[] = []
+
+    constructor(
+        private prefix: string,
+    ) {
     }
 
-    extension(callback: CallbackSingleRouteBuilder): this {
-        callback(this)
+    addRequestHandler(
+        instance: object,
+        controllerRequest: ControllerRequestHandler,
+        path: string,
+        method: HTTPMethod,
+    ): RouteHandlerBuilder {
+        this.requestHandlerBuilders.push(
+            new RequestHandlerBuilder(
+                instance,
+                controllerRequest,
+                path,
+                this.prefix,
+                method
+            )
+        )
         return this
     }
 
     withMiddleware(middleware: MiddlewareFunction): ISingleRouteBuilder {
-        this.routeHandlerBuilders.at(this.routeHandlerBuilders.length - 1)?.addMiddleware(middleware)
-        return this;
-    }
-
-    addRequestHandler(path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler): RouteBuilder {
-        const requestHandlerBuilder = new RequestHandlerBuilder(instance, controllerRequestHandler)
-        const routeHandlerBuilder = new RouteHandlerBuilder(requestHandlerBuilder, path, method, this.prefix)
-        this.routeHandlerBuilders.push(routeHandlerBuilder)
+        this.middlewares.push(middleware)
         return this
     }
 
-    buildRouters(): IRouteCollection {
-        const routers = this.routeHandlerBuilders.map(builder => builder.build().router);
+    build(): IRouteHandler {
+
+        const requestHandlers = this.requestHandlerBuilders.map(requestHandlerBuilder => requestHandlerBuilder.build())
+        for (let requestHandler of requestHandlers) {
+            this.router[requestHandler.method](requestHandler.path, ...this.middlewares, requestHandler.handler)
+        }
+
+
         return {
-            routers: [routers],
-            middlewares: this.middlewares,
+            router: this.router,
+            requestHandlers,
             prefix: this.prefix,
+            metadataCollection: this.metadataCollection
+        }
+    }
+
+    extension(callback: CallbackSingleRouteBuilder): ISingleRouteBuilder {
+        callback(this)
+        return this
+    }
+
+    buildRouters(): IRouter {
+        const router = this.build().router;
+        return {
+            router,
+            middlewares: [],
+            prefix: '/',
         };
     }
 }
+
 
 export type CallbackSingleRouteBuilder = (builder: ISingleRouteBuilder) => void
 
@@ -134,49 +149,65 @@ interface ISingleRouteBuilder {
 export type CallbackGroupedRouteBuilder = (builder: IGroupedRouteBuilder) => void
 
 interface IGroupedRouteBuilder {
-    _withMiddleware: (middleware: MiddlewareFunction) => IGroupedRouteBuilder
-    _extension: (callback: CallbackGroupedRouteBuilder) => IGroupedRouteBuilder
+    withMiddleware: (middleware: MiddlewareFunction) => IGroupedRouteBuilder
+    extension: (callback: CallbackGroupedRouteBuilder) => IGroupedRouteBuilder
     map: (path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler) => ISingleRouteBuilder,
 }
 
 interface IRouteBuilder {
-    buildRouters: () => IRouteCollection
+    buildRouters: () => IRouter
 }
 
 
-class GroupedRouteBuilder extends RouteBuilder implements IGroupedRouteBuilder {
+// Ne plus étendre ! Choisir le fait qu'il contienne plusieurs router builder
+// Utilise router.use(prefix) a chaaqe fois qu'un nouveau groupe se crée.
+class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteBuilder {
+    private middlewares: MiddlewareFunction[] = []
+    private metadataCollection: MetadataCollection = new MetadataCollection()
+    private routeHandleBuilder?: RouteHandlerBuilder
 
     constructor(protected prefix: string, private routeMapBuilder: IRouteMapBuilder) {
-        super(prefix)
     }
 
-    _withMiddleware(middleware: MiddlewareFunction): IGroupedRouteBuilder {
+    withMiddleware(middleware: MiddlewareFunction): IGroupedRouteBuilder {
         this.middlewares.push(middleware);
         return this
     }
 
-    _extension(callback: CallbackGroupedRouteBuilder): this {
+    extension(callback: CallbackGroupedRouteBuilder): this {
         callback(this)
         return this
     }
 
     map(path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler): ISingleRouteBuilder {
-        const hasRouteBuilder = this.routeMapBuilder.dataSources.some(dataSource => dataSource.routeBuilder === this)
-        this.addRequestHandler(path, method, instance, controllerRequestHandler)
+        this.routeHandleBuilder = this.routeHandleBuilder ?? new RouteHandlerBuilder(this.prefix)
+        this.routeHandleBuilder.addRequestHandler(instance, controllerRequestHandler, path, method)
 
+        const hasRouteBuilder = this.routeMapBuilder.dataSources.some(dataSource => dataSource.routeBuilder === this)
         if (!hasRouteBuilder) {
             const dataSource = new EndpointDataSource(this)
             this.routeMapBuilder.dataSources.push(dataSource);
         }
 
-        return this;
+        return this.routeHandleBuilder;
+    }
+
+    buildRouters(): IRouter {
+        const routerHandler = this.routeHandleBuilder!.buildRouters().router
+        const router = e.Router()
+        router.use(this.prefix, routerHandler)
+        return {
+            router,
+            prefix: this.prefix,
+            middlewares: this.middlewares
+        }
     }
 
 }
 
 
-interface IRouteCollection {
-    routers: e.Router[][];
+interface IRouter {
+    router: e.Router;
     middlewares: MiddlewareFunction[];
     prefix: string;
 }
@@ -204,7 +235,7 @@ class EndpointDataSource {
     constructor(public readonly routeBuilder: IRouteBuilder) {
     }
 
-    public getRouters(): IRouteCollection {
+    public getRouters(): IRouter {
         return this.routeBuilder.buildRouters()
     }
 
@@ -239,12 +270,44 @@ export class App implements IApp, IRouteMapBuilder {
     // Run ne doit pas être présent dans le appBuilder
     run(): void {
         this.app.use(...this.middlewares)
-        console.log(this.dataSources.length)
+
+        //    const routerV1Auth = e.Router()
+        //     routerV1Auth.get('/oui', (req, res) => {
+        //        return res.json({oui: true})
+        //     })
+
+        //    routerV1Auth.get('/non', (req, res) => {
+        //        return res.json({oui: false})
+        //    })
+
+        //    const routerV1user = e.Router()
+        //    routerV1user.get('/oui', (req, res) => {
+        //        return res.json({oui: true})
+        //    })
+
+        //    routerV1user.get('/non', (req, res) => {
+        //        return res.json({oui: false})
+        //   })
+
+        //    const routerV1 = e.Router()
+        //    routerV1.use('/auth', routerV1Auth)
+        //    routerV1.use('/users', routerV1user)
+
+        //    const routerV = e.Router()
+        //    routerV.use('/v1', routerV1)
+
+        //    const routerApp = e.Router()
+        //    routerApp.get('/non', (req, res) => {
+        //        return res.json({oui: false})
+        //   })
+
+        //   routerApp.use('/api',routerV)
+
+        //   this.app.use('/app', routerApp)
+
         for (const dataSource of this.dataSources) {
-            const {prefix, middlewares, routers} = dataSource.getRouters()
-            if (routers.length > 0) {
-                this.app.use(prefix, ...middlewares, ...routers)
-            }
+            const {prefix, middlewares, router} = dataSource.getRouters()
+            this.app.use(prefix, ...middlewares, router)
         }
 
         this.app.listen(process.env.PORT, () => {
@@ -253,8 +316,9 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     map(path: string, method: HTTPMethod, instance: object, controllerRequest: ControllerRequestHandler): ISingleRouteBuilder {
-        const singleRouteBuilder = new RouteBuilder('/').addRequestHandler(path, method, instance, controllerRequest)
-        return this.createAndAddDataSource(singleRouteBuilder);
+        const routeHandlerBuilder = new RouteHandlerBuilder('/').addRequestHandler(instance, controllerRequest, path, method )
+        this.createAndAddDataSource(routeHandlerBuilder);
+        return routeHandlerBuilder
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder {
@@ -262,11 +326,10 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     private createAndAddDataSource(
-        routeBuilder: RouteBuilder,
-    ): RouteBuilder {
+        routeBuilder: IRouteBuilder,
+    ): void {
         const dataSource = new EndpointDataSource(routeBuilder)
         this.dataSources.push(dataSource);
-        return routeBuilder;
     }
 }
 
