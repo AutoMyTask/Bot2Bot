@@ -20,37 +20,83 @@ class MetadataCollection {
     }
 }
 
-interface IRouteHandler {
-    middlewares: MiddlewareFunction[];
-    path: string;
-    method: HTTPMethod;
-    requestHandler: RequestHandler;
-    metadata: MetadataCollection
+
+interface IRequestHandler{
+    handler: RequestHandler,
+    params: { key: any }
+
 }
 
 
-class RequestHandlerMapper {
-    static map(instance: object, controllerRequest: ControllerRequestHandler): RequestHandler {
-        const params = Reflect.getMetadata('params', instance, controllerRequest.name)
-        return (req: Request, res: Response, next: NextFunction) => {
+class RequestHandlerBuilder {
+    constructor(private instance: object, private controllerRequest: ControllerRequestHandler) {
+    }
+
+    build(): IRequestHandler {
+        const params = Reflect.getMetadata('params', this.instance, this.controllerRequest.name)
+        const handler =  (req: Request, res: Response, next: NextFunction) => {
             const args = Array
-                .from({ length: controllerRequest.length }, (_, index) => index)
+                .from({length: this.controllerRequest.length}, (_, index) => index)
                 .reduce((args, index) => {
                     args[index] = req.params[params[index]]
                     return args
                 }, [] as any[])
-            const result = controllerRequest.apply(instance, args)
+            const result = this.controllerRequest.apply(this.instance, args)
             return res.json(result)
+        }
+        return  {
+            params,
+            handler
         }
     }
 }
 
 
+interface IRouteHandler {
+    router: e.Router,
+    requestHandler: IRequestHandler,
+    path: string,
+    method: HTTPMethod,
+    prefix: string
+}
+
+class RouteHandlerBuilder {
+    private middlewares: MiddlewareFunction[] = []
+
+    private metadata: MetadataCollection = new MetadataCollection()
+
+    constructor(
+        private requestHandlerBuilder: RequestHandlerBuilder,
+        private path: string,
+        private method: HTTPMethod,
+        private prefix: string
+    ) {
+    }
+
+    addMiddleware(middleware: MiddlewareFunction){
+        this.middlewares.push(middleware)
+    }
+
+    build(): IRouteHandler{
+        const router = express.Router()
+        const requestHandler = this.requestHandlerBuilder.build()
+        router[this.method](this.path, ...this.middlewares, requestHandler.handler)
+        return {
+            router,
+            requestHandler,
+            path: this.path,
+            method: this.method,
+            prefix: this.prefix
+        }
+    }
+}
+
 class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
-    protected routeHandlers: IRouteHandler[] = [];
+    protected routeHandlerBuilders: RouteHandlerBuilder[] = [];
     protected middlewares: MiddlewareFunction[] = [];
 
-    constructor(protected prefix: string) {}
+    constructor(protected prefix: string) {
+    }
 
     extension(callback: CallbackSingleRouteBuilder): this {
         callback(this)
@@ -58,23 +104,19 @@ class RouteBuilder implements ISingleRouteBuilder, IRouteBuilder {
     }
 
     withMiddleware(middleware: MiddlewareFunction): ISingleRouteBuilder {
-        this.routeHandlers.at(this.routeHandlers.length - 1)?.middlewares.push(middleware)
+        this.routeHandlerBuilders.at(this.routeHandlerBuilders.length - 1)?.addMiddleware(middleware)
         return this;
     }
 
     addRequestHandler(path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler): RouteBuilder {
-        const requestHandler = RequestHandlerMapper.map(instance, controllerRequestHandler)
-        this.routeHandlers.push({path, method, requestHandler, middlewares: [], metadata: new MetadataCollection()})
+        const requestHandlerBuilder = new RequestHandlerBuilder(instance, controllerRequestHandler)
+        const routeHandlerBuilder = new RouteHandlerBuilder(requestHandlerBuilder, path, method, this.prefix)
+        this.routeHandlerBuilders.push(routeHandlerBuilder)
         return this
     }
 
     buildRouters(): IRouteCollection {
-        const routers = this.routeHandlers.map(route => {
-            const router = express.Router()
-            router[route.method](route.path, ...route.middlewares, route.requestHandler);
-            return router;
-        });
-
+        const routers = this.routeHandlerBuilders.map(builder => builder.build().router);
         return {
             routers: [routers],
             middlewares: this.middlewares,
@@ -92,9 +134,10 @@ interface ISingleRouteBuilder {
 }
 
 export type CallbackGroupedRouteBuilder = (builder: IGroupedRouteBuilder) => void
+
 interface IGroupedRouteBuilder {
-    withMiddleware: (middleware: MiddlewareFunction) => IGroupedRouteBuilder
-    extension: (callback: CallbackGroupedRouteBuilder) => IGroupedRouteBuilder
+    _withMiddleware: (middleware: MiddlewareFunction) => IGroupedRouteBuilder
+    _extension: (callback: CallbackGroupedRouteBuilder) => IGroupedRouteBuilder
     map: (path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler) => ISingleRouteBuilder,
 }
 
@@ -109,21 +152,26 @@ class GroupedRouteBuilder extends RouteBuilder implements IGroupedRouteBuilder {
         super(prefix)
     }
 
-    withMiddleware(middleware: MiddlewareFunction): IGroupedRouteBuilder {
+    _withMiddleware(middleware: MiddlewareFunction): IGroupedRouteBuilder {
         this.middlewares.push(middleware);
         return this
     }
 
-    extension(callback: CallbackGroupedRouteBuilder): this {
+    _extension(callback: CallbackGroupedRouteBuilder): this {
         callback(this)
         return this
     }
 
     map(path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler): ISingleRouteBuilder {
-        const routeBuilder = this.addRequestHandler(path, method, instance, controllerRequestHandler)
-        const dataSource = new EndpointDataSource()
-        const length = this.routeMapBuilder.dataSources.push(dataSource);
-        return this.routeMapBuilder.dataSources.at(length - 1)!.addRouteBuilder(routeBuilder);
+        const hasRouteBuilder = this.routeMapBuilder.dataSources.some(dataSource => dataSource.routeBuilder === this)
+        this.addRequestHandler(path, method, instance, controllerRequestHandler)
+
+        if (!hasRouteBuilder) {
+            const dataSource = new EndpointDataSource(this)
+            this.routeMapBuilder.dataSources.push(dataSource);
+        }
+
+        return this;
     }
 
 }
@@ -155,14 +203,7 @@ interface IApp {
 }
 
 class EndpointDataSource {
-    private routeBuilder!: IRouteBuilder
-
-    constructor() {
-    }
-
-    public addRouteBuilder(builder: RouteBuilder): RouteBuilder {
-        this.routeBuilder = builder
-        return builder
+    constructor(public readonly routeBuilder: IRouteBuilder) {
     }
 
     public getRouters(): IRouteCollection {
@@ -213,8 +254,8 @@ export class App implements IApp, IRouteMapBuilder {
         })
     }
 
-    map(path: string, method: HTTPMethod, instance: object,  controllerRequest: ControllerRequestHandler): ISingleRouteBuilder {
-        const singleRouteBuilder = new RouteBuilder('/').addRequestHandler(path, method,instance, controllerRequest)
+    map(path: string, method: HTTPMethod, instance: object, controllerRequest: ControllerRequestHandler): ISingleRouteBuilder {
+        const singleRouteBuilder = new RouteBuilder('/').addRequestHandler(path, method, instance, controllerRequest)
         return this.createAndAddDataSource(singleRouteBuilder);
     }
 
@@ -225,9 +266,9 @@ export class App implements IApp, IRouteMapBuilder {
     private createAndAddDataSource(
         routeBuilder: RouteBuilder,
     ): RouteBuilder {
-        const dataSource = new EndpointDataSource()
-        const length = this.dataSources.push(dataSource);
-        return this.dataSources.at(length - 1)!.addRouteBuilder(routeBuilder);
+        const dataSource = new EndpointDataSource(routeBuilder)
+        this.dataSources.push(dataSource);
+        return routeBuilder;
     }
 }
 

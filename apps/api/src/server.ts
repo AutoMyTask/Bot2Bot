@@ -53,14 +53,14 @@ class UserController {
 // Vérifier le bon format des routes '/route' au niveau de ... ?
 app
     .addEndpoint(routeMapBuilder => {
-            routeMapBuilder
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                }).extension((builder) => {
-
-            })
+            //routeMapBuilder
+            //    .map('/oui/:id', 'get', UserController, UserController.findOne)
+            //    .withMiddleware((req, res, next) => {
+            //        console.log('oui oui je suis un middleware')
+            //        next()
+            //    }).extension((builder) => {
+//
+            //})
 
 
             //routeMapBuilder
@@ -75,28 +75,24 @@ app
             //
             //    })
 
-            // const groupAuth = routeMapBuilder
-            //     .mapGroup('/ouiNon')
-            //     .withMiddleware((req, res, next) => {
-            //         console.log('"ouiNon" préfix')
-            //         next()
-            //     })
+             const groupAuth = routeMapBuilder
+                 .mapGroup('/ouiNon')
+                 ._withMiddleware((req, res, next) => {
+                     console.log('"ouiNon" préfix')
+                     next()
+                 })
 
 
-            // groupAuth
-            //     .map('/oui', 'get', (req, res) => {
-            //         res.json({oui: true})
-            //     })
-            //     .withMiddleware((req, res, next) => {
-            //         console.log('oui oui je suis un middleware')
-            //         next()
-            //     })
+            groupAuth
+                .map('/oui', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
 
 
-            // groupAuth
-            //     .map('/non', "get", (req, res) => {
-            //         return res.json({oui: false})
-            //     })
+             groupAuth
+                 .map('/non', "get", UserController, UserController.findOne)
 
             return routeMapBuilder
         }
