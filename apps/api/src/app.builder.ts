@@ -26,11 +26,14 @@ interface IRequestHandler {
     params: { key: any },
     path: string,
     prefix: string,
-    method: HTTPMethod
+    method: HTTPMethod,
+    middlewares: MiddlewareFunction[]
 }
 
 
 class RequestHandlerBuilder {
+    private middlewares: MiddlewareFunction[] = []
+
     constructor(
         private instance: object,
         private controllerRequest: ControllerRequestHandler,
@@ -38,6 +41,10 @@ class RequestHandlerBuilder {
         private prefix: string,
         private method: HTTPMethod
     ) {
+    }
+
+    addMiddleware(middleware: MiddlewareFunction){
+        this.middlewares.push(middleware)
     }
 
     build(): IRequestHandler {
@@ -57,7 +64,8 @@ class RequestHandlerBuilder {
             handler,
             path: this.path,
             method: this.method,
-            prefix: this.prefix
+            prefix: this.prefix,
+            middlewares: this.middlewares
         }
     }
 }
@@ -74,7 +82,6 @@ interface IRouteHandler {
 
 class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder{
     private router: e.Router = e.Router()
-    private middlewares: MiddlewareFunction[] = []
     private metadataCollection: MetadataCollection = new MetadataCollection()
     private requestHandlerBuilders: RequestHandlerBuilder[] = []
 
@@ -102,7 +109,7 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder{
     }
 
     withMiddleware(middleware: MiddlewareFunction): ISingleRouteBuilder {
-        this.middlewares.push(middleware)
+        this.requestHandlerBuilders.at(this.requestHandlerBuilders.length - 1)!.addMiddleware(middleware)
         return this
     }
 
@@ -110,7 +117,7 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder{
 
         const requestHandlers = this.requestHandlerBuilders.map(requestHandlerBuilder => requestHandlerBuilder.build())
         for (let requestHandler of requestHandlers) {
-            this.router[requestHandler.method](requestHandler.path, ...this.middlewares, requestHandler.handler)
+            this.router[requestHandler.method](requestHandler.path, ...requestHandler.middlewares, requestHandler.handler)
         }
 
 
@@ -306,8 +313,8 @@ export class App implements IApp, IRouteMapBuilder {
         //   this.app.use('/app', routerApp)
 
         for (const dataSource of this.dataSources) {
-            const {prefix, middlewares, router} = dataSource.getRouters()
-            this.app.use(prefix, ...middlewares, router)
+            const {middlewares, router} = dataSource.getRouters()
+            this.app.use(...middlewares, router)
         }
 
         this.app.listen(process.env.PORT, () => {
