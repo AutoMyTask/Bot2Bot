@@ -57,6 +57,7 @@ class UserController {
 // Je recrée trop à l'infi de router. Il faut que je condense en un seul router final
 // Gérer les erreur de paramétre dans findOne par exemple. Si y a pas l'id et que c'est pas un nombre
 // je throw
+// Mise en place de test U ? Integration ?
 app
     .addEndpoint(routeMapBuilder => {
             // routeMapBuilder
@@ -128,12 +129,12 @@ app
                     next()
                 })
 
-            //  groupAuth
-            //      .map('/oui', 'get', UserController, UserController.findOne)
-            //      .withMiddleware((req, res, next) => {
-            //          console.log('oui oui je suis un middleware')
-            //          next()
-            //      })
+            groupAuth
+                .map('/oui', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
 
 
             //  groupAuth

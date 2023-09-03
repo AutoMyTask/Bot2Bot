@@ -40,7 +40,7 @@ class RequestHandlerBuilder {
     ) {
     }
 
-    addMiddleware(middleware: MiddlewareFunction){
+    addMiddleware(middleware: MiddlewareFunction) {
         this.middlewares.push(middleware)
     }
 
@@ -77,8 +77,7 @@ interface IRouteHandler {
 }
 
 
-
-class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder{
+class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
     private router: express.Router = express.Router()
     private metadataCollection: MetadataCollection = new MetadataCollection()
     private requestHandlerBuilders: RequestHandlerBuilder[] = []
@@ -135,7 +134,6 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder{
 
 export type CallbackSingleRouteBuilder = (builder: ISingleRouteBuilder) => void
 
-
 interface ISingleRouteBuilder {
     withMiddleware: (middleware: MiddlewareFunction) => ISingleRouteBuilder
     extension: (callback: CallbackSingleRouteBuilder) => ISingleRouteBuilder
@@ -157,9 +155,8 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     private metadataCollection: MetadataCollection = new MetadataCollection()
     private routeHandleBuilder?: RouteHandlerBuilder
     private router: e.Router = e.Router()
-    private subgroupsRouteBuilder : { [key: string]: GroupedRouteBuilder } = {}
+    private subgroupsRouteBuilder: { [key: string]: GroupedRouteBuilder } = {}
 
-    // Avec l'imbrication, supprimer routeMapBuilder
     constructor(private prefix: string, private routeMapBuilder: IRouteMapBuilder) {
         this.services = routeMapBuilder.services
     }
@@ -177,32 +174,27 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     map(path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler): ISingleRouteBuilder {
         this.routeHandleBuilder = this.routeHandleBuilder ?? new RouteHandlerBuilder()
         this.routeHandleBuilder.addRequestHandler(instance, controllerRequestHandler, path, method)
-
-        const hasRouteBuilder = this.routeMapBuilder.dataSources.some(dataSource =>
-            dataSource.routeBuilder === this
-        )
-
-        if (!hasRouteBuilder) {
-            const dataSource = new EndpointDataSource(this)
-            this.routeMapBuilder.dataSources.push(dataSource)
-        }
-
         return this.routeHandleBuilder;
     }
 
-    mapGroup(prefix: string): IGroupedRouteBuilder{
+    mapGroup(prefix: string): IGroupedRouteBuilder {
         const groupedBuilder = new GroupedRouteBuilder(prefix, this)
         this.subgroupsRouteBuilder = {
             ...this.subgroupsRouteBuilder,
-            [this.prefix]: groupedBuilder
+            [prefix]: groupedBuilder
         }
-        console.log(this.subgroupsRouteBuilder)
         return groupedBuilder
     }
 
     buildRouter(): express.Router {
-        const routerHandler = this.routeHandleBuilder!.buildRouter()
-        this.router.use(this.prefix, this.middlewares, routerHandler)
+        const routerHandler = this.routeHandleBuilder?.buildRouter()
+
+       const routers =  Object.values(this.subgroupsRouteBuilder).map(subRoute => {
+           return subRoute.buildRouter()
+       })
+
+
+        this.router.use(this.prefix, this.middlewares, routerHandler ?? [], routers)
         return this.router
     }
 
@@ -277,13 +269,15 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     map(path: string, method: HTTPMethod, instance: object, controllerRequest: ControllerRequestHandler): ISingleRouteBuilder {
-        const routeHandlerBuilder = new RouteHandlerBuilder().addRequestHandler(instance, controllerRequest, path, method )
+        const routeHandlerBuilder = new RouteHandlerBuilder().addRequestHandler(instance, controllerRequest, path, method)
         this.createAndAddDataSource(routeHandlerBuilder);
         return routeHandlerBuilder
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder {
-        return new GroupedRouteBuilder(prefix, this)
+        const groupedRouteBuilder =  new GroupedRouteBuilder(prefix, this)
+        this.createAndAddDataSource(groupedRouteBuilder)
+        return groupedRouteBuilder
     }
 
     private createAndAddDataSource(
