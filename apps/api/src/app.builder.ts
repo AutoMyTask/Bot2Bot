@@ -2,6 +2,7 @@ import {Container, interfaces} from "inversify";
 import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
 import {RequestHandlerParams} from "express-serve-static-core";
+import swaggerUi from "swagger-ui-express";
 
 
 type MiddlewareFunction = (req: Request, res: Response, next: NextFunction) => void;
@@ -78,7 +79,6 @@ interface IRouteHandler {
 
 
 class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
-    private router: express.Router = express.Router()
     private metadataCollection: MetadataCollection = new MetadataCollection()
     private requestHandlerBuilders: RequestHandlerBuilder[] = []
 
@@ -108,14 +108,15 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
     }
 
     build(): IRouteHandler {
+        const router = e.Router()
 
         const requestHandlers = this.requestHandlerBuilders.map(requestHandlerBuilder => requestHandlerBuilder.build())
         for (let requestHandler of requestHandlers) {
-            this.router[requestHandler.method](requestHandler.path, ...requestHandler.middlewares, requestHandler.handler)
+            router[requestHandler.method](requestHandler.path, ...requestHandler.middlewares, requestHandler.handler)
         }
 
         return {
-            router: this.router,
+            router,
             requestHandlers,
             metadataCollection: this.metadataCollection
         }
@@ -154,7 +155,6 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     private middlewares: MiddlewareFunction[] = []
     private metadataCollection: MetadataCollection = new MetadataCollection()
     private routeHandleBuilder?: RouteHandlerBuilder
-    private router: e.Router = e.Router()
     private subgroupsRouteBuilder: { [key: string]: GroupedRouteBuilder } = {}
 
     constructor(private prefix: string, private routeMapBuilder: IRouteMapBuilder) {
@@ -187,15 +187,15 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     }
 
     buildRouter(): express.Router {
+        const router = e.Router()
         const routerHandler = this.routeHandleBuilder?.buildRouter()
 
-       const routers =  Object.values(this.subgroupsRouteBuilder).map(subRoute => {
-           return subRoute.buildRouter()
-       })
+        const routers =  Object.values(this.subgroupsRouteBuilder).map(subRoute => {
+            return subRoute.buildRouter()
+        })
 
-
-        this.router.use(this.prefix, this.middlewares, routerHandler ?? [], routers)
-        return this.router
+        router.use(this.prefix, this.middlewares, routerHandler ?? [], routers)
+        return router
     }
 
 }
@@ -215,6 +215,8 @@ type ConfigureServiceCallback = (services: interfaces.Container) => void
 interface IApp {
     addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => void;
+    addAppEndpoint: (route: string, ...callbacks: RequestHandlerParams[]) => IApp
+
     run: () => void;
     configure: (configureServiceCallback: ConfigureServiceCallback) => void
 }
@@ -253,6 +255,11 @@ export class App implements IApp, IRouteMapBuilder {
 
     addEndpoint(callbackEndpointBuilder: RouteMapBuilderCallBack): void {
         callbackEndpointBuilder(this)
+    }
+
+    addAppEndpoint(route: string, ...callbacks: RequestHandlerParams[]): IApp{
+        this.app.use(route, ...callbacks)
+        return this
     }
 
     // Run ne doit pas être présent dans le appBuilder

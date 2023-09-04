@@ -15,24 +15,17 @@ import helmet from "helmet";
 import {logError} from "./middlewares/log.error";
 import {errorHandler} from "./middlewares/error.handler";
 import 'reflect-metadata';
+import {OpenApiBuilder, ResponsesObject} from "openapi3-ts/oas31";
+import swaggerUi from "swagger-ui-express";
+import swaggerJSDoc from "swagger-jsdoc";
 
 
 // Pour gérer les erreurs http : http-errors, express-promise-router
 
-// MODULE API CORE
-const app = App.createApp()
 
-app.configure((services) => {
-})
-
-// Global Middlewares
-app
-    .addMiddleware(express.json())
-    .addMiddleware(express.urlencoded({extended: true}))
-    .addMiddleware(rateLimiter)
-    .addMiddleware(cors)
-    .addMiddleware(helmet())
-
+/**
+ *  CONTROLLERS
+ */
 
 // Decorators
 function Params(paramName: string) {
@@ -44,19 +37,64 @@ function Params(paramName: string) {
 }
 
 class UserController {
+    // En deuxiéme clés, se serra pour swagger (les paraèmtres pour les conventions)
+    // Gérer également l'injection de dépendance directement dans les propriété de la
+    // fonction (et oui c'est putin de beau)
     public static findOne(@Params('id') id: number): { oui: boolean } {
         return {oui: true}
     }
 }
 
 
-// Revoir le processus de build des routers. Tout empaqueter dans les EndpointSource
-// Construire ensuite les routers par cet intermediaire
+/**
+ * OPENAPI
+ */
+// https://blog.simonireilly.com/posts/typescript-openapi
+// Afficher swagger, comment cela va se passer ? Comment cela va prendre forme ?
+// Utiliser la bibliothèque openapi3-ts
+// Sécuriser l'accès par mot de passe à Swagger Ui
+const apiBuilder = OpenApiBuilder.create()
+apiBuilder.addInfo({
+    title: 'Mon API',
+    version: '1.0.0'
+})
+
+apiBuilder.addServer({
+    url: 'http://localhost:8080'
+})
+
+apiBuilder.addPath('/hello', {
+    get: {
+        description: 'une description',
+        responses: {
+            '200': {
+                description: 'Une description de la réponses'
+            }
+        }
+    }
+})
+const api = apiBuilder.getSpec()
+
+
+/**
+ * MODULE API CORE
+ */
+
+const app = App.createApp()
+app.configure((services) => {
+})
+app
+    .addMiddleware(express.json())
+    .addMiddleware(express.urlencoded({extended: true}))
+    .addMiddleware(rateLimiter)
+    .addMiddleware(cors)
+    .addMiddleware(helmet())
+
 
 // Vérifier le bon format des routes '/route' au niveau de ... ?
-// Je recrée trop à l'infi de router. Il faut que je condense en un seul router final
-// Gérer les erreur de paramétre dans findOne par exemple. Si y a pas l'id et que c'est pas un nombre
+// Gérer les erreurs de paramètres dans findOne par exemple. Si y a pas l'id et que c'est pas un nombre
 // je throw
+// Favoriser l'immutabilité
 // Mise en place de test U ? Integration ?
 app
     .addEndpoint(routeMapBuilder => {
@@ -137,14 +175,12 @@ app
                 })
 
 
-            //  groupAuth
-            //      .map('/non', "get", UserController, UserController.findOne)
-
             return routeMapBuilder
         }
     )
 
 app
+    .addAppEndpoint('/docs', swaggerUi.serve, swaggerUi.setup(api))
     .addMiddleware(logError)
     .addMiddleware(errorHandler)
 
