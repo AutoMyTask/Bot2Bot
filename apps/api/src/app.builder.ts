@@ -2,11 +2,19 @@ import {Container, interfaces} from "inversify";
 import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
 import {RequestHandlerParams} from "express-serve-static-core";
-import swaggerUi from "swagger-ui-express";
-
 
 type MiddlewareFunction = (req: Request, res: Response, next: NextFunction) => void;
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
+
+function Params(paramName: string) {
+    return (target: any, propertyKey: string, parameterIndex: number) => {
+        const existingMetadata = Reflect.getMetadata('params', target, propertyKey) || {}
+        const updateMetadata = {...existingMetadata, [parameterIndex]: paramName}
+        Reflect.defineMetadata('params', updateMetadata, target, propertyKey);
+    }
+}
+
+export default Params
 
 class MetadataCollection {
     public items: object[] = []
@@ -54,8 +62,13 @@ class RequestHandlerBuilder {
                     args[index] = req.params[params[index]]
                     return args
                 }, [] as any[])
-            const result = this.controllerRequest.apply(this.instance, args)
-            return res.json(result)
+
+            try {
+                const result = this.controllerRequest.apply(this.instance, args)
+                return res.json(result)
+            } catch (err: any) {
+                next(err)
+            }
         }
         return {
             params,
@@ -122,29 +135,18 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
         }
     }
 
-    extension(callback: CallbackSingleRouteBuilder): ISingleRouteBuilder {
-        callback(this)
-        return this
-    }
-
     buildRouter(): e.Router {
         return this.build().router
     }
 }
 
 
-export type CallbackSingleRouteBuilder = (builder: ISingleRouteBuilder) => void
-
 interface ISingleRouteBuilder {
     withMiddleware: (middleware: MiddlewareFunction) => ISingleRouteBuilder
-    extension: (callback: CallbackSingleRouteBuilder) => ISingleRouteBuilder
 }
-
-export type CallbackGroupedRouteBuilder = (builder: IGroupedRouteBuilder) => void
 
 interface IGroupedRouteBuilder {
     withMiddleware: (middleware: MiddlewareFunction) => IGroupedRouteBuilder
-    extension: (callback: CallbackGroupedRouteBuilder) => IGroupedRouteBuilder
     map: (path: string, method: HTTPMethod, instance: object, controllerRequestHandler: ControllerRequestHandler) => ISingleRouteBuilder,
     mapGroup: (prefix: string) => IGroupedRouteBuilder
 }
@@ -163,11 +165,6 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
 
     withMiddleware(middleware: MiddlewareFunction): IGroupedRouteBuilder {
         this.middlewares.push(middleware);
-        return this
-    }
-
-    extension(callback: CallbackGroupedRouteBuilder): IGroupedRouteBuilder {
-        callback(this)
         return this
     }
 
@@ -190,7 +187,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
         const router = e.Router()
         const routerHandler = this.routeHandleBuilder?.buildRouter()
 
-        const routers =  Object.values(this.subgroupsRouteBuilder).map(subRoute => {
+        const routers = Object.values(this.subgroupsRouteBuilder).map(subRoute => {
             return subRoute.buildRouter()
         })
 
@@ -215,10 +212,15 @@ type ConfigureServiceCallback = (services: interfaces.Container) => void
 interface IApp {
     addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => void;
-    addAppEndpoint: (route: string, ...callbacks: RequestHandlerParams[]) => IApp
-
+    addAppEndpoint: (routeAppHandler: IAppEndpoint) => IApp
     run: () => void;
-    configure: (configureServiceCallback: ConfigureServiceCallback) => void
+    configure: (configureServiceCallback: ConfigureServiceCallback) => void;
+    mapEndpoints: () => void
+}
+
+export interface IAppEndpoint {
+    route: string,
+    handlers: RequestHandlerParams[]
 }
 
 class EndpointDataSource {
@@ -236,8 +238,7 @@ type ControllerRequestHandler = (...args: any[]) => any
 export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
-    public dataSources: EndpointDataSource[] = []
-    private middlewares: RequestHandlerParams[] = []
+    public readonly dataSources: EndpointDataSource[] = []
     public readonly services: interfaces.Container = App.services
 
     configure(configureServiceCallback: ConfigureServiceCallback): void {
@@ -245,7 +246,7 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     addMiddleware(...callbacks: RequestHandlerParams[]): IApp {
-        this.middlewares = callbacks
+        this.app.use(...callbacks)
         return this
     }
 
@@ -257,19 +258,19 @@ export class App implements IApp, IRouteMapBuilder {
         callbackEndpointBuilder(this)
     }
 
-    addAppEndpoint(route: string, ...callbacks: RequestHandlerParams[]): IApp{
-        this.app.use(route, ...callbacks)
+    addAppEndpoint(routeAppHandler: IAppEndpoint): IApp {
+        this.app.use(routeAppHandler.route, ...routeAppHandler.handlers)
         return this
     }
 
-    // Run ne doit pas être présent dans le appBuilder
-    run(): void {
-        this.app.use(...this.middlewares)
+    mapEndpoints() {
         for (const dataSource of this.dataSources) {
             const router = dataSource.getRouters()
             this.app.use(router)
         }
+    }
 
+    run(): void {
         this.app.listen(process.env.PORT, () => {
             console.log(`Server started on port: http://localhost:${process.env.PORT}/docs`)
         })
@@ -282,7 +283,7 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder {
-        const groupedRouteBuilder =  new GroupedRouteBuilder(prefix, this)
+        const groupedRouteBuilder = new GroupedRouteBuilder(prefix, this)
         this.createAndAddDataSource(groupedRouteBuilder)
         return groupedRouteBuilder
     }

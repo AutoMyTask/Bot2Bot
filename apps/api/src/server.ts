@@ -7,7 +7,7 @@
 // })
 
 
-import {App} from "./app.builder";
+import Params, {App, IAppEndpoint} from "./app.builder";
 import express from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
@@ -15,26 +15,17 @@ import helmet from "helmet";
 import {logError} from "./middlewares/log.error";
 import {errorHandler} from "./middlewares/error.handler";
 import 'reflect-metadata';
-import {OpenApiBuilder, ResponsesObject} from "openapi3-ts/oas31";
-import swaggerUi from "swagger-ui-express";
-import swaggerJSDoc from "swagger-jsdoc";
+import {OpenApiBuilder} from "openapi3-ts/oas31";
+import swaggerUi, {JsonObject} from "swagger-ui-express";
+
+
+// Avoir un comportement commun pour tout les middlewares
+
+
 
 
 // Pour gérer les erreurs http : http-errors, express-promise-router
 
-
-/**
- *  CONTROLLERS
- */
-
-// Decorators
-function Params(paramName: string) {
-    return (target: any, propertyKey: string, parameterIndex: number) => {
-        const existingMetadata = Reflect.getMetadata('params', target, propertyKey) || {}
-        const updateMetadata = {...existingMetadata, [parameterIndex]: paramName}
-        Reflect.defineMetadata('params', updateMetadata, target, propertyKey);
-    }
-}
 
 class UserController {
     // En deuxiéme clés, se serra pour swagger (les paraèmtres pour les conventions)
@@ -51,29 +42,38 @@ class UserController {
  */
 // https://blog.simonireilly.com/posts/typescript-openapi
 // Afficher swagger, comment cela va se passer ? Comment cela va prendre forme ?
-// Utiliser la bibliothèque openapi3-ts
 // Sécuriser l'accès par mot de passe à Swagger Ui
-const apiBuilder = OpenApiBuilder.create()
-apiBuilder.addInfo({
+const openApiBuilder = OpenApiBuilder.create()
+const openAPIObject = openApiBuilder.getSpec()
+openApiBuilder.addInfo({
     title: 'Mon API',
     version: '1.0.0'
 })
 
-apiBuilder.addServer({
-    url: 'http://localhost:8080'
-})
-
-apiBuilder.addPath('/hello', {
+openApiBuilder.addPath('/auth/oui', {
     get: {
         description: 'une description',
         responses: {
             '200': {
-                description: 'Une description de la réponses'
+                description: 'Une description de la réponses',
+                headers: {
+                    name: { $ref: 'ref' }
+                }
             }
         }
-    }
+    },
+    parameters: [
+        { name: 'expand', in: 'query' }
+    ]
 })
-const api = apiBuilder.getSpec()
+
+
+
+// Swagger Ui
+const useAppEndpointSwaggerUI = (route: string, swaggerDoc: JsonObject): IAppEndpoint => ({
+    route,
+    handlers: [swaggerUi.serve, swaggerUi.setup(swaggerDoc)]
+})
 
 
 /**
@@ -94,7 +94,6 @@ app
 // Vérifier le bon format des routes '/route' au niveau de ... ?
 // Gérer les erreurs de paramètres dans findOne par exemple. Si y a pas l'id et que c'est pas un nombre
 // je throw
-// Favoriser l'immutabilité
 // Mise en place de test U ? Integration ?
 app
     .addEndpoint(routeMapBuilder => {
@@ -103,9 +102,7 @@ app
             //     .withMiddleware((req, res, next) => {
             //         console.log('oui oui je suis un middleware')
             //        next()
-            //    }).extension((builder) => {
-
-            //  })
+            //    })
 
 
             //  routeMapBuilder
@@ -113,9 +110,6 @@ app
             //      .withMiddleware((req, res, next) => {
             //          console.log('non non je suis un middleware')
             //          next()
-            //      })
-            //      .extension(builder => {
-//
             //      })
 
             const groupAuth = routeMapBuilder
@@ -179,8 +173,10 @@ app
         }
     )
 
+app.mapEndpoints()
+
 app
-    .addAppEndpoint('/docs', swaggerUi.serve, swaggerUi.setup(api))
+    .addAppEndpoint(useAppEndpointSwaggerUI('/docs', openAPIObject)) // Vérifier le bon format du chemin ('/docs')
     .addMiddleware(logError)
     .addMiddleware(errorHandler)
 
