@@ -15,7 +15,6 @@ export class App {
     constructor() {
         this.configure()
         this.registerModules()
-        this.createSwagger()
     }
 
     public async startBots() {
@@ -30,11 +29,6 @@ export class App {
         const module = container.get(AuthModule)
         module.mapAuthEndpoints()
     }
-
-    private createSwagger(): void {
-        this._endpoints.setupSwaggerRoute()
-    }
-
 }
 
 export default new App()

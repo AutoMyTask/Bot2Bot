@@ -1,6 +1,6 @@
 import {Request, Response, NextFunction} from "express";
+import {HttpError} from "http-errors";
 
-export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.log(res)
-    res.status(500).json({message: "Une erreur s'est produite"})
+export const errorHandler = (err: HttpError, req: Request, res: Response, next: NextFunction) => {
+    res.status(err.status).json({message: err.message})
 }
