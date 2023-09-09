@@ -13,9 +13,13 @@
 import {
     App,
     Body,
+    EndpointDataSource,
     IAppEndpoint,
     IGroupeRouteHandlerConventions,
-    instanceOfIGroupeRouteHandlerConventions, IRouteMapBuilder,
+    instanceOfIGroupeRouteHandlerConventions,
+    instanceOfIRouteHandlerConventions,
+    IRequestHandlerConventions,
+    IRouteMapBuilder,
     Params
 } from "./app.builder";
 import express from "express";
@@ -31,11 +35,12 @@ import 'reflect-metadata';
 
 
 // Open Api Module
-import {OpenApiBuilder} from "openapi3-ts/oas31";
+import {InfoObject, OpenApiBuilder, ParameterLocation, ParameterObject} from "openapi3-ts/oas31";
 
 
 // Swagger UI Module
 import swaggerUi, {JsonObject} from "swagger-ui-express";
+import {interfaces} from "inversify";
 
 
 // Avoir un comportement commun pour tout les middlewares
@@ -50,13 +55,10 @@ interface IUserRequest {
 }
 
 // Avoir des decorateurs spécifique au module OpenApi
+// Utiliser class validators pour vérifier le bon format d'entrés ?
 class UserRequest implements IUserRequest {
-    // Si marqué undefined, c'est qu'il n'est pas forcément requis
     oui: number = 1
-
-    // sinon il est requis
     non: boolean = true
-
 }
 
 
@@ -72,7 +74,7 @@ class UserController {
     }
 
     public static postUser(
-        @Params('id') id: number,
+        @Params('id') id: number, // Si c'est un nombre, parsé en nombre
         @Body(UserRequest) userRequest: UserRequest // Creer une erreur lorsqu'un utilisateur rentre le mauvais format en utilisant class validator
     ): { oui: boolean } {
         return {oui: true}
@@ -86,17 +88,27 @@ class UserController {
  * Autrement je passerai pas des décorateurs
  */
 // https://blog.simonireilly.com/posts/typescript-openapi
-const openApiBuilder = OpenApiBuilder.create()
-const openAPIObject = openApiBuilder.getSpec()
 
-openApiBuilder.addInfo({
-    title: 'Mon API',
-    version: '1.0.0',
-    description: 'Une putin de description',
-    contact: {
-        name: 'François-Pierre ROUSSEAU',
-        url: 'mon linkldn',
-        email: 'francoispierrerousseau.44@gmail.com'
+function configureOpenApi(info: InfoObject) {
+    return ((service: interfaces.Container) => {
+        service
+            .bind<OpenApiBuilder>('OpenApiBuilder')
+            .toDynamicValue(() => OpenApiBuilder.create().addInfo(info))
+            .inSingletonScope()
+    })
+}
+
+const openApiBuilder = OpenApiBuilder.create({
+    openapi: "3.0.1",
+    info: {
+        title: '',
+        version: '1.0.0',
+        description: 'Une description',
+        contact: {
+            name: 'François-Pierre Rousseau',
+            url: 'linkldn',
+            email: 'francoispierrerousseau.44@gmail.com'
+        }
     }
 })
 
@@ -197,27 +209,59 @@ openApiBuilder.addPath('/auth/oui/{id}', {
 })
 
 
-function createOpenApi(routeMapBuilder: IRouteMapBuilder) {
-    // Create extension openapi
-    const iterateGroup = (groupHandler: IGroupeRouteHandlerConventions) => {
-        if (groupHandler.routesHandlersConventions) {
-            // console.log(group.routesHandlersConventions.requestHandlerConventions)
-        }
-        for (let subgroup of groupHandler.subGroups) {
-            // console.log(subgroup)
-            iterateGroup(subgroup)
+function generateOpenApi(routeMapBuilder: IRouteMapBuilder): void {
+    const openApiBuilder = routeMapBuilder.services
+        .get<OpenApiBuilder>('OpenApiBuilder')
+
+    function iterateRequestHandlerConventions(requestHandlerConventions: IRequestHandlerConventions[]) {
+        for (const requestHandlerConvention of requestHandlerConventions) {
+            let parameters: ParameterObject[] = []
+            Object.entries(requestHandlerConvention.params).forEach(([key, values]) => {
+                for (let value of values) {
+                    parameters.push({
+                        name: value,
+                        in: key as ParameterLocation
+                    })
+                }
+            })
+
+            const path = requestHandlerConvention.fullPath.replace(/:([^}]*)/g, '{$1}')
+
+            openApiBuilder.addPath(path, {
+                [requestHandlerConvention.method]: {
+                    description: 'une description',
+                    parameters
+                }
+            })
         }
     }
-    for (let dataSource of routeMapBuilder.dataSources) {
-        const handler = dataSource.getHandlers()
+
+    function iterateGroup(groupHandler: IGroupeRouteHandlerConventions) {
+        if (groupHandler.routesHandlersConventions) {
+            iterateRequestHandlerConventions(groupHandler.routesHandlersConventions.requestHandlerConventions)
+        }
+
+        for (const subgroup of groupHandler.subGroups) {
+            iterateGroup(subgroup);
+        }
+    }
+
+    function processDataSource(dataSource: EndpointDataSource) {
+        const handler = dataSource.getHandlers();
 
         if (instanceOfIGroupeRouteHandlerConventions(handler)) {
-            iterateGroup(handler)
+            iterateGroup(handler);
+        }
+
+        if (instanceOfIRouteHandlerConventions(handler)) {
+            iterateRequestHandlerConventions(handler.requestHandlerConventions)
         }
     }
+
+    for (const dataSource of routeMapBuilder.dataSources) {
+        processDataSource(dataSource);
+    }
 }
-
-
 
 
 /*
@@ -234,8 +278,18 @@ const useAppEndpointSwaggerUI = (route: string, swaggerDoc: JsonObject): IAppEnd
  */
 
 const app = App.createApp()
-app.configure((services) => {
-})
+app.configure(configureOpenApi({
+    title: 'Mon API',
+    version: '1.0.0',
+    description: 'Une putin de description',
+    contact: {
+        name: 'François-Pierre ROUSSEAU',
+        url: 'mon linkldn',
+        email: 'francoispierrerousseau.44@gmail.com'
+    }
+}))
+
+
 app
     .addMiddleware(express.json())
     .addMiddleware(express.urlencoded({extended: true}))
@@ -250,20 +304,20 @@ app
 // Mise en place de test U ? Integration ?
 app
     .addEndpoint(routeMapBuilder => {
-            routeMapBuilder
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+         //   routeMapBuilder
+         //       .map('/oui/:id', 'get', UserController, UserController.findOne)
+         //       .withMiddleware((req, res, next) => {
+         //           console.log('oui oui je suis un middleware')
+         //           next()
+         //       })
 
 
-            routeMapBuilder
-                .map('/non/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('non non je suis un middleware')
-                    next()
-                })
+        //    routeMapBuilder
+        //        .map('/non/:id', 'get', UserController, UserController.findOne)
+        //        .withMiddleware((req, res, next) => {
+        //            console.log('non non je suis un middleware')
+        //            next()
+        //        })
 
             const authGroup = routeMapBuilder
                 .mapGroup('/auth')
@@ -288,61 +342,68 @@ app
                     next()
                 })
 
-            const authOuiGroup = authGroup
-                .mapGroup('/ouiN')
-                .withMiddleware((req, res, next) => {
-                    console.log('"auth/ouiN" préfix')
-                    next()
-                })
+        //    const authOuiGroup = authGroup
+        //        .mapGroup('/ouiN')
+        //        .withMiddleware((req, res, next) => {
+        //            console.log('"auth/ouiN" préfix')
+        //            next()
+        //        })
 
-            const authNonGroup = authGroup
-                .mapGroup('/nonN')
-                .withMiddleware((req, res, next) => {
-                    console.log('"auth/nonN" préfix')
-                    next()
-                })
+        //    const authNonGroup = authGroup
+        //        .mapGroup('/nonN')
+        //        .withMiddleware((req, res, next) => {
+        //            console.log('"auth/nonN" préfix')
+        //            next()
+        //        })
 
-            authNonGroup
-                .mapGroup('/jaja')
-                .withMiddleware((req, res, next) => {
-                    console.log('"auth/nonN/jaja" préfix')
-                    next()
-                })
+       //     const jajaGroup = authNonGroup
+       //         .mapGroup('/jaja')
+       //         .withMiddleware((req, res, next) => {
+       //             console.log('"auth/nonN/jaja" préfix')
+       //             next()
+       //         })
 
-            authNonGroup
-                .map('/oui', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+       //     jajaGroup.map('/oui', 'get', UserController, UserController.findOne)
 
-            authNonGroup
-                .map('/non', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+       //     authNonGroup
+       //         .map('/oui', 'get', UserController, UserController.findOne)
+       //         .withMiddleware((req, res, next) => {
+       //             console.log('oui oui je suis un middleware')
+       //             next()
+       //         })
 
-            authOuiGroup
-                .map('/oui', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+         //   authNonGroup
+         //       .map('/non', 'get', UserController, UserController.findOne)
+         //       .withMiddleware((req, res, next) => {
+         //           console.log('oui oui je suis un middleware')
+         //           next()
+         //       })
+
+         //   authOuiGroup
+         //       .map('/oui', 'get', UserController, UserController.findOne)
+         //       .withMiddleware((req, res, next) => {
+         //           console.log('oui oui je suis un middleware')
+         //           next()
+         //       })
 
             return routeMapBuilder
         }
-    ).extensions(createOpenApi)
-
-
+    ).extensions(generateOpenApi)
 
 
 app.mapEndpoints()
 
 app
-    .addAppEndpoint(useAppEndpointSwaggerUI('/docs', openAPIObject)) // Vérifier le bon format du chemin ('/docs')
+    .addAppEndpoint((services) => {
+        const openAPIObject = services
+            .get<OpenApiBuilder>('OpenApiBuilder')
+            .getSpec()
+
+        return useAppEndpointSwaggerUI('/docs', openAPIObject)
+    }) // Vérifier le bon format du chemin ('/docs')
     .addMiddleware(logError)
     .addMiddleware(errorHandler)
+
 
 // app.build()
 app.run()
