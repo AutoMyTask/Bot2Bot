@@ -34,7 +34,8 @@ import {
 import {configureOpenApi} from "./openapi/configure.openapi";
 import {generateOpenApi} from "./openapi/generate.openapi";
 import {useAppEndpointSwaggerUI} from "./swagger-ui";
-import {MetadataTag} from "./openapi/metadataTag";
+import {MetadataTag} from "./openapi/metadata/metadataTag";
+import {MetadataProduce} from "./openapi/metadata/metadataProduce";
 
 // Avoir un comportement commun pour tout les middlewares
 // Créer des décorateurs spécifiques à open api
@@ -66,7 +67,8 @@ class UserController {
     }
 
     public static postUser(
-        @Params('id') id: number, // Si c'est un nombre, parsé en nombre
+        @Params('id') id: number, // Si c'est un nombre, parsé en nombre. Si l'utilisateur ne rentre pas
+                                            // un nombre, générer une erreur
         @Body(UserRequest) userRequest: UserRequest // Creer une erreur lorsqu'un utilisateur rentre le mauvais format en utilisant class validator
                                                     // Créer une erreur si j'ai deux bodys (il m'en qu'un seul)
     ): { oui: boolean } {
@@ -94,11 +96,6 @@ class AuthOuiResponse implements IAuthOuiResponse {
 }
 
 
-openApiBuilder.addTag({
-    name: 'Auth',
-    description: 'Une description du groupe',
-})
-
 openApiBuilder.addResponse('AuthOuiResponse', {
     description: 'Une description de la réponses',
     content: {
@@ -119,9 +116,6 @@ openApiBuilder.addPath('/auth/oui/{id}', {
                 $ref: '#/components/responses/AuthOuiResponse'
             }
         },
-        tags: [
-            'Auth'
-        ]
     },
     post: {
         responses: {
@@ -193,6 +187,7 @@ app
                     console.log('oui oui je suis un middleware')
                     next()
                 })
+                .withMetadata(new MetadataProduce(AuthOuiResponse, 200))
 
             authGroup.map('/oui/:id', 'post', UserController, UserController.postUser)
 
@@ -225,28 +220,30 @@ app
                 })
                 .withMetadata(new MetadataTag('Jaja'))
 
-            jajaGroup.map('/oui', 'get', UserController, UserController.findOne)
-
-            authNonGroup
+            jajaGroup
                 .map('/oui', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+                .withMetadata(new MetadataTag('Arg', "Une description d'arg "))
 
-            authNonGroup
-                .map('/non', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+           // authNonGroup
+           //     .map('/oui', 'get', UserController, UserController.findOne)
+           //     .withMiddleware((req, res, next) => {
+           //         console.log('oui oui je suis un middleware')
+           //         next()
+           //     })
 
-            authOuiGroup
-                .map('/oui', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
+           // authNonGroup
+           //     .map('/non', 'get', UserController, UserController.findOne)
+           //     .withMiddleware((req, res, next) => {
+           //         console.log('oui oui je suis un middleware')
+           //         next()
+           //     })
+
+           // authOuiGroup
+           //     .map('/oui', 'get', UserController, UserController.findOne)
+           //     .withMiddleware((req, res, next) => {
+           //         console.log('oui oui je suis un middleware')
+           //         next()
+           //     })
 
             return routeMapBuilder
         }

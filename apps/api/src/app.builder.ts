@@ -2,7 +2,8 @@ import {Container, interfaces} from "inversify";
 import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
 import {RequestHandlerParams} from "express-serve-static-core";
-import {isEmpty} from "radash";
+import {clone, isEmpty} from "radash";
+import {MetadataProduce} from "./openapi/metadata/metadataProduce";
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
@@ -40,15 +41,16 @@ export function Params(paramName: string) {
 class MetadataCollection {
     public items: object[] = []
 
-    push(metadata: object) {
-        this.items.push(metadata)
+    push(...metadata: object[]) {
+        this.items.push(...metadata)
     }
 
-    getMetadata<T extends Constructor>(index: number): T {
-        return this.items.at(index) as T
+    getAllMetadataAttributes<T extends Constructor>(type: T): InstanceType<T>[] {
+        return this.items
+            .filter(metadata => metadata instanceof type)
+            .map(metadata => metadata as InstanceType<T>);
     }
 }
-
 
 interface IRequestHandler {
     handler: RequestHandler,
@@ -62,7 +64,8 @@ export interface IRequestHandlerConventions {
     body: object,
     path: string,
     method: HTTPMethod,
-    fullPath: string
+    fullPath: string,
+    metadataCollection: MetadataCollection
 }
 
 type BodyHandler = {
@@ -85,7 +88,8 @@ class RequestHandlerBuilder {
         private readonly controllerMethod: ControllerMethod,
         private readonly path: string,
         private readonly method: HTTPMethod,
-        private readonly prefix: string = ''
+        private readonly prefix: string = '',
+        private readonly metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
         const paramsHandler: ParamsHandler =
             Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
@@ -97,13 +101,18 @@ class RequestHandlerBuilder {
 
         this.requestHandlerConvention = {
             params: {
-                path: this.paramsHandler ? Object.values(paramsHandler).filter(param => typeof param === 'string') as  string[]  : []
+                path: this.paramsHandler ? Object.values(paramsHandler).filter(param => typeof param === 'string') as string[] : []
             },
             method,
             path,
             fullPath: this.prefix + this.path,
-            body: paramBodyHandler ? (Object.values(paramBodyHandler).at(0) as BodyHandler).body : {}
+            body: paramBodyHandler ? (Object.values(paramBodyHandler).at(0) as BodyHandler).body : {},
+            metadataCollection: this.metadataCollection
         }
+    }
+
+    addMetadata(metadata: object) {
+        this.metadataCollection.push(metadata)
     }
 
     addMiddleware(middleware: RequestHandler) {
@@ -160,7 +169,6 @@ interface IRouteBuilder {
 
 interface IRouteHandlerConventions {
     requestHandlerConventions: IRequestHandlerConventions[],
-    metadataCollection: MetadataCollection
 }
 
 export interface IGroupeRouteHandlerConventions {
@@ -172,10 +180,11 @@ export interface IGroupeRouteHandlerConventions {
 
 
 class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
-    private metadataCollection: MetadataCollection = new MetadataCollection()
     private requestHandlerBuilders: RequestHandlerBuilder[] = []
 
-    constructor(private readonly prefix: string = '') {
+    constructor(
+        private readonly prefix: string = '',
+        private metadataCollection: MetadataCollection = new MetadataCollection()) {
     }
 
     addRequestHandler(
@@ -190,7 +199,8 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
                 controllerMethod,
                 path,
                 method,
-                this.prefix
+                this.prefix,
+                clone(this.metadataCollection)
             )
         )
         return this
@@ -208,10 +218,7 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
             )
         )
 
-        return {
-            requestHandlerConventions,
-            metadataCollection: this.metadataCollection
-        }
+        return {requestHandlerConventions}
 
     }
 
@@ -229,10 +236,19 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
 
         return router
     }
+
+    withMetadata(metadata: object): ISingleRouteBuilder {
+        this.requestHandlerBuilders
+            .at(this.requestHandlerBuilders.length - 1)!
+            .addMetadata(metadata)
+
+        return this;
+    }
 }
 
 
 interface ISingleRouteBuilder {
+    withMetadata: (metadata: object) => ISingleRouteBuilder
     withMiddleware: (middleware: RequestHandler) => ISingleRouteBuilder
 }
 
@@ -247,14 +263,14 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     public services: interfaces.Container
     public dataSources: EndpointDataSource[] = []
     private middlewares: RequestHandler[] = []
-    private metadataCollection: MetadataCollection = new MetadataCollection()
     private routeHandleBuilder?: RouteHandlerBuilder
     private subgroupsRouteBuilder: { [key: string]: GroupedRouteBuilder } = {}
 
     constructor(
         private prefix: string,
         private routeMapBuilder: IRouteMapBuilder,
-        private completePrefix: string = prefix
+        private completePrefix: string = prefix,
+        private metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
         this.services = routeMapBuilder.services
     }
@@ -272,7 +288,11 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
         controllerType: Constructor,
         controllerMethod: ControllerMethod
     ): ISingleRouteBuilder {
-        this.routeHandleBuilder = this.routeHandleBuilder ?? new RouteHandlerBuilder(this.completePrefix)
+        this.routeHandleBuilder = this.routeHandleBuilder ?? new RouteHandlerBuilder(
+            this.completePrefix,
+            clone(this.metadataCollection)
+        )
+
         this.routeHandleBuilder.addRequestHandler(
             controllerType,
             controllerMethod,
@@ -285,7 +305,13 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     mapGroup(
         prefix: string
     ): IGroupedRouteBuilder {
-        const groupedBuilder = new GroupedRouteBuilder(prefix, this, this.completePrefix + prefix)
+        const groupedBuilder = new GroupedRouteBuilder(
+            prefix,
+            this,
+            this.completePrefix + prefix,
+            clone(this.metadataCollection)
+        )
+
         this.subgroupsRouteBuilder = {
             ...this.subgroupsRouteBuilder,
             [prefix]: groupedBuilder
@@ -302,6 +328,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
             routeHandlers = Object.values(this.subgroupsRouteBuilder)
                 .map((subRoute): IGroupeRouteHandlerConventions => {
                     const routeHandler = subRoute.buildRouteHandlers()
+
                     return {
                         routesHandlersConventions: subRoute.routeHandleBuilder?.buildRouteHandlers(),
                         subGroups: routeHandler.subGroups, // Cette ligne crée les probléme de dupplication !
@@ -310,15 +337,6 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
                     }
                 })
         }
-
-        if (routesHandlersConventions){
-            routesHandlersConventions.metadataCollection.items = [
-                ...routesHandlersConventions.metadataCollection.items,
-                ...this.metadataCollection.items
-            ]
-        }
-
-        // console.log(routesHandlersConventions?.metadataCollection)
 
         return {
             routesHandlersConventions,
@@ -351,6 +369,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     }
 
 }
+
 
 type CallbackRouteMapBuilder = (routeMapBuilder: IRouteMapBuilder) => void
 

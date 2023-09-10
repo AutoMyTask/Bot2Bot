@@ -4,7 +4,8 @@ import {ParameterLocation, ParameterObject, PathItemObject} from "openapi3-ts/oa
 export const createPathItem = (
     params: ParamsConventions,
     method: HTTPMethod,
-    body?: object): PathItemObject => {
+    body?: object,
+    tags: string[] = []): PathItemObject => {
     let parameters: ParameterObject[] = []
     Object.entries(params).forEach(([key, values]) => {
         for (let value of values) {
@@ -23,7 +24,8 @@ export const createPathItem = (
         [method]: {
             description: 'une description',
             parameters,
-            requestBody
+            requestBody,
+            tags
         }
     }
 }
