@@ -1,7 +1,9 @@
 {
   "extends": ["//"],
-  "globalDotEnv": [".env"],
   "pipeline": {
+    "build": {
+      "outputs": ["dist/**"]
+    },
     "dev": {
       "dotEnv": [".env.development"]
     }

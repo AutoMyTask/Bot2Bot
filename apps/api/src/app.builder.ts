@@ -14,15 +14,14 @@ export function Body(requestType: Constructor) {
         methodName: string,
         parameterIndex: number
     ) => {
-        const metadata = {
+        const metadata: ParamsHandler = {
             [parameterIndex]: {
-                request: new requestType()
+                body: new requestType() as BodyHandler
             }
         }
         Reflect.defineMetadata('body', metadata, target, methodName)
     }
 }
-
 
 
 export function Params(paramName: string) {
@@ -45,7 +44,7 @@ class MetadataCollection {
         this.items.push(metadata)
     }
 
-    getMetadata<T extends object>(index: number): T {
+    getMetadata<T extends Constructor>(index: number): T {
         return this.items.at(index) as T
     }
 }
@@ -56,17 +55,25 @@ interface IRequestHandler {
     middlewares: RequestHandler[]
 }
 
+export type ParamsConventions = { path: string[] }
 
 export interface IRequestHandlerConventions {
-    params: {
-        path: string[]
-    },
+    params: ParamsConventions,
+    body: object,
     path: string,
     method: HTTPMethod,
     fullPath: string
 }
 
-type ParamsHandler = { [key: string]: string }
+type BodyHandler = {
+    body: object
+}
+
+function instanceOfBodyHandler(object: any): object is BodyHandler {
+    return 'body' in object
+}
+
+type ParamsHandler = { [key: string]: string | number | BodyHandler }
 
 class RequestHandlerBuilder {
     private middlewares: RequestHandler[] = []
@@ -80,15 +87,22 @@ class RequestHandlerBuilder {
         private readonly method: HTTPMethod,
         private readonly prefix: string = ''
     ) {
-        this.paramsHandler = Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
+        const paramsHandler: ParamsHandler =
+            Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
+
+        const paramBodyHandler: ParamsHandler =
+            Reflect.getMetadata('body', this.controllerType, this.controllerMethod.name)
+
+        this.paramsHandler = {...paramsHandler ?? {}, ...paramBodyHandler ?? {}}
 
         this.requestHandlerConvention = {
             params: {
-                path: this.paramsHandler ? Object.values(this.paramsHandler) : []
+                path: this.paramsHandler ? Object.values(paramsHandler).filter(param => typeof param === 'string') as  string[]  : []
             },
             method,
             path,
-            fullPath: this.prefix + this.path
+            fullPath: this.prefix + this.path,
+            body: paramBodyHandler ? (Object.values(paramBodyHandler).at(0) as BodyHandler).body : {}
         }
     }
 
@@ -97,17 +111,25 @@ class RequestHandlerBuilder {
     }
 
     build(): IRequestHandler {
-        const body = Reflect.getMetadata('body', this.controllerType, this.controllerMethod.name)
         const handler = async (req: Request, res: Response, next: NextFunction) => {
-
             const args = Array
                 .from({length: this.controllerMethod.length}, (_, index) => index)
                 .reduce((args, index) => {
-                    if (this.paramsHandler) {
-                        args[index] = req.params[this.paramsHandler[index]]
-                    }
-                    if (!isEmpty(req.body) && !isEmpty(body[index])) {
-                        args[index] = req['body']
+                    const arg = this.paramsHandler ? this.paramsHandler[index] : undefined
+
+                    if (arg) {
+                        if (!isEmpty(req.params) && typeof arg !== 'object') {
+                            args[index] = req.params[arg]
+                            return args
+                        }
+                        if (
+                            !isEmpty(req.body) &&
+                            !isEmpty(arg) &&
+                            instanceOfBodyHandler(arg)) {
+                            args[index] = req['body']
+                            return args
+                        }
+
                     }
                     return args
                 }, [] as any[])
@@ -144,7 +166,8 @@ interface IRouteHandlerConventions {
 export interface IGroupeRouteHandlerConventions {
     routesHandlersConventions?: IRouteHandlerConventions,
     subGroups: IGroupeRouteHandlerConventions[],
-    prefix: string
+    prefix: string,
+    metadataCollection: MetadataCollection
 }
 
 
@@ -214,6 +237,7 @@ interface ISingleRouteBuilder {
 }
 
 interface IGroupedRouteBuilder {
+    withMetadata: (metadata: object) => IGroupedRouteBuilder,
     withMiddleware: (middleware: RequestHandler) => IGroupedRouteBuilder
     map: (path: string, method: HTTPMethod, controllerType: Constructor, controllerMethod: ControllerMethod) => ISingleRouteBuilder,
     mapGroup: (prefix: string) => IGroupedRouteBuilder
@@ -277,29 +301,30 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
 
             routeHandlers = Object.values(this.subgroupsRouteBuilder)
                 .map((subRoute): IGroupeRouteHandlerConventions => {
-                    if (!subRoute.subgroupsRouteBuilder) {
-                        return {
-                            routesHandlersConventions: undefined,
-                            subGroups: [],
-                            prefix: ''
-                        }
-                    }
-
-                    const subGroupHandlers = subRoute.buildRouteHandlers().subGroups
-
+                    const routeHandler = subRoute.buildRouteHandlers()
                     return {
                         routesHandlersConventions: subRoute.routeHandleBuilder?.buildRouteHandlers(),
-                        subGroups: subGroupHandlers, // Cette ligne crée les probléme de dupplication !
-                        prefix: subRoute.completePrefix
+                        subGroups: routeHandler.subGroups, // Cette ligne crée les probléme de dupplication !
+                        prefix: subRoute.completePrefix,
+                        metadataCollection: routeHandler.metadataCollection
                     }
                 })
         }
 
+        if (routesHandlersConventions){
+            routesHandlersConventions.metadataCollection.items = [
+                ...routesHandlersConventions.metadataCollection.items,
+                ...this.metadataCollection.items
+            ]
+        }
+
+        // console.log(routesHandlersConventions?.metadataCollection)
 
         return {
             routesHandlersConventions,
             subGroups: routeHandlers,
-            prefix: this.completePrefix
+            prefix: this.completePrefix,
+            metadataCollection: this.metadataCollection
         }
     }
 
@@ -320,6 +345,11 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
         return this;
     }
 
+    withMetadata(metadata: object): IGroupedRouteBuilder {
+        this.metadataCollection.push(metadata)
+        return this;
+    }
+
 }
 
 type CallbackRouteMapBuilder = (routeMapBuilder: IRouteMapBuilder) => void
@@ -334,13 +364,13 @@ export interface IRouteMapBuilder {
 
 type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
 
-type ConfigureServiceCallback = (services: interfaces.Container) => void
+export type ConfigureServiceCallback = (services: interfaces.Container) => void
 type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
 
 interface IApp {
     addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => IRouteMapBuilder;
-    addAppEndpoint: (routeAppHandler: IAppEndpoint |  ConfigureAppEndpointCallback ) => IApp
+    addAppEndpoint: (routeAppHandler: IAppEndpoint | ConfigureAppEndpointCallback) => IApp
     run: () => void;
     configure: (configureServiceCallback: ConfigureServiceCallback) => void;
     mapEndpoints: () => void
@@ -400,10 +430,10 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     addAppEndpoint(routeAppHandler: IAppEndpoint | ConfigureAppEndpointCallback): IApp {
-        let handler = undefined
+        let handler
 
-        if (typeof routeAppHandler === 'function'){
-            handler = routeAppHandler(this.services) as IAppEndpoint
+        if (typeof routeAppHandler === 'function') {
+            handler = routeAppHandler(this.services)
         } else {
             handler = routeAppHandler
         }

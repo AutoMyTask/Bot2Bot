@@ -10,24 +10,14 @@
 // et l'intégralité des validation.... :)
 
 
-import {
-    App,
-    Body,
-    EndpointDataSource,
-    IAppEndpoint,
-    IGroupeRouteHandlerConventions,
-    instanceOfIGroupeRouteHandlerConventions,
-    instanceOfIRouteHandlerConventions,
-    IRequestHandlerConventions,
-    IRouteMapBuilder,
-    Params
-} from "./app.builder";
+import {App, Body, Params} from "./app.builder";
 import express from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
 import helmet from 'helmet';
+// import start from "bot-music"
 
-
+// await start()
 // Api Core
 import {logError} from "./middlewares/log.error"; // // (peut être le supprimer)
 import {errorHandler} from "./middlewares/error.handler";
@@ -35,13 +25,16 @@ import 'reflect-metadata';
 
 
 // Open Api Module
-import {InfoObject, OpenApiBuilder, ParameterLocation, ParameterObject} from "openapi3-ts/oas31";
+import {
+    OpenApiBuilder
+} from "openapi3-ts/oas31";
 
 
 // Swagger UI Module
-import swaggerUi, {JsonObject} from "swagger-ui-express";
-import {interfaces} from "inversify";
-
+import {configureOpenApi} from "./openapi/configure.openapi";
+import {generateOpenApi} from "./openapi/generate.openapi";
+import {useAppEndpointSwaggerUI} from "./swagger-ui";
+import {MetadataTag} from "./openapi/metadataTag";
 
 // Avoir un comportement commun pour tout les middlewares
 // Créer des décorateurs spécifiques à open api
@@ -69,13 +62,13 @@ class UserController {
     // fonction (et oui c'est putin de beau)
     public static findOne(@Params('id') id: number): IAuthOuiResponse {
         // throw createHttpError.BadRequest('eeee')
-        // console.log(id)
         return new AuthOuiResponse()
     }
 
     public static postUser(
         @Params('id') id: number, // Si c'est un nombre, parsé en nombre
         @Body(UserRequest) userRequest: UserRequest // Creer une erreur lorsqu'un utilisateur rentre le mauvais format en utilisant class validator
+                                                    // Créer une erreur si j'ai deux bodys (il m'en qu'un seul)
     ): { oui: boolean } {
         return {oui: true}
     }
@@ -89,28 +82,7 @@ class UserController {
  */
 // https://blog.simonireilly.com/posts/typescript-openapi
 
-function configureOpenApi(info: InfoObject) {
-    return ((service: interfaces.Container) => {
-        service
-            .bind<OpenApiBuilder>('OpenApiBuilder')
-            .toDynamicValue(() => OpenApiBuilder.create().addInfo(info))
-            .inSingletonScope()
-    })
-}
-
-const openApiBuilder = OpenApiBuilder.create({
-    openapi: "3.0.1",
-    info: {
-        title: '',
-        version: '1.0.0',
-        description: 'Une description',
-        contact: {
-            name: 'François-Pierre Rousseau',
-            url: 'linkldn',
-            email: 'francoispierrerousseau.44@gmail.com'
-        }
-    }
-})
+const openApiBuilder = OpenApiBuilder.create()
 
 
 interface IAuthOuiResponse {
@@ -125,39 +97,6 @@ class AuthOuiResponse implements IAuthOuiResponse {
 openApiBuilder.addTag({
     name: 'Auth',
     description: 'Une description du groupe',
-})
-
-openApiBuilder.addSchema('AuthOuiResponse', {
-    description: "Une description de l'objet de la réponse",
-    type: 'object',
-    properties: {
-        oui: {
-            type: 'boolean',
-        }
-    }
-})
-
-openApiBuilder.addSchema('UserRequest', {
-    description: "Une description de l'objet de la requête",
-    type: 'object',
-    properties: {
-        oui: {
-            type: 'number',
-            required: ['true']
-        }
-    }
-})
-
-openApiBuilder.addRequestBody('UserRequest', {
-    description: 'Description de la requête',
-    required: true,
-    content: {
-        'application/json': {
-            schema: {
-                $ref: '#/components/schemas/UserRequest'
-            }
-        }
-    },
 })
 
 openApiBuilder.addResponse('AuthOuiResponse', {
@@ -180,12 +119,6 @@ openApiBuilder.addPath('/auth/oui/{id}', {
                 $ref: '#/components/responses/AuthOuiResponse'
             }
         },
-        parameters: [
-            {
-                name: 'id',
-                in: 'path',
-            }
-        ],
         tags: [
             'Auth'
         ]
@@ -196,80 +129,7 @@ openApiBuilder.addPath('/auth/oui/{id}', {
                 $ref: '#/components/responses/AuthOuiResponse'
             }
         },
-        requestBody: {
-            $ref: '#/components/requestBodies/UserRequest'
-        },
-        parameters: [
-            {
-                name: 'id',
-                in: 'path',
-            }
-        ]
     }
-})
-
-
-function generateOpenApi(routeMapBuilder: IRouteMapBuilder): void {
-    const openApiBuilder = routeMapBuilder.services
-        .get<OpenApiBuilder>('OpenApiBuilder')
-
-    function iterateRequestHandlerConventions(requestHandlerConventions: IRequestHandlerConventions[]) {
-        for (const requestHandlerConvention of requestHandlerConventions) {
-            let parameters: ParameterObject[] = []
-            Object.entries(requestHandlerConvention.params).forEach(([key, values]) => {
-                for (let value of values) {
-                    parameters.push({
-                        name: value,
-                        in: key as ParameterLocation
-                    })
-                }
-            })
-
-            const path = requestHandlerConvention.fullPath.replace(/:([^}]*)/g, '{$1}')
-
-            openApiBuilder.addPath(path, {
-                [requestHandlerConvention.method]: {
-                    description: 'une description',
-                    parameters
-                }
-            })
-        }
-    }
-
-    function iterateGroup(groupHandler: IGroupeRouteHandlerConventions) {
-        if (groupHandler.routesHandlersConventions) {
-            iterateRequestHandlerConventions(groupHandler.routesHandlersConventions.requestHandlerConventions)
-        }
-
-        for (const subgroup of groupHandler.subGroups) {
-            iterateGroup(subgroup);
-        }
-    }
-
-    function processDataSource(dataSource: EndpointDataSource) {
-        const handler = dataSource.getHandlers();
-
-        if (instanceOfIGroupeRouteHandlerConventions(handler)) {
-            iterateGroup(handler);
-        }
-
-        if (instanceOfIRouteHandlerConventions(handler)) {
-            iterateRequestHandlerConventions(handler.requestHandlerConventions)
-        }
-    }
-
-    for (const dataSource of routeMapBuilder.dataSources) {
-        processDataSource(dataSource);
-    }
-}
-
-
-/*
-    MODULE SWAGGER UI
- */
-const useAppEndpointSwaggerUI = (route: string, swaggerDoc: JsonObject): IAppEndpoint => ({
-    route,
-    handlers: [swaggerUi.serve, swaggerUi.setup(swaggerDoc)]
 })
 
 
@@ -304,20 +164,20 @@ app
 // Mise en place de test U ? Integration ?
 app
     .addEndpoint(routeMapBuilder => {
-         //   routeMapBuilder
-         //       .map('/oui/:id', 'get', UserController, UserController.findOne)
-         //       .withMiddleware((req, res, next) => {
-         //           console.log('oui oui je suis un middleware')
-         //           next()
-         //       })
+            //   routeMapBuilder
+            //       .map('/oui/:id', 'get', UserController, UserController.findOne)
+            //       .withMiddleware((req, res, next) => {
+            //           console.log('oui oui je suis un middleware')
+            //           next()
+            //       })
 
 
-        //    routeMapBuilder
-        //        .map('/non/:id', 'get', UserController, UserController.findOne)
-        //        .withMiddleware((req, res, next) => {
-        //            console.log('non non je suis un middleware')
-        //            next()
-        //        })
+            //    routeMapBuilder
+            //        .map('/non/:id', 'get', UserController, UserController.findOne)
+            //        .withMiddleware((req, res, next) => {
+            //            console.log('non non je suis un middleware')
+            //            next()
+            //        })
 
             const authGroup = routeMapBuilder
                 .mapGroup('/auth')
@@ -325,6 +185,7 @@ app
                     console.log('"auth" préfix')
                     next()
                 })
+                .withMetadata(new MetadataTag('Auth', 'Description de Auth'))
 
             authGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)
@@ -342,53 +203,55 @@ app
                     next()
                 })
 
-        //    const authOuiGroup = authGroup
-        //        .mapGroup('/ouiN')
-        //        .withMiddleware((req, res, next) => {
-        //            console.log('"auth/ouiN" préfix')
-        //            next()
-        //        })
+            const authOuiGroup = authGroup
+                .mapGroup('/ouiN')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/ouiN" préfix')
+                    next()
+                })
 
-        //    const authNonGroup = authGroup
-        //        .mapGroup('/nonN')
-        //        .withMiddleware((req, res, next) => {
-        //            console.log('"auth/nonN" préfix')
-        //            next()
-        //        })
+            const authNonGroup = authGroup
+                .mapGroup('/nonN')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/nonN" préfix')
+                    next()
+                })
 
-       //     const jajaGroup = authNonGroup
-       //         .mapGroup('/jaja')
-       //         .withMiddleware((req, res, next) => {
-       //             console.log('"auth/nonN/jaja" préfix')
-       //             next()
-       //         })
+            const jajaGroup = authNonGroup
+                .mapGroup('/jaja')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/nonN/jaja" préfix')
+                    next()
+                })
+                .withMetadata(new MetadataTag('Jaja'))
 
-       //     jajaGroup.map('/oui', 'get', UserController, UserController.findOne)
+            jajaGroup.map('/oui', 'get', UserController, UserController.findOne)
 
-       //     authNonGroup
-       //         .map('/oui', 'get', UserController, UserController.findOne)
-       //         .withMiddleware((req, res, next) => {
-       //             console.log('oui oui je suis un middleware')
-       //             next()
-       //         })
+            authNonGroup
+                .map('/oui', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
 
-         //   authNonGroup
-         //       .map('/non', 'get', UserController, UserController.findOne)
-         //       .withMiddleware((req, res, next) => {
-         //           console.log('oui oui je suis un middleware')
-         //           next()
-         //       })
+            authNonGroup
+                .map('/non', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
 
-         //   authOuiGroup
-         //       .map('/oui', 'get', UserController, UserController.findOne)
-         //       .withMiddleware((req, res, next) => {
-         //           console.log('oui oui je suis un middleware')
-         //           next()
-         //       })
+            authOuiGroup
+                .map('/oui', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
 
             return routeMapBuilder
         }
-    ).extensions(generateOpenApi)
+    )
+    .extensions(generateOpenApi)
 
 
 app.mapEndpoints()

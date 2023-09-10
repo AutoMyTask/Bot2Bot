@@ -1,5 +1,5 @@
 import {PathItem} from "swagger-jsdoc";
-import {SwaggerOperation} from "~/swagger/swagger.operation";
+import {SwaggerOperation} from "./swagger.operation";
 
 export class SwaggerPathItem {
     public readonly pathItem: PathItem = {}

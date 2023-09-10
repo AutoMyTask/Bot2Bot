@@ -255,3 +255,4 @@ dist
 node_modules
 src/test-code.js
 src/test-code.ts
+yarn-error.log

@@ -18,7 +18,7 @@ export class App {
     }
 
     public async startBots() {
-        // await start();
+        await start();
     }
 
     private configure(): void {
