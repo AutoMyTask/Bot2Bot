@@ -1,11 +1,16 @@
 {
-  "name": "@automytask/bot-music",
-  "version": "1.0.7",
-  "main": "index.js",
+  "name": "bot-music",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "source": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
   "scripts": {
-    "start": "nodemon",
-    "build": "npx tsc",
-    "dev": "nodemon index.js",
+    "build": "tsc",
+    "dev": "tsc -w",
     "test": "echo \"Error: no test specified\" && exit 1",
     "publish": "npm version patch && npm publish --access public"
   },
