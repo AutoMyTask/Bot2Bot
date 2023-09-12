@@ -1,6 +1,5 @@
 import {injectable} from "inversify";
 import {Components, OAS3Options, Paths, Schema} from "swagger-jsdoc";
-import {HTTPMethod} from "./../endpoints";
 import {SwaggerPathItem} from "./swagger.pathitem";
 
 interface SwaggerOptions {

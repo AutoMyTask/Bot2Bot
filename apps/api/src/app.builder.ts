@@ -2,8 +2,8 @@ import {Container, interfaces} from "inversify";
 import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
 import {RequestHandlerParams} from "express-serve-static-core";
-import {clone, isEmpty} from "radash";
-import {MetadataProduce} from "./openapi/metadata/metadataProduce";
+import _, {isNull} from 'lodash'
+import createHttpError from "http-errors";
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
@@ -15,24 +15,44 @@ export function Body(requestType: Constructor) {
         methodName: string,
         parameterIndex: number
     ) => {
-        const metadata: ParamsHandler = {
-            [parameterIndex]: {
-                body: new requestType() as BodyHandler
+        const existingMetadata: ParamsHandler = Reflect.getMetadata('body', target, methodName) ?? {}
+
+        const updateMetadata: ParamsHandler = {
+            ...existingMetadata, [parameterIndex]: {
+                name: requestType.name,
+                type: requestType
             }
         }
-        Reflect.defineMetadata('body', metadata, target, methodName)
+
+        if (Object.values(updateMetadata).length > 1){
+            throw new Error('Only one @Body() decorator is allowed in the method.')
+        }
+
+        Reflect.defineMetadata('body', updateMetadata, target, methodName)
     }
 }
 
 
-export function Params(paramName: string) {
+export function Params(paramName: string, type?: 'int' | 'float') {
     return (
         target: Constructor,
         methodName: string,
         parameterIndex: number
     ) => {
         const existingMetadata = Reflect.getMetadata('params', target, methodName) || {}
-        const updateMetadata: ParamsHandler = {...existingMetadata, [parameterIndex]: paramName}
+        const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
+        const type = paramTypesHandler[parameterIndex]
+
+        if (type !== Number && type !== String){
+            throw new Error(`The '${paramName}' parameter should be a Number or a String, but a ${type.name} was provided.`)
+        }
+
+        const updateMetadata: ParamsHandler = {
+            ...existingMetadata, [parameterIndex]: {
+                name: paramName,
+                type: type ?? paramTypesHandler[parameterIndex]
+            }
+        }
         Reflect.defineMetadata('params', updateMetadata, target, methodName);
     }
 }
@@ -57,7 +77,12 @@ interface IRequestHandler {
     middlewares: RequestHandler[]
 }
 
-export type ParamsConventions = { path: string[] }
+export type ParamsConventions = {
+    path: [{
+        name: string,
+        type: number | string | boolean
+    }]
+}
 
 export interface IRequestHandlerConventions {
     params: ParamsConventions,
@@ -68,15 +93,25 @@ export interface IRequestHandlerConventions {
     metadataCollection: MetadataCollection
 }
 
-type BodyHandler = {
-    body: object
+type ParamTypeHandler = string | number | Constructor | 'int' | 'float'
+
+type ParamsHandler = { [key: string]: { name: string, type: ParamTypeHandler } }
+
+
+function parseNumber(input: string): number | null {
+    const floatValue: number = parseFloat(input);
+    if (!isNaN(floatValue)) {
+        return floatValue;
+    }
+
+    const intValue: number = parseInt(input, 10);
+    if (!isNaN(intValue)) {
+        return intValue;
+    }
+
+    return null
 }
 
-function instanceOfBodyHandler(object: any): object is BodyHandler {
-    return 'body' in object
-}
-
-type ParamsHandler = { [key: string]: string | number | BodyHandler }
 
 class RequestHandlerBuilder {
     private middlewares: RequestHandler[] = []
@@ -99,14 +134,19 @@ class RequestHandlerBuilder {
 
         this.paramsHandler = {...paramsHandler ?? {}, ...paramBodyHandler ?? {}}
 
+        const bodyType = Object.values(paramBodyHandler ?? {}).at(0)?.type as Constructor
+
         this.requestHandlerConvention = {
             params: {
-                path: this.paramsHandler ? Object.values(paramsHandler).filter(param => typeof param === 'string') as string[] : []
+                // @ts-ignore
+                path: this.paramsHandler
+                    ? Object.values(paramsHandler).map(({ name, type }) => ({ name, type}))
+                    : []
             },
             method,
             path,
             fullPath: this.prefix + this.path,
-            body: paramBodyHandler ? (Object.values(paramBodyHandler).at(0) as BodyHandler).body : {},
+            body: bodyType ? new bodyType() : {},
             metadataCollection: this.metadataCollection
         }
     }
@@ -121,29 +161,71 @@ class RequestHandlerBuilder {
 
     build(): IRequestHandler {
         const handler = async (req: Request, res: Response, next: NextFunction) => {
-            const args = Array
-                .from({length: this.controllerMethod.length}, (_, index) => index)
-                .reduce((args, index) => {
-                    const arg = this.paramsHandler ? this.paramsHandler[index] : undefined
-
-                    if (arg) {
-                        if (!isEmpty(req.params) && typeof arg !== 'object') {
-                            args[index] = req.params[arg]
-                            return args
-                        }
-                        if (
-                            !isEmpty(req.body) &&
-                            !isEmpty(arg) &&
-                            instanceOfBodyHandler(arg)) {
-                            args[index] = req['body']
-                            return args
-                        }
-
-                    }
-                    return args
-                }, [] as any[])
-
             try {
+                const args = Array
+                    .from({length: this.controllerMethod.length}, (_, index) => index)
+                    .reduce((args, index) => {
+                        const arg = this.paramsHandler ? this.paramsHandler[index] : undefined
+
+                        if (!_.isEmpty(arg)) {
+                            if (
+                                !_.isEmpty(req.params)
+                            ) {
+
+                                if (arg?.type === 'float') {
+                                    if (!/^\d+(\.\d+)?$/.test(req.params[arg.name])) {
+                                        throw createHttpError.BadRequest(
+                                            `The '${arg?.name}' parameter should be a float, but a ${
+                                                typeof req.params[arg.name]
+                                            } was provided.`
+                                        )
+                                    }
+                                    args[index] = Number.parseFloat(req.params[arg.name])
+                                    return args
+                                }
+
+                                if (arg?.type === 'int') {
+                                    if (!/^\d+$/.test(req.params[arg.name])) {
+                                        throw createHttpError.BadRequest(
+                                            `The '${arg?.name}' parameter should be a integer, but a ${
+                                                typeof req.params[arg.name]
+                                            } was provided.`
+                                        )
+                                    }
+                                    args[index] = Number.parseInt(req.params[arg.name])
+                                    return args
+                                }
+
+                                if (arg.type === Number) {
+                                    args[index] = parseNumber(req.params[arg.name])
+                                    if (isNull(args[index])) {
+                                        throw createHttpError.BadRequest(
+                                            `The '${arg?.name}' parameter should be a number, but a ${
+                                                typeof req.params[arg.name]
+                                            } was provided.`
+                                        )
+                                    }
+                                    return args
+                                }
+                            }
+
+                            if (
+                                !_.isEmpty(req.body) &&
+                                typeof arg?.type === 'function' &&
+                                arg.type !== Number &&
+                                arg.type !== String
+                            ) {
+                                args[index] = req['body']
+                                return args
+                            }
+
+                            args[index] = req.params[arg.name]
+                        }
+
+                        return args
+                    }, [] as any[])
+
+
                 const result = this.controllerMethod.apply(this.controllerType, args)
                 if (result instanceof Promise) {
                     return res.json(await result)
@@ -164,20 +246,8 @@ class RequestHandlerBuilder {
 
 interface IRouteBuilder {
     buildRouter: () => express.Router,
-    buildRouteHandlers: () => IGroupeRouteHandlerConventions | IRouteHandlerConventions
+    buildRouteHandlers: () => IRequestHandlerConventions[]
 }
-
-interface IRouteHandlerConventions {
-    requestHandlerConventions: IRequestHandlerConventions[],
-}
-
-export interface IGroupeRouteHandlerConventions {
-    routesHandlersConventions?: IRouteHandlerConventions,
-    subGroups: IGroupeRouteHandlerConventions[],
-    prefix: string,
-    metadataCollection: MetadataCollection
-}
-
 
 class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
     private requestHandlerBuilders: RequestHandlerBuilder[] = []
@@ -200,7 +270,7 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
                 path,
                 method,
                 this.prefix,
-                clone(this.metadataCollection)
+                _.cloneDeep(this.metadataCollection)
             )
         )
         return this
@@ -211,14 +281,12 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
         return this
     }
 
-    buildRouteHandlers(): IRouteHandlerConventions {
-        const requestHandlerConventions = this.requestHandlerBuilders.map(
+    buildRouteHandlers(): IRequestHandlerConventions[] {
+        return this.requestHandlerBuilders.map(
             requestHandlerBuilder => (
                 requestHandlerBuilder.requestHandlerConvention
             )
         )
-
-        return {requestHandlerConventions}
 
     }
 
@@ -259,6 +327,7 @@ interface IGroupedRouteBuilder {
     mapGroup: (prefix: string) => IGroupedRouteBuilder
 }
 
+
 class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRouteBuilder {
     public services: interfaces.Container
     public dataSources: EndpointDataSource[] = []
@@ -290,7 +359,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     ): ISingleRouteBuilder {
         this.routeHandleBuilder = this.routeHandleBuilder ?? new RouteHandlerBuilder(
             this.completePrefix,
-            clone(this.metadataCollection)
+            _.cloneDeep(this.metadataCollection)
         )
 
         this.routeHandleBuilder.addRequestHandler(
@@ -309,7 +378,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
             prefix,
             this,
             this.completePrefix + prefix,
-            clone(this.metadataCollection)
+            _.cloneDeep(this.metadataCollection)
         )
 
         this.subgroupsRouteBuilder = {
@@ -319,41 +388,25 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
         return groupedBuilder
     }
 
-    buildRouteHandlers(): IGroupeRouteHandlerConventions {
-        const routesHandlersConventions = this.routeHandleBuilder?.buildRouteHandlers()
-        let routeHandlers: IGroupeRouteHandlerConventions[] = []
+    buildRouteHandlers(): IRequestHandlerConventions[] {
+        const requestHandlerConventions = this.routeHandleBuilder?.buildRouteHandlers() ?? []
 
-        if (!isEmpty(this.subgroupsRouteBuilder)) {
+        const requestHandlerConventionsSubRoute = Object.values(this.subgroupsRouteBuilder)
+            .reduce((requestsHandlersConventions, subRoute) => {
+                return [...requestsHandlersConventions, ...subRoute.buildRouteHandlers() ?? []]
+            }, [] as IRequestHandlerConventions[])
 
-            routeHandlers = Object.values(this.subgroupsRouteBuilder)
-                .map((subRoute): IGroupeRouteHandlerConventions => {
-                    const routeHandler = subRoute.buildRouteHandlers()
-
-                    return {
-                        routesHandlersConventions: subRoute.routeHandleBuilder?.buildRouteHandlers(),
-                        subGroups: routeHandler.subGroups, // Cette ligne crée les probléme de dupplication !
-                        prefix: subRoute.completePrefix,
-                        metadataCollection: routeHandler.metadataCollection
-                    }
-                })
-        }
-
-        return {
-            routesHandlersConventions,
-            subGroups: routeHandlers,
-            prefix: this.completePrefix,
-            metadataCollection: this.metadataCollection
-        }
+        return [...requestHandlerConventions, ...requestHandlerConventionsSubRoute]
     }
 
     buildRouter(): express.Router {
         const router = e.Router()
-        const routerHandler = this.routeHandleBuilder?.buildRouter()
+        const routerHandler = this.routeHandleBuilder?.buildRouter() ?? []
 
         const routers = Object.values(this.subgroupsRouteBuilder)
-            .map(subRoute => subRoute.buildRouter()) // J'ai un doute par rapport à cette ligne
+            .map(subRoute => subRoute.buildRouter())
 
-        router.use(this.prefix, this.middlewares, routerHandler ?? [], routers)
+        router.use(this.prefix, this.middlewares, routerHandler, routers)
 
         return router
     }
@@ -414,13 +467,6 @@ export class EndpointDataSource {
 
 }
 
-export function instanceOfIRouteHandlerConventions(object: any): object is IRouteHandlerConventions {
-    return 'requestHandlerConventions' in object
-}
-
-export function instanceOfIGroupeRouteHandlerConventions(object: any): object is IGroupeRouteHandlerConventions {
-    return 'subGroups' in object && 'routesHandlersConventions' in object
-}
 
 type ControllerMethod = (...args: any[]) => any
 

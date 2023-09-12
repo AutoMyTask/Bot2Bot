@@ -36,6 +36,7 @@ import {generateOpenApi} from "./openapi/generate.openapi";
 import {useAppEndpointSwaggerUI} from "./swagger-ui";
 import {MetadataTag} from "./openapi/metadata/metadataTag";
 import {MetadataProduce} from "./openapi/metadata/metadataProduce";
+import {StatutCodes} from "./http/StatutCodes";
 
 // Avoir un comportement commun pour tout les middlewares
 // Créer des décorateurs spécifiques à open api
@@ -55,37 +56,21 @@ class UserRequest implements IUserRequest {
     non: boolean = true
 }
 
-
 class UserController {
-    // En deuxième clés, se serra pour swagger (les paramètres pour les conventions)
-    // Vérifier que l'utilisateur a bien entré un nombre si le params est un nombre
     // Gérer également l'injection de dépendance directement dans les propriétés de la
     // fonction (et oui c'est putin de beau)
-    public static findOne(@Params('id') id: number): IAuthOuiResponse {
+    public static findOne(@Params('id') id: string): IAuthOuiResponse {
         // throw createHttpError.BadRequest('eeee')
         return new AuthOuiResponse()
     }
 
     public static postUser(
-        @Params('id') id: number, // Si c'est un nombre, parsé en nombre. Si l'utilisateur ne rentre pas
-                                            // un nombre, générer une erreur
-        @Body(UserRequest) userRequest: UserRequest // Creer une erreur lorsqu'un utilisateur rentre le mauvais format en utilisant class validator
-                                                    // Créer une erreur si j'ai deux bodys (il m'en qu'un seul)
+        @Params('id', 'int') id: number, // Indiquer si il est requie ou non. Si il est requis renvoyer un message d'erreur
+        @Body(UserRequest) userRequest: UserRequest, // Creer une erreur lorsqu'un utilisateur rentre le mauvais format en utilisant class validator
     ): { oui: boolean } {
         return {oui: true}
     }
 }
-
-
-/**
- * MODULE OPENAPI
- * J'utiliserai toute les metadata que je peux enregister dans les metadonnées
- * Autrement je passerai pas des décorateurs
- */
-// https://blog.simonireilly.com/posts/typescript-openapi
-
-const openApiBuilder = OpenApiBuilder.create()
-
 
 interface IAuthOuiResponse {
     oui: boolean
@@ -94,37 +79,6 @@ interface IAuthOuiResponse {
 class AuthOuiResponse implements IAuthOuiResponse {
     public oui: boolean = true
 }
-
-
-openApiBuilder.addResponse('AuthOuiResponse', {
-    description: 'Une description de la réponses',
-    content: {
-        'application/json': {
-            schema: {
-                $ref: '#/components/schemas/AuthOuiResponse'
-            }
-        }
-    }
-})
-
-
-openApiBuilder.addPath('/auth/oui/{id}', {
-    get: {
-        description: 'une description',
-        responses: {
-            '200': {
-                $ref: '#/components/responses/AuthOuiResponse'
-            }
-        },
-    },
-    post: {
-        responses: {
-            '200': {
-                $ref: '#/components/responses/AuthOuiResponse'
-            }
-        },
-    }
-})
 
 
 /**
@@ -158,20 +112,20 @@ app
 // Mise en place de test U ? Integration ?
 app
     .addEndpoint(routeMapBuilder => {
-            //   routeMapBuilder
-            //       .map('/oui/:id', 'get', UserController, UserController.findOne)
-            //       .withMiddleware((req, res, next) => {
-            //           console.log('oui oui je suis un middleware')
-            //           next()
-            //       })
+            routeMapBuilder
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
 
 
-            //    routeMapBuilder
-            //        .map('/non/:id', 'get', UserController, UserController.findOne)
-            //        .withMiddleware((req, res, next) => {
-            //            console.log('non non je suis un middleware')
-            //            next()
-            //        })
+            routeMapBuilder
+                .map('/non/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('non non je suis un middleware')
+                    next()
+                })
 
             const authGroup = routeMapBuilder
                 .mapGroup('/auth')
@@ -189,7 +143,9 @@ app
                 })
                 .withMetadata(new MetadataProduce(AuthOuiResponse, 200))
 
-            authGroup.map('/oui/:id', 'post', UserController, UserController.postUser)
+            authGroup
+                .map('/oui/:id', 'post', UserController, UserController.postUser)
+                .withMetadata(new MetadataProduce(AuthOuiResponse, 200))
 
             authGroup
                 .map('/oui', 'get', UserController, UserController.findOne)
@@ -197,6 +153,7 @@ app
                     console.log('oui oui je suis un middleware')
                     next()
                 })
+                .withMetadata(new MetadataProduce(AuthOuiResponse, 200))
 
             const authOuiGroup = authGroup
                 .mapGroup('/ouiN')
@@ -210,40 +167,44 @@ app
                 .withMiddleware((req, res, next) => {
                     console.log('"auth/nonN" préfix')
                     next()
-                })
+                }).withMetadata(new MetadataTag('AuthNon', 'AuthNon description'))
 
-            const jajaGroup = authNonGroup
+            const jajaGroup = routeMapBuilder
                 .mapGroup('/jaja')
                 .withMiddleware((req, res, next) => {
                     console.log('"auth/nonN/jaja" préfix')
                     next()
                 })
-                .withMetadata(new MetadataTag('Jaja'))
+                .withMetadata(new MetadataTag('Jaja', 'une petite description jaja'))
 
             jajaGroup
                 .map('/oui', 'get', UserController, UserController.findOne)
                 .withMetadata(new MetadataTag('Arg', "Une description d'arg "))
+                .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
 
-           // authNonGroup
-           //     .map('/oui', 'get', UserController, UserController.findOne)
-           //     .withMiddleware((req, res, next) => {
-           //         console.log('oui oui je suis un middleware')
-           //         next()
-           //     })
+            authNonGroup
+                .map('/oui', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
 
-           // authNonGroup
-           //     .map('/non', 'get', UserController, UserController.findOne)
-           //     .withMiddleware((req, res, next) => {
-           //         console.log('oui oui je suis un middleware')
-           //         next()
-           //     })
+             authNonGroup
+                 .map('/non', 'get', UserController, UserController.findOne)
+                 .withMiddleware((req, res, next) => {
+                     console.log('oui oui je suis un middleware')
+                     next()
+                 })
+                 .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
 
-           // authOuiGroup
-           //     .map('/oui', 'get', UserController, UserController.findOne)
-           //     .withMiddleware((req, res, next) => {
-           //         console.log('oui oui je suis un middleware')
-           //         next()
-           //     })
+            authOuiGroup
+                .map('/oui', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
 
             return routeMapBuilder
         }
