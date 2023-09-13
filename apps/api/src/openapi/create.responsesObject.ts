@@ -1,7 +1,7 @@
 import {ResponsesObject} from "openapi3-ts/oas31";
-import {MetadataProduce} from "./metadata/metadataProduce";
+import {Schema} from "./metadata/metadataProduce";
 
-export const createResponsesObject = (metadataProduces: MetadataProduce[]): ResponsesObject => {
+export const createResponsesObject = (metadataProduces: Schema[]): ResponsesObject => {
     let responseObject: ResponsesObject = {}
     for (const { type, statutCode } of metadataProduces) {
         responseObject = {

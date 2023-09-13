@@ -2,29 +2,34 @@ import {Container, interfaces} from "inversify";
 import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
 import {RequestHandlerParams} from "express-serve-static-core";
-import _, {isNull} from 'lodash'
-import createHttpError from "http-errors";
+import _, {isNull, values} from 'lodash'
+import {plainToInstance} from "class-transformer";
+import {validateSync} from "class-validator";
+import {BadRequestObject} from "./http/errors/BadRequest";
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
 
 
-export function Body(requestType: Constructor) {
+export function Body() {
     return (
         target: Constructor,
         methodName: string,
         parameterIndex: number
     ) => {
         const existingMetadata: ParamsHandler = Reflect.getMetadata('body', target, methodName) ?? {}
+        const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
 
-        const updateMetadata: ParamsHandler = {
+        const type: Constructor = paramTypesHandler[parameterIndex]
+
+        const updateMetadata: ParamsBodyHandler = {
             ...existingMetadata, [parameterIndex]: {
-                name: requestType.name,
-                type: requestType
+                name: type.name,
+                type
             }
         }
 
-        if (Object.values(updateMetadata).length > 1){
+        if (Object.values(updateMetadata).length > 1) {
             throw new Error('Only one @Body() decorator is allowed in the method.')
         }
 
@@ -33,7 +38,10 @@ export function Body(requestType: Constructor) {
 }
 
 
-export function Params(paramName: string, type?: 'int' | 'float') {
+export function Params(
+    paramName: string,
+    options?: { type?: 'int' | 'float' }
+) {
     return (
         target: Constructor,
         methodName: string,
@@ -43,14 +51,15 @@ export function Params(paramName: string, type?: 'int' | 'float') {
         const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
         const type = paramTypesHandler[parameterIndex]
 
-        if (type !== Number && type !== String){
+        if (type !== Number && type !== String) {
             throw new Error(`The '${paramName}' parameter should be a Number or a String, but a ${type.name} was provided.`)
         }
 
-        const updateMetadata: ParamsHandler = {
+        const updateMetadata: ParamsPathHandler = {
             ...existingMetadata, [parameterIndex]: {
                 name: paramName,
-                type: type ?? paramTypesHandler[parameterIndex]
+                type: options?.type ?? paramTypesHandler[parameterIndex],
+                required: true
             }
         }
         Reflect.defineMetadata('params', updateMetadata, target, methodName);
@@ -78,24 +87,28 @@ interface IRequestHandler {
 }
 
 export type ParamsConventions = {
-    path: [{
-        name: string,
-        type: number | string | boolean
-    }]
+    path: { name: string, type: ParamTypePath, required?: boolean }[]
 }
 
 export interface IRequestHandlerConventions {
     params: ParamsConventions,
-    body: object,
+    body?: Constructor,
     path: string,
     method: HTTPMethod,
     fullPath: string,
     metadataCollection: MetadataCollection
 }
 
-type ParamTypeHandler = string | number | Constructor | 'int' | 'float'
 
-type ParamsHandler = { [key: string]: { name: string, type: ParamTypeHandler } }
+type ParamTypePath = string | number | 'int' | 'float'
+
+export type ParamTypeHandler = Constructor | ParamTypePath
+
+type ParamsBodyHandler = { [key: string]: { name: string, type: Constructor, required?: boolean } }
+
+type ParamsPathHandler = { [key: string]: { name: string, type: ParamTypePath, required?: boolean } }
+
+type ParamsHandler = { [key: string]: { name: string, type: ParamTypeHandler, required?: boolean } }
 
 
 function parseNumber(input: string): number | null {
@@ -115,7 +128,7 @@ function parseNumber(input: string): number | null {
 
 class RequestHandlerBuilder {
     private middlewares: RequestHandler[] = []
-    private readonly paramsHandler?: ParamsHandler
+    private readonly paramsHandler: ParamsHandler
     public readonly requestHandlerConvention: IRequestHandlerConventions;
 
     constructor(
@@ -126,27 +139,24 @@ class RequestHandlerBuilder {
         private readonly prefix: string = '',
         private readonly metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
-        const paramsHandler: ParamsHandler =
+        const paramsPathHandler: ParamsPathHandler =
             Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
 
-        const paramBodyHandler: ParamsHandler =
+        const paramBodyHandler: ParamsBodyHandler =
             Reflect.getMetadata('body', this.controllerType, this.controllerMethod.name)
 
-        this.paramsHandler = {...paramsHandler ?? {}, ...paramBodyHandler ?? {}}
+        this.paramsHandler = {...paramsPathHandler ?? {}, ...paramBodyHandler ?? {}}
 
-        const bodyType = Object.values(paramBodyHandler ?? {}).at(0)?.type as Constructor
+        const BodyType = values(paramBodyHandler ?? {}).at(0)?.type
 
         this.requestHandlerConvention = {
             params: {
-                // @ts-ignore
-                path: this.paramsHandler
-                    ? Object.values(paramsHandler).map(({ name, type }) => ({ name, type}))
-                    : []
+                path: values(paramsPathHandler)
             },
             method,
             path,
             fullPath: this.prefix + this.path,
-            body: bodyType ? new bodyType() : {},
+            body: BodyType,
             metadataCollection: this.metadataCollection
         }
     }
@@ -166,18 +176,17 @@ class RequestHandlerBuilder {
                     .from({length: this.controllerMethod.length}, (_, index) => index)
                     .reduce((args, index) => {
                         const arg = this.paramsHandler ? this.paramsHandler[index] : undefined
-
                         if (!_.isEmpty(arg)) {
                             if (
                                 !_.isEmpty(req.params)
                             ) {
-
                                 if (arg?.type === 'float') {
                                     if (!/^\d+(\.\d+)?$/.test(req.params[arg.name])) {
-                                        throw createHttpError.BadRequest(
-                                            `The '${arg?.name}' parameter should be a float, but a ${
+                                        throw new BadRequestObject(
+                                            `The '${arg?.name}' parameter should be a number, but a ${
                                                 typeof req.params[arg.name]
-                                            } was provided.`
+                                            } was provided.`,
+                                            ['Invalid parameter']
                                         )
                                     }
                                     args[index] = Number.parseFloat(req.params[arg.name])
@@ -186,10 +195,11 @@ class RequestHandlerBuilder {
 
                                 if (arg?.type === 'int') {
                                     if (!/^\d+$/.test(req.params[arg.name])) {
-                                        throw createHttpError.BadRequest(
-                                            `The '${arg?.name}' parameter should be a integer, but a ${
+                                        throw new BadRequestObject(
+                                            `The '${arg?.name}' parameter should be a number, but a ${
                                                 typeof req.params[arg.name]
-                                            } was provided.`
+                                            } was provided.`,
+                                            ['Invalid parameter']
                                         )
                                     }
                                     args[index] = Number.parseInt(req.params[arg.name])
@@ -199,10 +209,11 @@ class RequestHandlerBuilder {
                                 if (arg.type === Number) {
                                     args[index] = parseNumber(req.params[arg.name])
                                     if (isNull(args[index])) {
-                                        throw createHttpError.BadRequest(
+                                        throw new BadRequestObject(
                                             `The '${arg?.name}' parameter should be a number, but a ${
                                                 typeof req.params[arg.name]
-                                            } was provided.`
+                                            } was provided.`,
+                                            ['Invalid parameter']
                                         )
                                     }
                                     return args
@@ -210,12 +221,20 @@ class RequestHandlerBuilder {
                             }
 
                             if (
-                                !_.isEmpty(req.body) &&
                                 typeof arg?.type === 'function' &&
                                 arg.type !== Number &&
                                 arg.type !== String
                             ) {
-                                args[index] = req['body']
+                                args[index] = plainToInstance(arg.type, req.body)
+                                const errors = validateSync(args[index])
+
+                                if (errors.length > 0) {
+                                    throw new BadRequestObject(
+                                        `The provided fields are incorrect`,
+                                        errors
+                                    )
+                                }
+
                                 return args
                             }
 
@@ -241,6 +260,7 @@ class RequestHandlerBuilder {
             handler,
             middlewares: this.middlewares
         }
+
     }
 }
 
@@ -391,7 +411,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     buildRouteHandlers(): IRequestHandlerConventions[] {
         const requestHandlerConventions = this.routeHandleBuilder?.buildRouteHandlers() ?? []
 
-        const requestHandlerConventionsSubRoute = Object.values(this.subgroupsRouteBuilder)
+        const requestHandlerConventionsSubRoute = values(this.subgroupsRouteBuilder)
             .reduce((requestsHandlersConventions, subRoute) => {
                 return [...requestsHandlersConventions, ...subRoute.buildRouteHandlers() ?? []]
             }, [] as IRequestHandlerConventions[])
@@ -403,7 +423,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
         const router = e.Router()
         const routerHandler = this.routeHandleBuilder?.buildRouter() ?? []
 
-        const routers = Object.values(this.subgroupsRouteBuilder)
+        const routers = values(this.subgroupsRouteBuilder)
             .map(subRoute => subRoute.buildRouter())
 
         router.use(this.prefix, this.middlewares, routerHandler, routers)

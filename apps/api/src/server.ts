@@ -9,6 +9,9 @@
 // Utiliser class-validator dans le handler. Il vérifiera la conformité des données du body
 // et l'intégralité des validation.... :)
 
+// Au niveau des decorateur générer des erreurs pour guider le développement serai une bonne option
+// Ou créer des décorateur plus spécialisé
+
 
 import {App, Body, Params} from "./app.builder";
 import express from "express";
@@ -19,7 +22,7 @@ import helmet from 'helmet';
 
 // await start()
 // Api Core
-import {logError} from "./middlewares/log.error"; // // (peut être le supprimer)
+import {logError} from "./middlewares/log.error"; //  (peut être le supprimer)
 import {errorHandler} from "./middlewares/error.handler";
 import 'reflect-metadata';
 
@@ -30,61 +33,73 @@ import {
 } from "openapi3-ts/oas31";
 
 
-// Swagger UI Module
 import {configureOpenApi} from "./openapi/configure.openapi";
 import {generateOpenApi} from "./openapi/generate.openapi";
-import {useAppEndpointSwaggerUI} from "./swagger-ui";
+import {useSwaggerUI} from "./swagger-ui";
 import {MetadataTag} from "./openapi/metadata/metadataTag";
 import {MetadataProduce} from "./openapi/metadata/metadataProduce";
 import {StatutCodes} from "./http/StatutCodes";
+import {IsInt, IsNotEmpty, IsString} from "class-validator";
+import {OpenapiProp} from "./openapi/decorators/openapi.prop";
+import {OpenApiBadRequestObject} from "./http/errors/BadRequest";
+
+
+// Créer peut être une metadata pour gérer les autorisations / authentifications ? Cela me semble pas mal
 
 // Avoir un comportement commun pour tout les middlewares
 // Créer des décorateurs spécifiques à open api
 
-// Pour gérer les erreurs http : http-errors, express-promise-router
 // https://www.npmjs.com/package/yup
 
-
-interface IUserRequest {
-    oui?: number
-}
-
 // Avoir des decorateurs spécifique au module OpenApi
-// Utiliser class validators pour vérifier le bon format d'entrés ?
-class UserRequest implements IUserRequest {
-    oui: number = 1
-    non: boolean = true
+class UserRequest {
+
+    @IsInt()
+    @IsNotEmpty()
+    @OpenapiProp('number', { required: true }) // Générer des erreur pour minLengt. Le tupe doit
+                                                            // être de type string ?
+    oui!: number
+
+
+    @IsNotEmpty()
+    @IsString()
+    @OpenapiProp('string', { required: true })
+    non!: string
 }
+
+class AuthOuiResponse {
+    @OpenapiProp('boolean')
+    public oui!: boolean
+}
+
 
 class UserController {
-    // Gérer également l'injection de dépendance directement dans les propriétés de la
+    // Gérer  l'injection de dépendance directement dans les propriétés de la
     // fonction (et oui c'est putin de beau)
-    public static findOne(@Params('id') id: string): IAuthOuiResponse {
+    public static findOne(
+        @Params('id', {
+            type: 'float'
+        }) id: number
+    ): AuthOuiResponse {
         // throw createHttpError.BadRequest('eeee')
-        return new AuthOuiResponse()
+        return {oui: false}
     }
 
     public static postUser(
-        @Params('id', 'int') id: number, // Indiquer si il est requie ou non. Si il est requis renvoyer un message d'erreur
-        @Body(UserRequest) userRequest: UserRequest, // Creer une erreur lorsqu'un utilisateur rentre le mauvais format en utilisant class validator
+        @Params('id', {
+            type: 'int'
+        }) id: number,
+        @Body() userRequest: UserRequest,
     ): { oui: boolean } {
         return {oui: true}
     }
 }
 
-interface IAuthOuiResponse {
-    oui: boolean
-}
-
-class AuthOuiResponse implements IAuthOuiResponse {
-    public oui: boolean = true
-}
 
 
 /**
  * MODULE API CORE
  */
-
 const app = App.createApp()
 app.configure(configureOpenApi({
     title: 'Mon API',
@@ -98,6 +113,7 @@ app.configure(configureOpenApi({
 }))
 
 
+// Donner la possiblité de donner un handler express ou construire le handler
 app
     .addMiddleware(express.json())
     .addMiddleware(express.urlencoded({extended: true}))
@@ -107,9 +123,7 @@ app
 
 
 // Vérifier le bon format des routes '/route' au niveau de ... ?
-// Gérer les erreurs de paramètres dans findOne par exemple. Si y a pas l'id et que c'est pas un nombre
-// je throw
-// Mise en place de test U ? Integration ?
+// Mise en place de test U ? Integration ? Test de la spec swagger via postman ?
 app
     .addEndpoint(routeMapBuilder => {
             routeMapBuilder
@@ -118,6 +132,12 @@ app
                     console.log('oui oui je suis un middleware')
                     next()
                 })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
 
             routeMapBuilder
@@ -126,6 +146,12 @@ app
                     console.log('non non je suis un middleware')
                     next()
                 })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
             const authGroup = routeMapBuilder
                 .mapGroup('/auth')
@@ -133,7 +159,12 @@ app
                     console.log('"auth" préfix')
                     next()
                 })
-                .withMetadata(new MetadataTag('Auth', 'Description de Auth'))
+                .withMetadata(
+                    new MetadataTag(
+                        'Auth',
+                        'Description de Auth'
+                    )
+                )
 
             authGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)
@@ -141,11 +172,26 @@ app
                     console.log('oui oui je suis un middleware')
                     next()
                 })
-                .withMetadata(new MetadataProduce(AuthOuiResponse, 200))
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
             authGroup
                 .map('/oui/:id', 'post', UserController, UserController.postUser)
-                .withMetadata(new MetadataProduce(AuthOuiResponse, 200))
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                ).withMetadata(
+                    new MetadataProduce(
+                        OpenApiBadRequestObject,
+                        StatutCodes.Status400BadRequest
+                    )
+                )
 
             authGroup
                 .map('/oui', 'get', UserController, UserController.findOne)
@@ -153,34 +199,58 @@ app
                     console.log('oui oui je suis un middleware')
                     next()
                 })
-                .withMetadata(new MetadataProduce(AuthOuiResponse, 200))
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
             const authOuiGroup = authGroup
                 .mapGroup('/ouiN')
                 .withMiddleware((req, res, next) => {
-                    console.log('"auth/ouiN" préfix')
+                    console.log('"auth/ouiN" prefix')
                     next()
                 })
 
             const authNonGroup = authGroup
                 .mapGroup('/nonN')
                 .withMiddleware((req, res, next) => {
-                    console.log('"auth/nonN" préfix')
+                    console.log('"auth/nonN" prefix')
                     next()
-                }).withMetadata(new MetadataTag('AuthNon', 'AuthNon description'))
+                }).withMetadata(
+                    new MetadataTag(
+                        'AuthNon',
+                        'AuthNon description'
+                    )
+                )
 
             const jajaGroup = routeMapBuilder
                 .mapGroup('/jaja')
                 .withMiddleware((req, res, next) => {
-                    console.log('"auth/nonN/jaja" préfix')
+                    console.log('"auth/nonN/jaja" prefix')
                     next()
                 })
-                .withMetadata(new MetadataTag('Jaja', 'une petite description jaja'))
+                .withMetadata(
+                    new MetadataTag(
+                        'Jaja',
+                        'une petite description jaja'
+                    )
+                )
 
             jajaGroup
                 .map('/oui', 'get', UserController, UserController.findOne)
-                .withMetadata(new MetadataTag('Arg', "Une description d'arg "))
-                .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
+                .withMetadata(
+                    new MetadataTag(
+                        'Arg',
+                        "Une description d'arg "
+                    ))
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
             authNonGroup
                 .map('/oui', 'get', UserController, UserController.findOne)
@@ -188,15 +258,25 @@ app
                     console.log('oui oui je suis un middleware')
                     next()
                 })
-                .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
-             authNonGroup
-                 .map('/non', 'get', UserController, UserController.findOne)
-                 .withMiddleware((req, res, next) => {
-                     console.log('oui oui je suis un middleware')
-                     next()
-                 })
-                 .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
+            authNonGroup
+                .map('/non', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
             authOuiGroup
                 .map('/oui', 'get', UserController, UserController.findOne)
@@ -204,7 +284,12 @@ app
                     console.log('oui oui je suis un middleware')
                     next()
                 })
-                .withMetadata(new MetadataProduce(AuthOuiResponse, StatutCodes.Status200OK))
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
             return routeMapBuilder
         }
@@ -220,9 +305,9 @@ app
             .get<OpenApiBuilder>('OpenApiBuilder')
             .getSpec()
 
-        return useAppEndpointSwaggerUI('/docs', openAPIObject)
+        return useSwaggerUI('/docs', openAPIObject)
     }) // Vérifier le bon format du chemin ('/docs')
-    .addMiddleware(logError)
+    .addMiddleware(logError) // Je pense supprimer `log error` (il ne sert pas à grand chose)
     .addMiddleware(errorHandler)
 
 

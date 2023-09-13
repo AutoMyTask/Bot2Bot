@@ -1,8 +1,8 @@
-import {MetadataProduce} from "./metadata/metadataProduce";
+import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {ResponseObject} from "openapi3-ts/oas31";
 import {ReferenceObject} from "openapi3-ts/oas30";
 
-export const createResponseObject = (metadataProduce: MetadataProduce): ResponseObject | ReferenceObject => {
+export const createResponseObject = (metadataProduce: Schema): ResponseObject | ReferenceObject => {
     return {
         description: '',
         content: {

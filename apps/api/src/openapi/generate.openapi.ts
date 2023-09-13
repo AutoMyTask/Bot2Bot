@@ -8,7 +8,6 @@ import {createRequestBody} from "./create.requestBody";
 import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce} from "./metadata/metadataProduce";
-import _ from "lodash";
 import {createResponseObject} from "./create.responseObject";
 
 /**
@@ -25,32 +24,41 @@ export const generateOpenApi = (
     const openApiBuilder = routeMapBuilder.services
         .get<OpenApiBuilder>('OpenApiBuilder')
 
-    const groupedMetadataTagCollection = new Set<MetadataTag>();
-    const metadataSchemaCollection = new Set<{ name: string, schema: ReferenceObject | SchemaObject }>()
+    const groupedMetadataTagCollection = new Map<string,MetadataTag>();
+    const groupedMetadataSchemaCollection = new Map<string, { name: string, schema: ReferenceObject | SchemaObject }>()
 
-    const requestsHandlersConvention = routeMapBuilder.dataSources.reduce((requestsHandlersConvention, dataSource) => {
+    const requestsHandlersConvention = routeMapBuilder.dataSources.reduce((
+        requestsHandlersConvention,
+        dataSource
+    ) => {
         return [...requestsHandlersConvention, ...dataSource.getHandlers()]
     }, [] as IRequestHandlerConventions[])
 
     for (const {params, fullPath, method, body, metadataCollection} of requestsHandlersConvention) {
         const metadataTags = metadataCollection.getAllMetadataAttributes(MetadataTag)
         const metadataProduces = metadataCollection.getAllMetadataAttributes(MetadataProduce)
+            .map(metadata => metadata.schemas.flat() ).flat()
+
 
         for (let {type, schema} of metadataProduces) {
-            metadataSchemaCollection.add({name: type.name, schema})
+            if (!groupedMetadataSchemaCollection.has(type.name)){
+                groupedMetadataSchemaCollection.set(type.name ,{name: type.name, schema})
+            }
         }
         for (let metadataTag of metadataTags) {
-            groupedMetadataTagCollection.add(metadataTag)
+            if (!groupedMetadataTagCollection.has(metadataTag.name)){
+                groupedMetadataTagCollection.set(metadataTag.name, metadataTag)
+            }
         }
 
         const pathItem = createPathItem(params, method, metadataTags, metadataProduces, body)
         const path = fullPath.replace(/:([^}]*)/g, '{$1}')
         openApiBuilder.addPath(path, pathItem)
 
-        if (!_.isEmpty(body)) {
-            metadataSchemaCollection.add({name: body.constructor.name, schema: createSchema(body)})
+        if (body) {
+            groupedMetadataSchemaCollection.set(body.name,{name: body.name, schema: createSchema(body)})
             const reqBody = createRequestBody(body)
-            openApiBuilder.addRequestBody(body.constructor.name, reqBody)
+            openApiBuilder.addRequestBody(body.name, reqBody)
         }
 
         for (const metadataProduce of metadataProduces) {
@@ -59,11 +67,11 @@ export const generateOpenApi = (
         }
     }
 
-    for (const metadataTag of groupedMetadataTagCollection) {
+    for (const metadataTag of groupedMetadataTagCollection.values()) {
         openApiBuilder.addTag(metadataTag.tagObject)
     }
 
-    for (const metadataScheme of metadataSchemaCollection) {
+    for (const metadataScheme of groupedMetadataSchemaCollection.values()) {
         openApiBuilder.addSchema(metadataScheme.name, metadataScheme.schema)
     }
 

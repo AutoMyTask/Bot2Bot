@@ -1,41 +1,47 @@
-import {HTTPMethod, ParamsConventions} from "../app.builder";
+import {HTTPMethod, ParamsConventions, ParamTypeHandler} from "../app.builder";
 import {ParameterLocation, ParameterObject, PathItemObject} from "openapi3-ts/oas31";
 import {MetadataTag} from "./metadata/metadataTag";
-import {MetadataProduce} from "./metadata/metadataProduce";
+import {Schema} from "./metadata/metadataProduce";
 import {createResponsesObject} from "./create.responsesObject";
+import {entries} from "lodash";
 
-function inRequired(inPath: ParameterLocation): boolean{
-    if (inPath === 'path'){
-        return true
+type Constructor = new (...args: any[]) => {};
+
+const createFormat = (type: ParamTypeHandler) => {
+    if (typeof type === 'string'){
+        return type
     }
-    return false
+    if (typeof type === 'function'){
+        return type.name.toLowerCase()
+    }
+
 }
 
 export const createPathItem = (
     params: ParamsConventions,
     method: HTTPMethod,
     metadataTags: MetadataTag[],
-    metadataProduces: MetadataProduce[],
-    body?: object,): PathItemObject => {
+    metadataProduces: Schema[],
+    body?: Constructor,): PathItemObject => {
     const responses = createResponsesObject(metadataProduces)
     const tags = metadataTags.map(metadataTag => metadataTag.name)
 
     let parameters: ParameterObject[] = []
-    Object.entries(params).forEach(([key, params]) => {
-        for (let {name, type} of params) {
+    entries(params).forEach(([key, params]) => {
+        for (let {name, type, required} of params) {
             parameters.push({
                 name,
                 in: key as ParameterLocation,
-                required: inRequired(key as ParameterLocation),
+                required: required ?? true,
                 schema: {
-                    format: 'int32'
+                    format: createFormat(type)
                 }
             })
         }
     })
 
     const requestBody = body ? {
-        $ref: `#/components/requestBodies/${body.constructor.name}`
+        $ref: `#/components/requestBodies/${body.name}`
     } : undefined
 
     return {
