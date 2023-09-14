@@ -1,4 +1,4 @@
-import {HTTPMethod, ParamsConventions, ParamTypeHandler} from "../app.builder";
+import {HTTPMethod, ParamsConventions, ParamTypePath} from "../app.builder";
 import {ParameterLocation, ParameterObject, PathItemObject} from "openapi3-ts/oas31";
 import {MetadataTag} from "./metadata/metadataTag";
 import {Schema} from "./metadata/metadataProduce";
@@ -7,7 +7,7 @@ import {entries} from "lodash";
 
 type Constructor = new (...args: any[]) => {};
 
-const createFormat = (type: ParamTypeHandler) => {
+const createFormat = (type: Constructor | ParamTypePath) => {
     if (typeof type === 'string'){
         return type
     }

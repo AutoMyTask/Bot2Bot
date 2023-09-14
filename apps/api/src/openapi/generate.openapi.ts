@@ -22,7 +22,7 @@ export const generateOpenApi = (
     routeMapBuilder: IRouteMapBuilder
 ): void => {
     const openApiBuilder = routeMapBuilder.services
-        .get<OpenApiBuilder>('OpenApiBuilder')
+        .get<OpenApiBuilder>(OpenApiBuilder)
 
     const groupedMetadataTagCollection = new Map<string,MetadataTag>();
     const groupedMetadataSchemaCollection = new Map<string, { name: string, schema: ReferenceObject | SchemaObject }>()

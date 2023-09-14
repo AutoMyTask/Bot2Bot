@@ -1,28 +1,55 @@
 import {injectable, inject} from "inversify";
 import {AuthService} from "./auth.service";
-import {NextFunction, Request, Response} from "express";
+import {IsNotEmpty, IsString} from "class-validator";
+import {OpenapiProp} from "../openapi/decorators/openapi.prop";
+import {Body, RouteMapBuilderCallBack, Service} from "../app.builder";
+import {MetadataTag} from "../openapi/metadata/metadataTag";
+import {MetadataProduce} from "../openapi/metadata/metadataProduce";
+import {StatutCodes} from "../http/StatutCodes";
+import {OpenApiBadRequestObject} from "../http/errors/BadRequest";
 
-export interface AuthRegisterResponse {
-    auth: boolean
+export class AuthRegisterResponse {
+    @OpenapiProp('boolean')
+    auth: boolean = true
 }
 
-export interface AuthRegisterRequest {
-    id: string
+export class AuthRegisterRequest {
+
+    @IsNotEmpty()
+    @IsString()
+    @OpenapiProp('string', {required: true})
+    id!: string
 }
 
-@injectable()
 export class AuthController {
-    constructor(@inject(AuthService) public authService: AuthService) {
+    static async register(
+        @Body authRequest: AuthRegisterRequest,
+        @Service(AuthService) authService: AuthService
+    ): Promise<AuthRegisterResponse> {
+        const result = await authService.getAuth()
+        return new AuthRegisterResponse()
     }
+}
 
-    async register(req: Request, res: Response, next: NextFunction) {
-        try {
-            await this.authService.getAuth()
-            res.json({
-                auth: true
-            })
-        } catch (err) {
-           return next(err)
-        }
-    }
+
+export const authEndpoints: RouteMapBuilderCallBack = (routeMapBuilder) => {
+    const auth = routeMapBuilder
+        .mapGroup('/auth')
+        .withMetadata(new MetadataTag('Auth', "Description d'auth"))
+
+    auth
+        .map('/register', 'post', AuthController, AuthController.register)
+        .withMetadata(
+            new MetadataProduce(
+                AuthRegisterResponse,
+                StatutCodes.Status200OK
+            )
+        ).withMetadata(
+            new MetadataProduce(
+                OpenApiBadRequestObject,
+                StatutCodes.Status400BadRequest
+            )
+        )
+
+    return routeMapBuilder
 }

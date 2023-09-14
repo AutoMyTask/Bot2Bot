@@ -5,7 +5,7 @@ import {ConfigureServiceCallback} from "../app.builder";
 export const configureOpenApi = (info: InfoObject) : ConfigureServiceCallback => {
     return ((service: interfaces.Container) => {
         service
-            .bind<OpenApiBuilder>('OpenApiBuilder')
+            .bind<OpenApiBuilder>(OpenApiBuilder)
             .toDynamicValue(() => OpenApiBuilder.create().addInfo(info))
             .inSingletonScope()
     })

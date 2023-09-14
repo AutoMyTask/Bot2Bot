@@ -1,9 +1,9 @@
-import {IAuthService} from "./IAuthService";
 import {injectable} from 'inversify'
 import "reflect-metadata"
 
 @injectable()
-export class AuthService implements IAuthService {
-    async getAuth(): Promise<void> {
+export class AuthService {
+    async getAuth(): Promise<number> {
+        return 0
     }
 }

@@ -7,33 +7,53 @@ import {plainToInstance} from "class-transformer";
 import {validateSync} from "class-validator";
 import {BadRequestObject} from "./http/errors/BadRequest";
 
+
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
 
 
-export function Body() {
+export function Body(
+    target: Constructor,
+    methodName: string,
+    parameterIndex: number
+) {
+    const existingMetadata: ParamsHandler<Constructor> = Reflect.getMetadata('body', target, methodName) ?? {}
+    const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
+
+    const type = paramTypesHandler[parameterIndex]
+
+    const updateMetadata: ParamsHandler<Constructor> = {
+        ...existingMetadata, [parameterIndex]: {
+            name: type.name,
+            type
+        }
+    }
+
+    if (values(updateMetadata).length > 1) {
+        throw new Error('Only one @Body() decorator is allowed in the method.')
+    }
+
+    Reflect.defineMetadata('body', updateMetadata, target, methodName)
+
+}
+
+
+export function Service(type: string | Constructor) {
     return (
         target: Constructor,
         methodName: string,
         parameterIndex: number
     ) => {
-        const existingMetadata: ParamsHandler = Reflect.getMetadata('body', target, methodName) ?? {}
-        const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
+        const existingMetadata: ParamsHandler<Constructor> = Reflect.getMetadata('services', target, methodName) ?? {}
 
-        const type: Constructor = paramTypesHandler[parameterIndex]
 
-        const updateMetadata: ParamsBodyHandler = {
+        const updateMetadata: ParamsHandler<Constructor | string> = {
             ...existingMetadata, [parameterIndex]: {
-                name: type.name,
                 type
             }
         }
 
-        if (Object.values(updateMetadata).length > 1) {
-            throw new Error('Only one @Body() decorator is allowed in the method.')
-        }
-
-        Reflect.defineMetadata('body', updateMetadata, target, methodName)
+        Reflect.defineMetadata('services', updateMetadata, target, methodName)
     }
 }
 
@@ -55,7 +75,7 @@ export function Params(
             throw new Error(`The '${paramName}' parameter should be a Number or a String, but a ${type.name} was provided.`)
         }
 
-        const updateMetadata: ParamsPathHandler = {
+        const updateMetadata: ParamsHandler<ParamTypePath> = {
             ...existingMetadata, [parameterIndex]: {
                 name: paramName,
                 type: options?.type ?? paramTypesHandler[parameterIndex],
@@ -100,15 +120,9 @@ export interface IRequestHandlerConventions {
 }
 
 
-type ParamTypePath = string | number | 'int' | 'float'
+export type ParamTypePath = string | number | 'int' | 'float'
 
-export type ParamTypeHandler = Constructor | ParamTypePath
-
-type ParamsBodyHandler = { [key: string]: { name: string, type: Constructor, required?: boolean } }
-
-type ParamsPathHandler = { [key: string]: { name: string, type: ParamTypePath, required?: boolean } }
-
-type ParamsHandler = { [key: string]: { name: string, type: ParamTypeHandler, required?: boolean } }
+type ParamsHandler<T extends Constructor | ParamTypePath> = { [key: string]: { name: string, type: T, required?: boolean } }
 
 
 function parseNumber(input: string): number | null {
@@ -125,33 +139,135 @@ function parseNumber(input: string): number | null {
     return null
 }
 
+class HandlerBuilder {
 
-class RequestHandlerBuilder {
-    private middlewares: RequestHandler[] = []
-    private readonly paramsHandler: ParamsHandler
-    public readonly requestHandlerConvention: IRequestHandlerConventions;
+    public readonly paramsPathHandler: ParamsHandler<ParamTypePath> =
+        Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
+
+    public readonly paramBodyHandler: ParamsHandler<Constructor> =
+        Reflect.getMetadata('body', this.controllerType, this.controllerMethod.name)
+
+    public readonly paramsServiceHandler: ParamsHandler<Constructor | string> =
+        Reflect.getMetadata('services', this.controllerType, this.controllerMethod.name)
 
     constructor(
         private readonly controllerType: Constructor,
         private readonly controllerMethod: ControllerMethod,
+        private readonly services: interfaces.Container
+    ) {
+    }
+
+    public build(): RequestHandler {
+        return async (req: Request, res: Response, next: NextFunction) => {
+            try {
+                const args = this.buildArgs(req)
+
+                const result = this.controllerMethod.apply(this.controllerType, args)
+                if (result instanceof Promise) {
+                    return res.json(await result)
+                } else {
+                    return res.json(result)
+                }
+            } catch (err: any) {
+                next(err)
+            }
+        }
+    }
+
+    private buildArgs(req: Request): any[] {
+        const {paramsServiceHandler, paramsPathHandler, paramBodyHandler} = this
+
+        return Array
+            .from({length: this.controllerMethod.length}, (_, index) => index)
+            .reduce((args, index) => {
+                const argBody = paramBodyHandler ? paramBodyHandler[index] : undefined
+                const argService = paramsServiceHandler ? paramsServiceHandler[index] : undefined
+                const argPath = paramsPathHandler ? paramsPathHandler[index] : undefined
+
+                if (!_.isEmpty(argService)) {
+                    args[index] = this.services.get(argService?.type)
+                }
+
+                if (!_.isEmpty(argBody)) {
+                    args[index] = plainToInstance(argBody.type, req.body)
+                    const errors = validateSync(args[index])
+
+                    if (errors.length > 0) {
+                        throw new BadRequestObject(
+                            `The provided fields are incorrect`,
+                            errors
+                        )
+                    }
+                    return args
+                }
+
+                if (!_.isEmpty(argPath)) {
+                    if (argPath.type === 'float') {
+                        if (!/^\d+(\.\d+)?$/.test(req.params[argPath.name])) {
+                            throw new BadRequestObject(
+                                `The '${argPath.name}' parameter should be a number, but a ${
+                                    typeof req.params[argPath.name]
+                                } was provided.`,
+                                ['Invalid parameter']
+                            )
+                        }
+                        args[index] = Number.parseFloat(req.params[argPath.name])
+                        return args
+                    }
+
+                    if (argPath.type === 'int') {
+                        if (!/^\d+$/.test(req.params[argPath.name])) {
+                            throw new BadRequestObject(
+                                `The '${argPath.name}' parameter should be a number, but a ${
+                                    typeof req.params[argPath.name]
+                                } was provided.`,
+                                ['Invalid parameter']
+                            )
+                        }
+                        args[index] = Number.parseInt(req.params[argPath.name])
+                        return args
+                    }
+
+                    if (typeof argPath.type === 'function' && argPath.type === Number) {
+                        args[index] = parseNumber(req.params[argPath.name])
+                        if (isNull(args[index])) {
+                            throw new BadRequestObject(
+                                `The '${argPath.name}' parameter should be a number, but a ${
+                                    typeof req.params[argPath.name]
+                                } was provided.`,
+                                ['Invalid parameter']
+                            )
+                        }
+                        return args
+                    }
+
+                    args[index] = req.params[argPath.name]
+                    return args
+                }
+
+                return args
+            }, [] as any[])
+    }
+}
+
+
+class RequestHandlerBuilder {
+    private middlewares: RequestHandler[] = []
+    public readonly requestHandlerConvention: IRequestHandlerConventions;
+
+    constructor(
+        private handlerBuilder: HandlerBuilder,
         private readonly path: string,
         private readonly method: HTTPMethod,
         private readonly prefix: string = '',
+        private readonly services: interfaces.Container,
         private readonly metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
-        const paramsPathHandler: ParamsPathHandler =
-            Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
-
-        const paramBodyHandler: ParamsBodyHandler =
-            Reflect.getMetadata('body', this.controllerType, this.controllerMethod.name)
-
-        this.paramsHandler = {...paramsPathHandler ?? {}, ...paramBodyHandler ?? {}}
-
-        const BodyType = values(paramBodyHandler ?? {}).at(0)?.type
+        const BodyType = values(this.handlerBuilder.paramBodyHandler ?? {}).at(0)?.type
 
         this.requestHandlerConvention = {
             params: {
-                path: values(paramsPathHandler)
+                path: values(this.handlerBuilder.paramsPathHandler)
             },
             method,
             path,
@@ -161,103 +277,17 @@ class RequestHandlerBuilder {
         }
     }
 
-    addMetadata(metadata: object) {
+    withMetadata(metadata: object) {
         this.metadataCollection.push(metadata)
     }
 
-    addMiddleware(middleware: RequestHandler) {
+    withMiddleware(middleware: RequestHandler) {
         this.middlewares.push(middleware)
     }
 
     build(): IRequestHandler {
-        const handler = async (req: Request, res: Response, next: NextFunction) => {
-            try {
-                const args = Array
-                    .from({length: this.controllerMethod.length}, (_, index) => index)
-                    .reduce((args, index) => {
-                        const arg = this.paramsHandler ? this.paramsHandler[index] : undefined
-                        if (!_.isEmpty(arg)) {
-                            if (
-                                !_.isEmpty(req.params)
-                            ) {
-                                if (arg?.type === 'float') {
-                                    if (!/^\d+(\.\d+)?$/.test(req.params[arg.name])) {
-                                        throw new BadRequestObject(
-                                            `The '${arg?.name}' parameter should be a number, but a ${
-                                                typeof req.params[arg.name]
-                                            } was provided.`,
-                                            ['Invalid parameter']
-                                        )
-                                    }
-                                    args[index] = Number.parseFloat(req.params[arg.name])
-                                    return args
-                                }
-
-                                if (arg?.type === 'int') {
-                                    if (!/^\d+$/.test(req.params[arg.name])) {
-                                        throw new BadRequestObject(
-                                            `The '${arg?.name}' parameter should be a number, but a ${
-                                                typeof req.params[arg.name]
-                                            } was provided.`,
-                                            ['Invalid parameter']
-                                        )
-                                    }
-                                    args[index] = Number.parseInt(req.params[arg.name])
-                                    return args
-                                }
-
-                                if (arg.type === Number) {
-                                    args[index] = parseNumber(req.params[arg.name])
-                                    if (isNull(args[index])) {
-                                        throw new BadRequestObject(
-                                            `The '${arg?.name}' parameter should be a number, but a ${
-                                                typeof req.params[arg.name]
-                                            } was provided.`,
-                                            ['Invalid parameter']
-                                        )
-                                    }
-                                    return args
-                                }
-                            }
-
-                            if (
-                                typeof arg?.type === 'function' &&
-                                arg.type !== Number &&
-                                arg.type !== String
-                            ) {
-                                args[index] = plainToInstance(arg.type, req.body)
-                                const errors = validateSync(args[index])
-
-                                if (errors.length > 0) {
-                                    throw new BadRequestObject(
-                                        `The provided fields are incorrect`,
-                                        errors
-                                    )
-                                }
-
-                                return args
-                            }
-
-                            args[index] = req.params[arg.name]
-                        }
-
-                        return args
-                    }, [] as any[])
-
-
-                const result = this.controllerMethod.apply(this.controllerType, args)
-                if (result instanceof Promise) {
-                    return res.json(await result)
-                } else {
-                    return res.json(result)
-                }
-
-            } catch (err: any) {
-                next(err)
-            }
-        }
         return {
-            handler,
+            handler: this.handlerBuilder.build(),
             middlewares: this.middlewares
         }
 
@@ -269,11 +299,16 @@ interface IRouteBuilder {
     buildRouteHandlers: () => IRequestHandlerConventions[]
 }
 
+
+// Je pense que je pourrais refractorer. Supprimer une couche
+// et rajouter une classe abstraite au dessus
+// Utiliser des classes pour centraliser la logique commune à la partie decorator params
 class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
     private requestHandlerBuilders: RequestHandlerBuilder[] = []
 
     constructor(
         private readonly prefix: string = '',
+        private readonly services: interfaces.Container,
         private metadataCollection: MetadataCollection = new MetadataCollection()) {
     }
 
@@ -285,11 +320,11 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
     ): RouteHandlerBuilder {
         this.requestHandlerBuilders.push(
             new RequestHandlerBuilder(
-                controllerType,
-                controllerMethod,
+                new HandlerBuilder(controllerType, controllerMethod, this.services),
                 path,
                 method,
                 this.prefix,
+                this.services,
                 _.cloneDeep(this.metadataCollection)
             )
         )
@@ -297,7 +332,7 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
     }
 
     withMiddleware(middleware: RequestHandler): ISingleRouteBuilder {
-        this.requestHandlerBuilders.at(this.requestHandlerBuilders.length - 1)!.addMiddleware(middleware)
+        this.requestHandlerBuilders.at(this.requestHandlerBuilders.length - 1)!.withMiddleware(middleware)
         return this
     }
 
@@ -321,14 +356,13 @@ class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
         for (let {requestHandlerConvention, handler, middlewares} of requestHandlers) {
             router[requestHandlerConvention.method](requestHandlerConvention.path, ...middlewares, handler)
         }
-
         return router
     }
 
     withMetadata(metadata: object): ISingleRouteBuilder {
         this.requestHandlerBuilders
             .at(this.requestHandlerBuilders.length - 1)!
-            .addMetadata(metadata)
+            .withMetadata(metadata)
 
         return this;
     }
@@ -379,6 +413,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     ): ISingleRouteBuilder {
         this.routeHandleBuilder = this.routeHandleBuilder ?? new RouteHandlerBuilder(
             this.completePrefix,
+            this.services,
             _.cloneDeep(this.metadataCollection)
         )
 
@@ -454,7 +489,8 @@ export interface IRouteMapBuilder {
     extensions: (callback: CallbackRouteMapBuilder) => IRouteMapBuilder
 }
 
-type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
+
+export type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
 
 export type ConfigureServiceCallback = (services: interfaces.Container) => void
 type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
@@ -546,7 +582,7 @@ export class App implements IApp, IRouteMapBuilder {
         controllerType: Constructor,
         controllerMethod: ControllerMethod
     ): ISingleRouteBuilder {
-        const routeHandlerBuilder = new RouteHandlerBuilder()
+        const routeHandlerBuilder = new RouteHandlerBuilder('', this.services)
             .addRequestHandler(
                 controllerType,
                 controllerMethod,
