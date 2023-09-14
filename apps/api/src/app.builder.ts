@@ -12,48 +12,88 @@ export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
 
 
-export function Body(
-    target: Constructor,
-    methodName: string,
-    parameterIndex: number
-) {
-    const existingMetadata: ParamsHandler<Constructor> = Reflect.getMetadata('body', target, methodName) ?? {}
-    const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
+abstract class ParamsHandlerBuilder<T extends Constructor | string | number | 'int' | 'float'> {
+    protected metadata: ParamsHandler<T>
+    private readonly types: any
 
-    const type = paramTypesHandler[parameterIndex]
+    constructor(
+        protected readonly metadataKey: 'body' | 'services' | 'params',
+        protected readonly target: Object,
+        protected readonly methodName: string | symbol
+    ) {
+        this.metadata = Reflect.getMetadata(this.metadataKey, target, methodName) ?? {}
+        this.types = Reflect.getMetadata('design:paramtypes', target, methodName)
+    }
 
-    const updateMetadata: ParamsHandler<Constructor> = {
-        ...existingMetadata, [parameterIndex]: {
-            name: type.name,
-            type
+    add(index: number, option?: {required?: boolean, type?: string | Constructor}) {
+        const type = option?.type ?? this.types[index]
+        this.metadata = {
+            ...this.metadata, [index]: {type, name: type.name, required: option?.required}
         }
+        Reflect.defineMetadata(this.metadataKey, this.metadata, this.target, this.methodName)
     }
 
-    if (values(updateMetadata).length > 1) {
-        throw new Error('Only one @Body() decorator is allowed in the method.')
+    getParam(index: number){
+        return this.metadata[index]
     }
 
-    Reflect.defineMetadata('body', updateMetadata, target, methodName)
+    get values(){
+        return values(this.metadata)
+    }
+}
 
+class ParamsBodyHandler extends ParamsHandlerBuilder<Constructor> {
+    constructor(
+        protected readonly target: Object,
+        protected readonly methodName: string
+    ) {
+        super('body', target, methodName);
+    }
+
+    override add(index: number) {
+        if (this.values.length >= 1) {
+            throw new Error('Only one @Body() decorator is allowed in the method.')
+        }
+        super.add(index);
+    }
 }
 
 
+export function Body(
+    target: Object,
+    methodName: string,
+    parameterIndex: number
+) {
+    const bodyDecorator = new ParamsBodyHandler(target, methodName)
+    bodyDecorator.add(parameterIndex)
+}
+
+
+class ParamsServiceHandler extends ParamsHandlerBuilder<Constructor | string>{
+    constructor(
+        protected readonly target: Object,
+        protected readonly methodName: string | symbol
+    ) {
+        super('services', target, methodName);
+    }
+
+    override add(index: number, option?:{ type?: string | Constructor }) {
+        super.add(index, option);
+    }
+}
+
 export function Service(type: string | Constructor) {
     return (
-        target: Constructor,
-        methodName: string,
+        target: Object,
+        methodName: string | symbol,
         parameterIndex: number
     ) => {
-        const existingMetadata: ParamsHandler<Constructor> = Reflect.getMetadata('services', target, methodName) ?? {}
+        const paramsServiceHandler: ParamsServiceHandler = new ParamsServiceHandler(
+            target,
+            methodName
+        )
 
-
-        const updateMetadata: ParamsHandler<Constructor | string> = {
-            ...existingMetadata, [parameterIndex]: {
-                type
-            }
-        }
-
-        Reflect.defineMetadata('services', updateMetadata, target, methodName)
+        paramsServiceHandler.add(parameterIndex, { type })
     }
 }
 
@@ -67,12 +107,13 @@ export function Params(
         methodName: string,
         parameterIndex: number
     ) => {
-        const existingMetadata = Reflect.getMetadata('params', target, methodName) || {}
+        const existingMetadata: ParamsHandler<ParamTypePath> = Reflect.getMetadata('params', target, methodName) || {}
         const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
+
         const type = paramTypesHandler[parameterIndex]
 
         if (type !== Number && type !== String) {
-            throw new Error(`The '${paramName}' parameter should be a Number or a String, but a ${type.name} was provided.`)
+            throw new Error(`Invalid parameter type for '${paramName}' in method '${methodName}'. The parameter should be a Number or a String, but a ${type.name} was provided.`)
         }
 
         const updateMetadata: ParamsHandler<ParamTypePath> = {
@@ -101,11 +142,6 @@ class MetadataCollection {
     }
 }
 
-interface IRequestHandler {
-    handler: RequestHandler,
-    middlewares: RequestHandler[]
-}
-
 export type ParamsConventions = {
     path: { name: string, type: ParamTypePath, required?: boolean }[]
 }
@@ -122,7 +158,7 @@ export interface IRequestHandlerConventions {
 
 export type ParamTypePath = string | number | 'int' | 'float'
 
-type ParamsHandler<T extends Constructor | ParamTypePath> = { [key: string]: { name: string, type: T, required?: boolean } }
+type ParamsHandler<T extends Constructor | string | number | 'int' | 'float'> = { [key: string]: { name: string, type: T, required?: boolean } }
 
 
 function parseNumber(input: string): number | null {
@@ -144,11 +180,15 @@ class HandlerBuilder {
     public readonly paramsPathHandler: ParamsHandler<ParamTypePath> =
         Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
 
-    public readonly paramBodyHandler: ParamsHandler<Constructor> =
-        Reflect.getMetadata('body', this.controllerType, this.controllerMethod.name)
+    public readonly paramBodyHandler: ParamsBodyHandler = new ParamsBodyHandler(
+        this.controllerType,
+        this.controllerMethod.name
+    )
 
-    public readonly paramsServiceHandler: ParamsHandler<Constructor | string> =
-        Reflect.getMetadata('services', this.controllerType, this.controllerMethod.name)
+    public readonly paramsServiceHandler: ParamsServiceHandler = new ParamsServiceHandler(
+        this.controllerType,
+        this.controllerMethod.name
+    )
 
     constructor(
         private readonly controllerType: Constructor,
@@ -175,13 +215,13 @@ class HandlerBuilder {
     }
 
     private buildArgs(req: Request): any[] {
-        const {paramsServiceHandler, paramsPathHandler, paramBodyHandler} = this
+        const {paramsPathHandler} = this
 
         return Array
             .from({length: this.controllerMethod.length}, (_, index) => index)
             .reduce((args, index) => {
-                const argBody = paramBodyHandler ? paramBodyHandler[index] : undefined
-                const argService = paramsServiceHandler ? paramsServiceHandler[index] : undefined
+                const argBody =  this.paramBodyHandler.getParam(index)
+                const argService = this.paramsServiceHandler.getParam(index)
                 const argPath = paramsPathHandler ? paramsPathHandler[index] : undefined
 
                 if (!_.isEmpty(argService)) {
@@ -251,19 +291,45 @@ class HandlerBuilder {
 }
 
 
-class RequestHandlerBuilder {
-    private middlewares: RequestHandler[] = []
-    public readonly requestHandlerConvention: IRequestHandlerConventions;
+abstract class BaseRouteBuilder {
+    protected middlewares: RequestHandler[] = []
+
+    protected constructor(
+        protected metadataCollection: MetadataCollection
+    ) {
+    }
+
+    withMiddleware(middleware: RequestHandler): this {
+        this.middlewares.push(middleware)
+        return this
+    }
+
+    withMetadata(metadata: object): this {
+        this.metadataCollection.push(metadata)
+        return this;
+    }
+
+
+    abstract buildRouter(): express.Router
+
+    abstract buildRouteHandlers(): IRequestHandlerConventions[]
+}
+
+
+// Utiliser des classes pour centraliser la logique commune à la partie decorator params
+class RouteHandlerBuilder extends BaseRouteBuilder implements ISingleRouteBuilder {
+    public readonly requestHandlerConvention: IRequestHandlerConventions
 
     constructor(
         private handlerBuilder: HandlerBuilder,
-        private readonly path: string,
-        private readonly method: HTTPMethod,
+        private path: string,
+        private method: HTTPMethod,
         private readonly prefix: string = '',
-        private readonly services: interfaces.Container,
-        private readonly metadataCollection: MetadataCollection = new MetadataCollection()
-    ) {
-        const BodyType = values(this.handlerBuilder.paramBodyHandler ?? {}).at(0)?.type
+        protected metadataCollection: MetadataCollection = new MetadataCollection()) {
+
+        super(metadataCollection);
+
+        const BodyType = this.handlerBuilder.paramBodyHandler.values.at(0)?.type
 
         this.requestHandlerConvention = {
             params: {
@@ -277,94 +343,22 @@ class RequestHandlerBuilder {
         }
     }
 
-    withMetadata(metadata: object) {
-        this.metadataCollection.push(metadata)
-    }
-
-    withMiddleware(middleware: RequestHandler) {
-        this.middlewares.push(middleware)
-    }
-
-    build(): IRequestHandler {
-        return {
-            handler: this.handlerBuilder.build(),
-            middlewares: this.middlewares
-        }
-
-    }
-}
-
-interface IRouteBuilder {
-    buildRouter: () => express.Router,
-    buildRouteHandlers: () => IRequestHandlerConventions[]
-}
-
-
-// Je pense que je pourrais refractorer. Supprimer une couche
-// et rajouter une classe abstraite au dessus
-// Utiliser des classes pour centraliser la logique commune à la partie decorator params
-class RouteHandlerBuilder implements ISingleRouteBuilder, IRouteBuilder {
-    private requestHandlerBuilders: RequestHandlerBuilder[] = []
-
-    constructor(
-        private readonly prefix: string = '',
-        private readonly services: interfaces.Container,
-        private metadataCollection: MetadataCollection = new MetadataCollection()) {
-    }
-
-    addRequestHandler(
-        controllerType: Constructor,
-        controllerMethod: ControllerMethod,
-        path: string,
-        method: HTTPMethod,
-    ): RouteHandlerBuilder {
-        this.requestHandlerBuilders.push(
-            new RequestHandlerBuilder(
-                new HandlerBuilder(controllerType, controllerMethod, this.services),
-                path,
-                method,
-                this.prefix,
-                this.services,
-                _.cloneDeep(this.metadataCollection)
-            )
-        )
-        return this
-    }
-
-    withMiddleware(middleware: RequestHandler): ISingleRouteBuilder {
-        this.requestHandlerBuilders.at(this.requestHandlerBuilders.length - 1)!.withMiddleware(middleware)
-        return this
-    }
 
     buildRouteHandlers(): IRequestHandlerConventions[] {
-        return this.requestHandlerBuilders.map(
-            requestHandlerBuilder => (
-                requestHandlerBuilder.requestHandlerConvention
-            )
-        )
-
+        return [this.requestHandlerConvention]
     }
+
 
     buildRouter(): e.Router {
         const router = e.Router()
 
-        const requestHandlers = this.requestHandlerBuilders.map(requestHandlerBuilder => ({
-            ...requestHandlerBuilder.build(),
-            requestHandlerConvention: requestHandlerBuilder.requestHandlerConvention
-        }))
+        router[this.requestHandlerConvention.method](
+            this.requestHandlerConvention.path,
+            ...this.middlewares,
+            this.handlerBuilder.build()
+        )
 
-        for (let {requestHandlerConvention, handler, middlewares} of requestHandlers) {
-            router[requestHandlerConvention.method](requestHandlerConvention.path, ...middlewares, handler)
-        }
         return router
-    }
-
-    withMetadata(metadata: object): ISingleRouteBuilder {
-        this.requestHandlerBuilders
-            .at(this.requestHandlerBuilders.length - 1)!
-            .withMetadata(metadata)
-
-        return this;
     }
 }
 
@@ -382,28 +376,24 @@ interface IGroupedRouteBuilder {
 }
 
 
-class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRouteBuilder {
+class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder {
     public services: interfaces.Container
-    public dataSources: EndpointDataSource[] = []
-    private middlewares: RequestHandler[] = []
-    private routeHandleBuilder?: RouteHandlerBuilder
+    public baseRouteBuilders: BaseRouteBuilder[] = []
+    private routesHandlesBuilders: RouteHandlerBuilder[] = []
     private subgroupsRouteBuilder: { [key: string]: GroupedRouteBuilder } = {}
 
     constructor(
         private prefix: string,
         private routeMapBuilder: IRouteMapBuilder,
         private completePrefix: string = prefix,
-        private metadataCollection: MetadataCollection = new MetadataCollection()
+        protected metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
+        super(
+            metadataCollection
+        );
         this.services = routeMapBuilder.services
     }
 
-    withMiddleware(
-        middleware: RequestHandler
-    ): IGroupedRouteBuilder {
-        this.middlewares.push(middleware);
-        return this
-    }
 
     map(
         path: string,
@@ -411,24 +401,24 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
         controllerType: Constructor,
         controllerMethod: ControllerMethod
     ): ISingleRouteBuilder {
-        this.routeHandleBuilder = this.routeHandleBuilder ?? new RouteHandlerBuilder(
+
+        const routeHandleBuilder = new RouteHandlerBuilder(
+            new HandlerBuilder(controllerType, controllerMethod, this.services),
+            path,
+            method,
             this.completePrefix,
-            this.services,
             _.cloneDeep(this.metadataCollection)
         )
 
-        this.routeHandleBuilder.addRequestHandler(
-            controllerType,
-            controllerMethod,
-            path,
-            method
-        )
-        return this.routeHandleBuilder;
+        this.routesHandlesBuilders.push(routeHandleBuilder)
+
+        return routeHandleBuilder;
     }
 
     mapGroup(
         prefix: string
     ): IGroupedRouteBuilder {
+
         const groupedBuilder = new GroupedRouteBuilder(
             prefix,
             this,
@@ -444,7 +434,11 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
     }
 
     buildRouteHandlers(): IRequestHandlerConventions[] {
-        const requestHandlerConventions = this.routeHandleBuilder?.buildRouteHandlers() ?? []
+
+        const requestHandlerConventions = this.routesHandlesBuilders.reduce((requestHandlerConventions, routeHandlerBuilder) => {
+            requestHandlerConventions = [...requestHandlerConventions, ...routeHandlerBuilder.buildRouteHandlers()]
+            return requestHandlerConventions
+        }, [] as IRequestHandlerConventions[])
 
         const requestHandlerConventionsSubRoute = values(this.subgroupsRouteBuilder)
             .reduce((requestsHandlersConventions, subRoute) => {
@@ -456,7 +450,7 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
 
     buildRouter(): express.Router {
         const router = e.Router()
-        const routerHandler = this.routeHandleBuilder?.buildRouter() ?? []
+        const routerHandler = this.routesHandlesBuilders.map(routeHandlerBuilder => routeHandlerBuilder.buildRouter())
 
         const routers = values(this.subgroupsRouteBuilder)
             .map(subRoute => subRoute.buildRouter())
@@ -470,12 +464,6 @@ class GroupedRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder, IRo
         callback(this)
         return this;
     }
-
-    withMetadata(metadata: object): IGroupedRouteBuilder {
-        this.metadataCollection.push(metadata)
-        return this;
-    }
-
 }
 
 
@@ -485,13 +473,12 @@ export interface IRouteMapBuilder {
     services: interfaces.Container;
     map: (path: string, methode: HTTPMethod, controllerType: Constructor, controllerMethod: ControllerMethod) => ISingleRouteBuilder
     mapGroup: (prefix: string) => IGroupedRouteBuilder;
-    dataSources: EndpointDataSource[];
+    baseRouteBuilders: BaseRouteBuilder[];
     extensions: (callback: CallbackRouteMapBuilder) => IRouteMapBuilder
 }
 
 
 export type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
-
 export type ConfigureServiceCallback = (services: interfaces.Container) => void
 type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
 
@@ -509,27 +496,13 @@ export interface IAppEndpoint {
     handlers: RequestHandlerParams[]
 }
 
-export class EndpointDataSource {
-    constructor(public readonly routeBuilder: IRouteBuilder) {
-    }
-
-    public getRouters(): express.Router {
-        return this.routeBuilder.buildRouter()
-    }
-
-    public getHandlers() {
-        return this.routeBuilder.buildRouteHandlers()
-    }
-
-}
-
 
 type ControllerMethod = (...args: any[]) => any
 
 export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
-    public readonly dataSources: EndpointDataSource[] = []
+    public readonly baseRouteBuilders: BaseRouteBuilder[] = []
     public readonly services: interfaces.Container = App.services
 
     configure(configureServiceCallback: ConfigureServiceCallback): void {
@@ -564,8 +537,8 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     mapEndpoints() {
-        for (const dataSource of this.dataSources) {
-            const router = dataSource.getRouters()
+        for (const baseRouteBuilder of this.baseRouteBuilders) {
+            const router = baseRouteBuilder.buildRouter()
             this.app.use(router)
         }
     }
@@ -582,28 +555,21 @@ export class App implements IApp, IRouteMapBuilder {
         controllerType: Constructor,
         controllerMethod: ControllerMethod
     ): ISingleRouteBuilder {
-        const routeHandlerBuilder = new RouteHandlerBuilder('', this.services)
-            .addRequestHandler(
-                controllerType,
-                controllerMethod,
-                path,
-                method
-            )
-        this.createAndAddDataSource(routeHandlerBuilder);
+        const routeHandlerBuilder = new RouteHandlerBuilder(
+            new HandlerBuilder(controllerType, controllerMethod, this.services),
+            path,
+            method,
+            ''
+        )
+
+        this.baseRouteBuilders.push(routeHandlerBuilder);
         return routeHandlerBuilder
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder {
         const groupedRouteBuilder = new GroupedRouteBuilder(prefix, this)
-        this.createAndAddDataSource(groupedRouteBuilder)
+        this.baseRouteBuilders.push(groupedRouteBuilder)
         return groupedRouteBuilder
-    }
-
-    private createAndAddDataSource(
-        routeBuilder: IRouteBuilder,
-    ): void {
-        const dataSource = new EndpointDataSource(routeBuilder)
-        this.dataSources.push(dataSource)
     }
 
     extensions(callback: CallbackRouteMapBuilder): IRouteMapBuilder {

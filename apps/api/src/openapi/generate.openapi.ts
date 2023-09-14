@@ -27,11 +27,11 @@ export const generateOpenApi = (
     const groupedMetadataTagCollection = new Map<string,MetadataTag>();
     const groupedMetadataSchemaCollection = new Map<string, { name: string, schema: ReferenceObject | SchemaObject }>()
 
-    const requestsHandlersConvention = routeMapBuilder.dataSources.reduce((
+    const requestsHandlersConvention = routeMapBuilder.baseRouteBuilders.reduce((
         requestsHandlersConvention,
-        dataSource
+        basRouteBuilder
     ) => {
-        return [...requestsHandlersConvention, ...dataSource.getHandlers()]
+        return [...requestsHandlersConvention, ...basRouteBuilder.buildRouteHandlers()]
     }, [] as IRequestHandlerConventions[])
 
     for (const {params, fullPath, method, body, metadataCollection} of requestsHandlersConvention) {

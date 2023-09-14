@@ -1,9 +1,10 @@
 // Au niveau des decorateur générer des erreurs pour guider le développement serai une bonne option
 // Ou créer des décorateur plus spécialisé
 // ORM: https://github.com/mikro-orm/guide
+// Il y a des choses intéréssantes à utiliser dans mon code: https://fettblog.eu/advanced-typescript-guide/
 
 
-import {App, Body, Params} from "./app.builder";
+import {App, Body, Params, Service} from "./app.builder";
 import express from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
@@ -30,7 +31,8 @@ import {MetadataProduce} from "./openapi/metadata/metadataProduce";
 import {StatutCodes} from "./http/StatutCodes";
 import {IsInt, IsNotEmpty, IsString} from "class-validator";
 import {OpenapiProp} from "./openapi/decorators/openapi.prop";
-import {OpenApiBadRequestObject} from "./http/errors/BadRequest"; // Ne pas le mettre dans http (pas créer de dépendance)
+import {OpenApiBadRequestObject} from "./http/errors/BadRequest";
+import {AuthService} from "./auth/auth.service"; // Ne pas le mettre dans http (pas créer de dépendance)
 
 
 // Créer peut être une metadata pour gérer les autorisations / authentifications ? Cela me semble pas mal
@@ -38,19 +40,18 @@ import {OpenApiBadRequestObject} from "./http/errors/BadRequest"; // Ne pas le m
 // Avoir un comportement commun pour tout les middlewares
 
 
-
 class UserRequest {
 
     @IsInt()
     @IsNotEmpty()
-    @OpenapiProp('number', { required: true }) // Générer des erreur pour minLength. Le type doit
-                                                            // être de type string ?
+    @OpenapiProp('number', {required: true}) // Générer des erreur pour minLength. Le type doit
+        // être de type string ?
     oui!: number
 
 
     @IsNotEmpty()
     @IsString()
-    @OpenapiProp('string', { required: true })
+    @OpenapiProp('string', {required: true})
     non!: string
 }
 
@@ -77,11 +78,13 @@ class UserController {
             type: 'int'
         }) id: number,
         @Body userRequest: UserRequest,
+        @Service(AuthService) authService: AuthService
     ): { oui: boolean } {
+        console.log(userRequest)
+        console.log(authService)
         return {oui: true}
     }
 }
-
 
 
 /**
@@ -99,6 +102,9 @@ app.configure(configureOpenApi({
     }
 }))
 
+app.configure(services => {
+    services.bind(AuthService).toSelf()
+})
 
 // Récupérer ce qu'il y a dans authModule
 
@@ -143,144 +149,146 @@ app
                     )
                 )
 
-          //  const authGroup = routeMapBuilder
-          //      .mapGroup('/auth')
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('"auth" préfix')
-          //          next()
-          //      })
-          //      .withMetadata(
-          //          new MetadataTag(
-          //              'Auth',
-          //              'Description de Auth'
-          //          )
-          //      )
+            const authGroup = routeMapBuilder
+                .mapGroup('/auth')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth" préfix')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataTag(
+                        'Auth',
+                        'Description de Auth'
+                    )
+                )
 
-          //  authGroup
-          //      .map('/oui/:id', 'get', UserController, UserController.findOne)
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('oui oui je suis un middleware')
-          //          next()
-          //      })
-          //      .withMetadata(
-          //          new MetadataProduce(
-          //              AuthOuiResponse,
-          //              StatutCodes.Status200OK
-          //          )
-          //      )
+            authGroup
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
-          //  authGroup
-          //      .map('/oui/:id', 'post', UserController, UserController.postUser)
-          //      .withMetadata(
-          //          new MetadataProduce(
-          //              AuthOuiResponse,
-          //              StatutCodes.Status200OK
-          //          )
-          //      ).withMetadata(
-          //          new MetadataProduce(
-          //              OpenApiBadRequestObject,
-          //              StatutCodes.Status400BadRequest
-          //          )
-          //      )
+            authGroup
+                .map('/oui/:id', 'post', UserController, UserController.postUser)
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                ).withMetadata(
+                new MetadataProduce(
+                    OpenApiBadRequestObject,
+                    StatutCodes.Status400BadRequest
+                )
+            )
 
-          //  authGroup
-          //      .map('/oui', 'get', UserController, UserController.findOne)
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('oui oui je suis un middleware')
-          //          next()
-          //      })
-          //      .withMetadata(
-          //          new MetadataProduce(
-          //              AuthOuiResponse,
-          //              StatutCodes.Status200OK
-          //          )
-          //      )
+            authGroup
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
 
-          //  const authOuiGroup = authGroup
-          //      .mapGroup('/ouiN')
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('"auth/ouiN" prefix')
-          //          next()
-          //      })
+            const authOuiGroup = authGroup
+                .mapGroup('/ouiN')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/ouiN" prefix')
+                    next()
+                }).withMetadata(
+                    new MetadataTag('AuthOui', 'AuthOui description')
+                )
 
-          //  const authNonGroup = authGroup
-          //      .mapGroup('/nonN')
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('"auth/nonN" prefix')
-          //          next()
-          //      }).withMetadata(
-          //          new MetadataTag(
-          //              'AuthNon',
-          //              'AuthNon description'
-          //          )
-          //      )
+            const authNonGroup = authGroup
+                .mapGroup('/nonN')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/nonN" prefix')
+                    next()
+                }).withMetadata(
+                    new MetadataTag(
+                        'AuthNon',
+                        'AuthNon description'
+                    )
+                )
 
-          //  const jajaGroup = routeMapBuilder
-          //      .mapGroup('/jaja')
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('"auth/nonN/jaja" prefix')
-          //          next()
-          //      })
-          //      .withMetadata(
-          //          new MetadataTag(
-          //              'Jaja',
-          //              'une petite description jaja'
-          //          )
-          //      )
+            const jajaGroup = routeMapBuilder
+                .mapGroup('/jaja')
+                .withMiddleware((req, res, next) => {
+                    console.log('"auth/nonN/jaja" prefix')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataTag(
+                        'Jaja',
+                        'une petite description jaja'
+                    )
+                )
 
-          //  jajaGroup
-          //      .map('/oui', 'get', UserController, UserController.findOne)
-          //      .withMetadata(
-          //          new MetadataTag(
-          //              'Arg',
-          //              "Une description d'arg "
-          //          ))
-          //      .withMetadata(
-          //          new MetadataProduce(
-          //              AuthOuiResponse,
-          //              StatutCodes.Status200OK
-          //          )
-          //      )
+            jajaGroup
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMetadata(
+                    new MetadataTag(
+                        'Arg',
+                        "Une description d'arg "
+                    ))
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
-          //  authNonGroup
-          //      .map('/oui', 'get', UserController, UserController.findOne)
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('oui oui je suis un middleware')
-          //          next()
-          //      })
-          //      .withMetadata(
-          //          new MetadataProduce(
-          //              AuthOuiResponse,
-          //              StatutCodes.Status200OK
-          //          )
-          //      )
+            authNonGroup
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
-          //  authNonGroup
-          //      .map('/non', 'get', UserController, UserController.findOne)
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('oui oui je suis un middleware')
-          //          next()
-          //      })
-          //      .withMetadata(
-          //          new MetadataProduce(
-          //              AuthOuiResponse,
-          //              StatutCodes.Status200OK
-          //          )
-          //      )
+            authNonGroup
+                .map('/non/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
-          //  authOuiGroup
-          //      .map('/oui', 'get', UserController, UserController.findOne)
-          //      .withMiddleware((req, res, next) => {
-          //          console.log('oui oui je suis un middleware')
-          //          next()
-          //      })
-          //      .withMetadata(
-          //          new MetadataProduce(
-          //              AuthOuiResponse,
-          //              StatutCodes.Status200OK
-          //          )
-          //      )
+            authOuiGroup
+                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    console.log('oui oui je suis un middleware')
+                    next()
+                })
+                .withMetadata(
+                    new MetadataProduce(
+                        AuthOuiResponse,
+                        StatutCodes.Status200OK
+                    )
+                )
 
             return routeMapBuilder
         }
