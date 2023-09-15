@@ -14,7 +14,9 @@ type Constructor = new (...args: any[]) => {};
 
 abstract class ParamsDecorator<T extends Constructor | string | number | 'int' | 'float'> {
     protected metadata: ParamsHandler<T>
-    private readonly types: any[]
+
+    // A typer
+    protected readonly types: any[]
 
     protected constructor(
         protected readonly metadataKey: 'params.body' | 'params.services' | 'params.path',
@@ -35,12 +37,9 @@ abstract class ParamsDecorator<T extends Constructor | string | number | 'int' |
         Reflect.defineMetadata(this.metadataKey, this.metadata, this.target, this.methodName)
     }
 
+
     getParam(index: number) {
         return this.metadata[index]
-    }
-
-    getType(index: number){
-        return this.types[index]
     }
 
     get values() {
@@ -83,12 +82,12 @@ class ParamsServiceDecorator extends ParamsDecorator<Constructor | string> {
         super('params.services', target, methodName);
     }
 
-    override add(index: number, option?: { type?: string | Constructor }) {
+    override add(index: number, option?: { type?: string }) {
         super.add(index, option);
     }
 }
 
-export function Service(type: string | Constructor) {
+export function Service(type?: string) {
     return (
         target: Object,
         methodName: string | symbol,
@@ -112,11 +111,11 @@ class ParamsPathDecorator extends ParamsDecorator<string | number | 'int' | 'flo
     }
 
     add(index: number, option: { name: string, type?: 'int' | 'float' }) {
-        const type = this.getType(index)
+        const type = this.types[index]
 
         if (type !== Number && type !== String) {
-             throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as String}'. The parameter should be a Number or a String, but a ${type.name} was provided.`)
-         }
+            throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as string}'. The parameter should be a Number or a String, but a ${type.name} was provided.`)
+        }
 
         super.add(index, option);
     }
@@ -133,7 +132,7 @@ export function Params(
         parameterIndex: number
     ) => {
         const paramsPath = new ParamsPathDecorator(target, methodName)
-        paramsPath.add(parameterIndex, { name: paramName, type: options?.type })
+        paramsPath.add(parameterIndex, {name: paramName, type: options?.type})
     }
 }
 
@@ -152,21 +151,16 @@ class MetadataCollection {
     }
 }
 
-export type ParamsConventions = {
-    path: { name: string, type: ParamTypePath, required?: boolean }[]
-}
-
 export interface IRequestHandlerConventions {
-    params: ParamsConventions,
+    params: {
+        path: { name: string, type: string | number | 'int' | 'float', required?: boolean }[]
+    },
     body?: Constructor,
     path: string,
     method: HTTPMethod,
     fullPath: string,
     metadataCollection: MetadataCollection
 }
-
-
-export type ParamTypePath = string | number | 'int' | 'float'
 
 type ParamsHandler<T extends Constructor | string | number | 'int' | 'float'> = { [key: string]: { name: string, type: T, required?: boolean } }
 
@@ -230,16 +224,16 @@ class HandlerBuilder {
         return Array
             .from({length: this.controllerMethod.length}, (_, index) => index)
             .reduce((args, index) => {
-                const argBody = this.paramBody.getParam(index)
-                const argService = this.paramsService.getParam(index)
-                const argPath = this.paramsPath.getParam(index)
+                const requestBodyParameter = this.paramBody.getParam(index)
+                const requestServiceParameter = this.paramsService.getParam(index)
+                const requestPathParameter = this.paramsPath.getParam(index)
 
-                if (!_.isEmpty(argService)) {
-                    args[index] = this.services.get(argService?.type)
+                if (!_.isEmpty(requestServiceParameter)) {
+                    args[index] = this.services.get(requestServiceParameter?.type)
                 }
 
-                if (!_.isEmpty(argBody)) {
-                    args[index] = plainToInstance(argBody.type, req.body)
+                if (!_.isEmpty(requestBodyParameter)) {
+                    args[index] = plainToInstance(requestBodyParameter.type, req.body)
                     const errors = validateSync(args[index])
 
                     if (errors.length > 0) {
@@ -251,39 +245,39 @@ class HandlerBuilder {
                     return args
                 }
 
-                if (!_.isEmpty(argPath)) {
-                    if (argPath.type === 'float') {
-                        if (!/^\d+(\.\d+)?$/.test(req.params[argPath.name])) {
+                if (!_.isEmpty(requestPathParameter)) {
+                    if (requestPathParameter.type === 'float') {
+                        if (!/^\d+(\.\d+)?$/.test(req.params[requestPathParameter.name])) {
                             throw new BadRequestObject(
-                                `The '${argPath.name}' parameter should be a number, but a ${
-                                    typeof req.params[argPath.name]
+                                `The '${requestPathParameter.name}' parameter should be a number, but a ${
+                                    typeof req.params[requestPathParameter.name]
                                 } was provided.`,
                                 ['Invalid parameter']
                             )
                         }
-                        args[index] = Number.parseFloat(req.params[argPath.name])
+                        args[index] = Number.parseFloat(req.params[requestPathParameter.name])
                         return args
                     }
 
-                    if (argPath.type === 'int') {
-                        if (!/^\d+$/.test(req.params[argPath.name])) {
+                    if (requestPathParameter.type === 'int') {
+                        if (!/^\d+$/.test(req.params[requestPathParameter.name])) {
                             throw new BadRequestObject(
-                                `The '${argPath.name}' parameter should be a number, but a ${
-                                    typeof req.params[argPath.name]
+                                `The '${requestPathParameter.name}' parameter should be a number, but a ${
+                                    typeof req.params[requestPathParameter.name]
                                 } was provided.`,
                                 ['Invalid parameter']
                             )
                         }
-                        args[index] = Number.parseInt(req.params[argPath.name])
+                        args[index] = Number.parseInt(req.params[requestPathParameter.name])
                         return args
                     }
 
-                    if (typeof argPath.type === 'function' && argPath.type === Number) {
-                        args[index] = parseNumber(req.params[argPath.name])
+                    if (typeof requestPathParameter.type === 'function' && requestPathParameter.type === Number) {
+                        args[index] = parseNumber(req.params[requestPathParameter.name])
                         if (isNull(args[index])) {
                             throw new BadRequestObject(
-                                `The '${argPath.name}' parameter should be a number, but a ${
-                                    typeof req.params[argPath.name]
+                                `The '${requestPathParameter.name}' parameter should be a number, but a ${
+                                    typeof req.params[requestPathParameter.name]
                                 } was provided.`,
                                 ['Invalid parameter']
                             )
@@ -291,7 +285,7 @@ class HandlerBuilder {
                         return args
                     }
 
-                    args[index] = req.params[argPath.name]
+                    args[index] = req.params[requestPathParameter.name]
                     return args
                 }
 
@@ -337,6 +331,10 @@ class RouteHandlerBuilder extends BaseRouteBuilder implements ISingleRouteBuilde
         protected metadataCollection: MetadataCollection = new MetadataCollection()) {
 
         super(metadataCollection);
+
+        if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(path)) {
+            throw new Error(`Invalid route format for '${path}'. Please use '/{string}/...' format.`)
+        }
 
         const BodyType = this.handlerBuilder.paramBody.values.at(0)?.type
 
@@ -400,6 +398,11 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
         super(
             metadataCollection
         );
+
+        if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(prefix)) {
+            throw new Error(`Invalid prefix format for '${prefix}'. Please use '/{string}/...' format.`)
+        }
+
         this.services = routeMapBuilder.services
     }
 
@@ -508,11 +511,19 @@ export interface IAppEndpoint {
 
 type ControllerMethod = (...args: any[]) => any
 
+type ConfigApp = { port?: string }
+
 export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
     public readonly baseRouteBuilders: BaseRouteBuilder[] = []
     public readonly services: interfaces.Container = App.services
+
+    private readonly config: ConfigApp
+
+    constructor(config: ConfigApp) {
+        this.config = config
+    }
 
     configure(configureServiceCallback: ConfigureServiceCallback): void {
         configureServiceCallback(this.services)
@@ -523,8 +534,8 @@ export class App implements IApp, IRouteMapBuilder {
         return this
     }
 
-    public static createApp(): IApp {
-        return new App()
+    public static createApp(config: ConfigApp): IApp {
+        return new App(config)
     }
 
     addEndpoint(callbackEndpointBuilder: RouteMapBuilderCallBack): IRouteMapBuilder {
@@ -553,8 +564,8 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     run(): void {
-        this.app.listen(process.env.PORT, () => {
-            console.log(`Server started on port: http://localhost:${process.env.PORT}/docs`)
+        this.app.listen(this.config.port ?? 8000, () => {
+            console.log(`Server started on port: http://localhost:${this.config.port ?? 8000}/docs`)
         })
     }
 

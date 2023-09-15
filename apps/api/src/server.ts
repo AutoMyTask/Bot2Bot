@@ -38,7 +38,6 @@ import {AuthService} from "./auth/auth.service"; // Ne pas le mettre dans http (
 // Créer peut être une metadata pour gérer les autorisations / authentifications ? Cela me semble pas mal
 
 // Avoir un comportement commun pour tous les middlewares
-
 class UserRequest {
 
     @IsInt()
@@ -61,14 +60,11 @@ class AuthOuiResponse {
 
 
 class UserController {
-    // Gérer l'injection de dépendance directement dans les propriétés de la
-    // fonction (et oui c'est putin de beau)
     public static findOne(
         @Params('id', {
             type: 'float'
         }) id: number
     ): AuthOuiResponse {
-        // throw createHttpError.BadRequest('eeee')
         return {oui: false}
     }
 
@@ -77,7 +73,7 @@ class UserController {
             type: 'int'
         }) id: number,
         @Body userRequest: UserRequest,
-        @Service(AuthService) authService: AuthService
+        @Service() authService: AuthService
     ): { oui: boolean } {
         console.log(id)
         console.log(userRequest)
@@ -90,7 +86,7 @@ class UserController {
 /**
  * MODULE API CORE
  */
-const app = App.createApp()
+const app = App.createApp({ port: process.env.PORT })
 app.configure(configureOpenApi({
     title: 'Mon API',
     version: '1.0.0',
@@ -106,7 +102,6 @@ app.configure(services => {
     services.bind(AuthService).toSelf()
 })
 
-// Récupérer ce qu'il y a dans authModule
 
 
 // Donner la possiblité de donner un handler express ou construire le handler
