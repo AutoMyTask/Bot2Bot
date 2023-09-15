@@ -12,12 +12,12 @@ export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
 
 
-abstract class ParamsHandlerBuilder<T extends Constructor | string | number | 'int' | 'float'> {
+abstract class ParamsDecorator<T extends Constructor | string | number | 'int' | 'float'> {
     protected metadata: ParamsHandler<T>
-    private readonly types: any
+    private readonly types: any[]
 
-    constructor(
-        protected readonly metadataKey: 'body' | 'services' | 'params',
+    protected constructor(
+        protected readonly metadataKey: 'params.body' | 'params.services' | 'params.path',
         protected readonly target: Object,
         protected readonly methodName: string | symbol
     ) {
@@ -25,29 +25,35 @@ abstract class ParamsHandlerBuilder<T extends Constructor | string | number | 'i
         this.types = Reflect.getMetadata('design:paramtypes', target, methodName)
     }
 
-    add(index: number, option?: {required?: boolean, type?: string | Constructor}) {
+    add(index: number, option?: { required?: boolean, type?: T, name?: string }) {
         const type = option?.type ?? this.types[index]
+        const name = option?.name ?? type.name
         this.metadata = {
-            ...this.metadata, [index]: {type, name: type.name, required: option?.required}
+            ...this.metadata, [index]: {type, name, required: option?.required}
         }
+        // J'hésite à créer une méthode flush pour la persistance
         Reflect.defineMetadata(this.metadataKey, this.metadata, this.target, this.methodName)
     }
 
-    getParam(index: number){
+    getParam(index: number) {
         return this.metadata[index]
     }
 
-    get values(){
+    getType(index: number){
+        return this.types[index]
+    }
+
+    get values() {
         return values(this.metadata)
     }
 }
 
-class ParamsBodyHandler extends ParamsHandlerBuilder<Constructor> {
+class ParamsBodyDecorator extends ParamsDecorator<Constructor> {
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string
     ) {
-        super('body', target, methodName);
+        super('params.body', target, methodName);
     }
 
     override add(index: number) {
@@ -64,20 +70,20 @@ export function Body(
     methodName: string,
     parameterIndex: number
 ) {
-    const bodyDecorator = new ParamsBodyHandler(target, methodName)
+    const bodyDecorator = new ParamsBodyDecorator(target, methodName)
     bodyDecorator.add(parameterIndex)
 }
 
 
-class ParamsServiceHandler extends ParamsHandlerBuilder<Constructor | string>{
+class ParamsServiceDecorator extends ParamsDecorator<Constructor | string> {
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string | symbol
     ) {
-        super('services', target, methodName);
+        super('params.services', target, methodName);
     }
 
-    override add(index: number, option?:{ type?: string | Constructor }) {
+    override add(index: number, option?: { type?: string | Constructor }) {
         super.add(index, option);
     }
 }
@@ -88,12 +94,31 @@ export function Service(type: string | Constructor) {
         methodName: string | symbol,
         parameterIndex: number
     ) => {
-        const paramsServiceHandler: ParamsServiceHandler = new ParamsServiceHandler(
+        const paramsServiceHandler: ParamsServiceDecorator = new ParamsServiceDecorator(
             target,
             methodName
         )
 
-        paramsServiceHandler.add(parameterIndex, { type })
+        paramsServiceHandler.add(parameterIndex, {type})
+    }
+}
+
+class ParamsPathDecorator extends ParamsDecorator<string | number | 'int' | 'float'> {
+    constructor(
+        protected readonly target: Object,
+        protected readonly methodName: string | symbol
+    ) {
+        super('params.path', target, methodName);
+    }
+
+    add(index: number, option: { name: string, type?: 'int' | 'float' }) {
+        const type = this.getType(index)
+
+        if (type !== Number && type !== String) {
+             throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as String}'. The parameter should be a Number or a String, but a ${type.name} was provided.`)
+         }
+
+        super.add(index, option);
     }
 }
 
@@ -103,27 +128,12 @@ export function Params(
     options?: { type?: 'int' | 'float' }
 ) {
     return (
-        target: Constructor,
+        target: Object,
         methodName: string,
         parameterIndex: number
     ) => {
-        const existingMetadata: ParamsHandler<ParamTypePath> = Reflect.getMetadata('params', target, methodName) || {}
-        const paramTypesHandler = Reflect.getMetadata('design:paramtypes', target, methodName);
-
-        const type = paramTypesHandler[parameterIndex]
-
-        if (type !== Number && type !== String) {
-            throw new Error(`Invalid parameter type for '${paramName}' in method '${methodName}'. The parameter should be a Number or a String, but a ${type.name} was provided.`)
-        }
-
-        const updateMetadata: ParamsHandler<ParamTypePath> = {
-            ...existingMetadata, [parameterIndex]: {
-                name: paramName,
-                type: options?.type ?? paramTypesHandler[parameterIndex],
-                required: true
-            }
-        }
-        Reflect.defineMetadata('params', updateMetadata, target, methodName);
+        const paramsPath = new ParamsPathDecorator(target, methodName)
+        paramsPath.add(parameterIndex, { name: paramName, type: options?.type })
     }
 }
 
@@ -177,15 +187,17 @@ function parseNumber(input: string): number | null {
 
 class HandlerBuilder {
 
-    public readonly paramsPathHandler: ParamsHandler<ParamTypePath> =
-        Reflect.getMetadata('params', this.controllerType, this.controllerMethod.name)
-
-    public readonly paramBodyHandler: ParamsBodyHandler = new ParamsBodyHandler(
+    public readonly paramsPath: ParamsPathDecorator = new ParamsPathDecorator(
         this.controllerType,
         this.controllerMethod.name
     )
 
-    public readonly paramsServiceHandler: ParamsServiceHandler = new ParamsServiceHandler(
+    public readonly paramBody: ParamsBodyDecorator = new ParamsBodyDecorator(
+        this.controllerType,
+        this.controllerMethod.name
+    )
+
+    public readonly paramsService: ParamsServiceDecorator = new ParamsServiceDecorator(
         this.controllerType,
         this.controllerMethod.name
     )
@@ -215,14 +227,12 @@ class HandlerBuilder {
     }
 
     private buildArgs(req: Request): any[] {
-        const {paramsPathHandler} = this
-
         return Array
             .from({length: this.controllerMethod.length}, (_, index) => index)
             .reduce((args, index) => {
-                const argBody =  this.paramBodyHandler.getParam(index)
-                const argService = this.paramsServiceHandler.getParam(index)
-                const argPath = paramsPathHandler ? paramsPathHandler[index] : undefined
+                const argBody = this.paramBody.getParam(index)
+                const argService = this.paramsService.getParam(index)
+                const argPath = this.paramsPath.getParam(index)
 
                 if (!_.isEmpty(argService)) {
                     args[index] = this.services.get(argService?.type)
@@ -316,7 +326,6 @@ abstract class BaseRouteBuilder {
 }
 
 
-// Utiliser des classes pour centraliser la logique commune à la partie decorator params
 class RouteHandlerBuilder extends BaseRouteBuilder implements ISingleRouteBuilder {
     public readonly requestHandlerConvention: IRequestHandlerConventions
 
@@ -329,11 +338,11 @@ class RouteHandlerBuilder extends BaseRouteBuilder implements ISingleRouteBuilde
 
         super(metadataCollection);
 
-        const BodyType = this.handlerBuilder.paramBodyHandler.values.at(0)?.type
+        const BodyType = this.handlerBuilder.paramBody.values.at(0)?.type
 
         this.requestHandlerConvention = {
             params: {
-                path: values(this.handlerBuilder.paramsPathHandler)
+                path: this.handlerBuilder.paramsPath.values
             },
             method,
             path,

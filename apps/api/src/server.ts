@@ -37,8 +37,7 @@ import {AuthService} from "./auth/auth.service"; // Ne pas le mettre dans http (
 
 // Créer peut être une metadata pour gérer les autorisations / authentifications ? Cela me semble pas mal
 
-// Avoir un comportement commun pour tout les middlewares
-
+// Avoir un comportement commun pour tous les middlewares
 
 class UserRequest {
 
@@ -80,6 +79,7 @@ class UserController {
         @Body userRequest: UserRequest,
         @Service(AuthService) authService: AuthService
     ): { oui: boolean } {
+        console.log(id)
         console.log(userRequest)
         console.log(authService)
         return {oui: true}
