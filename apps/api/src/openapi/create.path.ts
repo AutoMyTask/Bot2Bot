@@ -4,6 +4,8 @@ import {MetadataTag} from "./metadata/metadataTag";
 import {Schema} from "./metadata/metadataProduce";
 import {createResponsesObject} from "./create.responsesObject";
 import {entries} from "lodash";
+import {AuthMetadata} from "./metadata/authMetadata";
+import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
 
 type Constructor = new (...args: any[]) => {};
 
@@ -26,9 +28,13 @@ export const createPathItem = (
     method: HTTPMethod,
     metadataTags: MetadataTag[],
     metadataProduces: Schema[],
+    authsMetadata: AuthMetadata[],
     body?: Constructor,): PathItemObject => {
     const responses = createResponsesObject(metadataProduces)
     const tags = metadataTags.map(metadataTag => metadataTag.name)
+    const security: SecurityRequirementObject[] = authsMetadata.flatMap(
+        authsMetadata => authsMetadata.securitySchema
+    )
 
     let parameters: ParameterObject[] = []
     entries(params).forEach(([key, params]) => {
@@ -54,7 +60,8 @@ export const createPathItem = (
             parameters,
             requestBody,
             tags,
-            responses
+            responses,
+            security
         }
     }
 }

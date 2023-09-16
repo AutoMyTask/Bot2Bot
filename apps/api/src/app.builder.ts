@@ -124,7 +124,7 @@ class ParamsPathDecorator extends ParamsDecorator<string | number | 'int' | 'flo
 
 export function Params(
     paramName: string,
-    options?: { type?: 'int' | 'float' }
+    type?: 'int' | 'float'
 ) {
     return (
         target: Object,
@@ -132,7 +132,7 @@ export function Params(
         parameterIndex: number
     ) => {
         const paramsPath = new ParamsPathDecorator(target, methodName)
-        paramsPath.add(parameterIndex, {name: paramName, type: options?.type})
+        paramsPath.add(parameterIndex, {name: paramName, type})
     }
 }
 
@@ -495,7 +495,7 @@ export type ConfigureServiceCallback = (services: interfaces.Container) => void
 type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
 
 interface IApp {
-    addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
+    addMiddleware: (...callbacks: RequestHandler[] | RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => IRouteMapBuilder;
     addAppEndpoint: (routeAppHandler: IAppEndpoint | ConfigureAppEndpointCallback) => IApp
     run: () => void;
@@ -505,7 +505,7 @@ interface IApp {
 
 export interface IAppEndpoint {
     route: string,
-    handlers: RequestHandlerParams[]
+    handlers: RequestHandler[] | RequestHandlerParams[]
 }
 
 

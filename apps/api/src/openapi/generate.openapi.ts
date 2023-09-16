@@ -9,6 +9,7 @@ import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
+import {AuthMetadata} from "./metadata/authMetadata";
 
 /**
  * MODULE OPENAPI
@@ -38,7 +39,7 @@ export const generateOpenApi = (
         const metadataTags = metadataCollection.getAllMetadataAttributes(MetadataTag)
         const metadataProduces = metadataCollection.getAllMetadataAttributes(MetadataProduce)
             .map(metadata => metadata.schemas.flat() ).flat()
-
+        const authsMetadata = metadataCollection.getAllMetadataAttributes(AuthMetadata)
 
         for (let {type, schema} of metadataProduces) {
             if (!groupedMetadataSchemaCollection.has(type.name)){
@@ -51,7 +52,7 @@ export const generateOpenApi = (
             }
         }
 
-        const pathItem = createPathItem(params, method, metadataTags, metadataProduces, body)
+        const pathItem = createPathItem(params, method, metadataTags, metadataProduces, authsMetadata, body)
         const path = fullPath.replace(/:([^}]*)/g, '{$1}')
         openApiBuilder.addPath(path, pathItem)
 
