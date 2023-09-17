@@ -349,7 +349,7 @@ class AuthentificationBuilder {
     }
 }
 
-class RouteHandlerBuilder extends BaseRouteBuilder implements ISingleRouteBuilder {
+class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder {
     public readonly requestHandlerConvention: IRequestHandlerConventions
 
     constructor(
@@ -423,7 +423,7 @@ interface IGroupedRouteBuilder {
 class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder {
     public services: interfaces.Container
     public baseRouteBuilders: BaseRouteBuilder[] = []
-    private routesHandlesBuilders: RouteHandlerBuilder[] = []
+    private singleRoutesBuilders: SingleRouteBuilder[] = []
     private subgroupsRouteBuilder: GroupedRouteBuilder[] = []
 
     constructor(
@@ -454,7 +454,7 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
             authentificationBuilder = this.services.get(AuthentificationBuilder)
         }
 
-        const routeHandleBuilder = new RouteHandlerBuilder(
+        const singleRouteBuilder = new SingleRouteBuilder(
             new RequestHandlerBuilder(controllerType, controllerMethod, this.services),
             path,
             method,
@@ -463,9 +463,9 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
             authentificationBuilder
         )
 
-        this.routesHandlesBuilders.push(routeHandleBuilder)
+        this.singleRoutesBuilders.push(singleRouteBuilder)
 
-        return routeHandleBuilder;
+        return singleRouteBuilder;
     }
 
     mapGroup(
@@ -486,7 +486,7 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
 
     buildRouteHandlers(): IRequestHandlerConventions[] {
 
-        const requestHandlerConventions = this.routesHandlesBuilders.reduce((requestHandlerConventions, routeHandlerBuilder) => {
+        const requestHandlerConventions = this.singleRoutesBuilders.reduce((requestHandlerConventions, routeHandlerBuilder) => {
             requestHandlerConventions = [...requestHandlerConventions, ...routeHandlerBuilder.buildRouteHandlers()]
             return requestHandlerConventions
         }, [] as IRequestHandlerConventions[])
@@ -501,13 +501,13 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
 
     buildRouter(): express.Router {
         const router = e.Router()
-        const routerHandler = this.routesHandlesBuilders.map(
-            routeHandlerBuilder => routeHandlerBuilder.buildRouter()
+        const singleRouters = this.singleRoutesBuilders.map(
+            singleRouteBuilder => singleRouteBuilder.buildRouter()
         )
 
-        const routers = this.subgroupsRouteBuilder.map(subRoute => subRoute.buildRouter())
+        const subgroupRouters = this.subgroupsRouteBuilder.map(subRoute => subRoute.buildRouter())
 
-        router.use(this.prefix, this.middlewares, routerHandler, routers)
+        router.use(this.prefix, this.middlewares, singleRouters, subgroupRouters)
 
         return router
     }
@@ -549,6 +549,8 @@ export interface IAppEndpoint {
     route: string,
     handlers: RequestHandler[] | RequestHandlerParams[]
 }
+
+
 
 
 type ControllerMethod = (...args: any[]) => any
@@ -635,7 +637,7 @@ export class App implements IApp, IRouteMapBuilder {
             authentificationBuilder = this.services.get(AuthentificationBuilder)
         }
 
-        const routeHandlerBuilder = new RouteHandlerBuilder(
+        const singleRouteBuilder = new SingleRouteBuilder(
             new RequestHandlerBuilder(controllerType, controllerMethod, this.services),
             path,
             method,
@@ -644,8 +646,8 @@ export class App implements IApp, IRouteMapBuilder {
             authentificationBuilder
         )
 
-        this.baseRouteBuilders.push(routeHandlerBuilder);
-        return routeHandlerBuilder
+        this.baseRouteBuilders.push(singleRouteBuilder);
+        return singleRouteBuilder
     }
 
     mapGroup(prefix: string): IGroupedRouteBuilder {

@@ -12,6 +12,6 @@ export const createRequestBody = (schema: Constructor): RequestBodyObject | Refe
                     $ref: `#/components/schemas/${schema.name}`
                 }
             }
-        },
-    }
+        }
+    } as RequestBodyObject | ReferenceObject
 }

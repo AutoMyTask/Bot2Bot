@@ -58,7 +58,7 @@ class UserRequest {
     @IsInt()
     @IsNotEmpty()
     @OpenapiProp('number', {required: true}) // Générer des erreur pour minLength. Le type doit être de type string ?
-    oui!: number /// Pour le type number, faire en sorte de ne pas le rendre obligatoire le passage de paramétre.
+    oui!: number /// Pour le type number, faire en sorte de ne pas  rendre obligatoire le passage de paramétre.
                 // Si le type est un number et que je rentre integer ou float, générer une erreur
 
 

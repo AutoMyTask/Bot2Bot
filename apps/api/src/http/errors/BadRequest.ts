@@ -23,7 +23,7 @@ class OpenApiValidationError {
     @OpenapiPropArray(OpenApiValidationError, { required: false}) // Je dois pouvoir faire référence à lui même. Il va donc faloir le faire dans le décorateur à mon avis
     children?: OpenApiValidationError[]
 
-    @OpenapiProp('object', { required: false, additionalProperties: true })
+    @OpenapiProp("object", { required: false, additionalProperties: true })
     contexts?: { [type: string]: any }
 }
 

@@ -1,7 +1,8 @@
 import {SchemaObject} from "openapi3-ts/dist/oas31";
 import 'reflect-metadata'
+import {OpenApiPropDecorator} from "./openapi.decorator";
 
-type OpenapiPropType =
+export type OpenapiPropType =
     | 'integer'
     | 'number'
     | 'string'
@@ -9,35 +10,31 @@ type OpenapiPropType =
     | 'object'
     | 'null'
 
+type Constructor = new (...args: any[]) => {};
+
 export function OpenapiProp(
     type: OpenapiPropType,
     options?: {
-        minMax?: { maxLength?: number ,minLength?: number },
+        minMax?: { maxLength?: number, minLength?: number },
         required?: boolean,
         additionalProperties?: boolean
     }
 ) {
     return (target: Object, propName: string) => {
-        const existingProperties = Reflect.getMetadata('properties', target.constructor) || {};
-        const required: string[] = Reflect.getMetadata('properties.required', target.constructor) || [];
+        const openApiProp = new OpenApiPropDecorator(target.constructor as Constructor)
 
         if (options?.required) {
-            required.push(propName);
+            openApiProp.addRequired(propName)
         }
 
-        const properties: SchemaObject = {
-            ...existingProperties,
-            ...{
-                [propName]: {
-                    type,
-                    maxLength: options?.minMax?.maxLength,
-                    minLength: options?.minMax?.minLength,
-                    additionalProperties: options?.additionalProperties
-                }
-            }
-        };
+        const property = {
+            type,
+            maxLength: options?.minMax?.maxLength,
+            minLength: options?.minMax?.minLength,
+            additionalProperties: options?.additionalProperties
+        } as SchemaObject
 
-        Reflect.defineMetadata('properties', properties, target.constructor);
-        Reflect.defineMetadata('properties.required', required, target.constructor);
+
+        openApiProp.addProp(propName, property)
     };
 }

@@ -1,38 +1,45 @@
 import {SchemaObject} from "openapi3-ts/dist/oas31";
 import 'reflect-metadata'
+import {OpenApiPropDecorator} from "./openapi.decorator";
+import {ReferenceObject} from "openapi3-ts/oas31";
 
 type Constructor = new (...args: any[]) => {};
+
+// Je pense que je vais utiliser qu'openprop à l'avenir. Ou que OpenPropDecorator à voir
+// Va falloir absolument faire un effort de conception
+// Peut être même créer un schema à partir du decorator (cela semble une bonne idée)
+export class OpenapiPropArrayDecorator extends OpenApiPropDecorator {
+    public propertiesArray: Constructor[] = Reflect.getMetadata('properties.array', this.target) ?? []
+    constructor(protected readonly target: Constructor) {
+        super(target);
+    }
+
+    addPropertyToArray(type: Constructor){
+        this.propertiesArray.push(type)
+        Reflect.defineMetadata('properties.array', this.propertiesArray, this.target)
+    }
+}
 
 export function OpenapiPropArray(
     type: Constructor,
     options?: { minMax?: { maxLength?: number, minLength?: number }, required?: boolean }
 ) {
     return (target: Object, propName: string) => {
-        const existingProperties = Reflect.getMetadata('properties', target.constructor) ?? {};
-        const required: string[] = Reflect.getMetadata('properties.required', target.constructor) ?? [];
-        const propertiesArray = Reflect.getMetadata('properties.array', type) ?? []
+        const openApiPropArray = new OpenapiPropArrayDecorator(target.constructor as Constructor)
 
-        propertiesArray.push(type)
+        openApiPropArray.addPropertyToArray(type)
 
         if (options?.required) {
-            required.push(propName);
+            openApiPropArray.addRequired(propName);
         }
 
-
-        const properties: SchemaObject = {
-            ...existingProperties,
-            ...{
-                [propName]: {
-                    type: 'array',
-                    items: {
-                        $ref: `#/components/schemas/${type.name}`
-                    }
-                }
+        const property: SchemaObject = {
+            type: 'array',
+            items: {
+                $ref: `#/components/schemas/${type.name}`
             }
-        };
+        }
 
-        Reflect.defineMetadata('properties', properties, target.constructor);
-        Reflect.defineMetadata('properties.required', required, target.constructor);
-        Reflect.defineMetadata('properties.array', propertiesArray, target.constructor);
+        openApiPropArray.addProp(propName, property)
     };
 }
