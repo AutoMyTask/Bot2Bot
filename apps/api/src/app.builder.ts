@@ -1,4 +1,4 @@
-import {Container, interfaces} from "inversify";
+import {Container, inject, injectable, interfaces} from "inversify";
 import express from "express";
 import e, {Application, NextFunction, Request, RequestHandler, Response} from "express";
 import {RequestHandlerParams} from "express-serve-static-core";
@@ -11,6 +11,8 @@ import {BadRequestObject} from "./http/errors/BadRequest";
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
 
+
+type ParamsHandler<T extends Constructor | string | number | 'int' | 'float'> = { [key: string]: { name: string, type: T, required?: boolean } }
 
 abstract class ParamsDecorator<T extends Constructor | string | number | 'int' | 'float'> {
     protected metadata: ParamsHandler<T>
@@ -29,7 +31,7 @@ abstract class ParamsDecorator<T extends Constructor | string | number | 'int' |
 
     add(index: number, option?: { required?: boolean, type?: T, name?: string }) {
         const type = option?.type ?? this.types[index]
-        const name = option?.name ?? type.name
+        const name = option?.name ?? type?.name
         this.metadata = {
             ...this.metadata, [index]: {type, name, required: option?.required}
         }
@@ -48,6 +50,7 @@ abstract class ParamsDecorator<T extends Constructor | string | number | 'int' |
 }
 
 class ParamsBodyDecorator extends ParamsDecorator<Constructor> {
+
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string
@@ -117,6 +120,10 @@ class ParamsPathDecorator extends ParamsDecorator<string | number | 'int' | 'flo
             throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as string}'. The parameter should be a Number or a String, but a ${type.name} was provided.`)
         }
 
+        if (type === String && (option?.type === 'int' || option?.type === 'float') ){
+                throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as string}'. The parameter should be a Number, but a ${type.name} was provided. 'int' or 'float' can only be associated with a 'Number' type for this specific parameter.`);
+        }
+
         super.add(index, option);
     }
 }
@@ -159,10 +166,12 @@ export interface IRequestHandlerConventions {
     path: string,
     method: HTTPMethod,
     fullPath: string,
+    auth: {
+        authentificationScheme?: string[]
+    },
     metadataCollection: MetadataCollection
 }
 
-type ParamsHandler<T extends Constructor | string | number | 'int' | 'float'> = { [key: string]: { name: string, type: T, required?: boolean } }
 
 
 function parseNumber(input: string): number | null {
@@ -179,7 +188,7 @@ function parseNumber(input: string): number | null {
     return null
 }
 
-class HandlerBuilder {
+class RequestHandlerBuilder {
 
     public readonly paramsPath: ParamsPathDecorator = new ParamsPathDecorator(
         this.controllerType,
@@ -201,6 +210,7 @@ class HandlerBuilder {
         private readonly controllerMethod: ControllerMethod,
         private readonly services: interfaces.Container
     ) {
+
     }
 
     public build(): RequestHandler {
@@ -229,7 +239,7 @@ class HandlerBuilder {
                 const requestPathParameter = this.paramsPath.getParam(index)
 
                 if (!_.isEmpty(requestServiceParameter)) {
-                    args[index] = this.services.get(requestServiceParameter?.type)
+                    args[index] = this.services.get(requestServiceParameter.type)
                 }
 
                 if (!_.isEmpty(requestBodyParameter)) {
@@ -301,6 +311,7 @@ abstract class BaseRouteBuilder {
     protected constructor(
         protected metadataCollection: MetadataCollection
     ) {
+
     }
 
     withMiddleware(middleware: RequestHandler): this {
@@ -320,33 +331,55 @@ abstract class BaseRouteBuilder {
 }
 
 
+type schemeType = 'bearer' | 'oauth2'
+
+@injectable()
+class AuthentificationBuilder {
+    public readonly authentificationScheme: string[] = []
+
+    constructor(
+        @inject('HandlerAuthentification') public readonly handler: RequestHandler
+    ) {
+    }
+
+    addScheme(...scheme: schemeType[]) {
+        // Throw on ne peux pas avoir deux fois le même scheme
+        this.authentificationScheme.push(...scheme)
+        return this
+    }
+}
+
 class RouteHandlerBuilder extends BaseRouteBuilder implements ISingleRouteBuilder {
     public readonly requestHandlerConvention: IRequestHandlerConventions
 
     constructor(
-        private handlerBuilder: HandlerBuilder,
+        private requestHandlerBuilder: RequestHandlerBuilder,
         private path: string,
         private method: HTTPMethod,
         private readonly prefix: string = '',
-        protected metadataCollection: MetadataCollection = new MetadataCollection()) {
-
+        protected metadataCollection: MetadataCollection,
+        private readonly authentificationBuilder?: AuthentificationBuilder
+    ) {
         super(metadataCollection);
 
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(path)) {
             throw new Error(`Invalid route format for '${path}'. Please use '/{string}/...' format.`)
         }
 
-        const BodyType = this.handlerBuilder.paramBody.values.at(0)?.type
+        const body = this.requestHandlerBuilder.paramBody.values.at(0)?.type as Constructor
 
         this.requestHandlerConvention = {
             params: {
-                path: this.handlerBuilder.paramsPath.values
+                path: this.requestHandlerBuilder.paramsPath.values as { name: string, type: string | number | 'int' | 'float', required?: boolean }[]
             },
             method,
             path,
             fullPath: this.prefix + this.path,
-            body: BodyType,
-            metadataCollection: this.metadataCollection
+            body,
+            metadataCollection: this.metadataCollection,
+            auth: {
+                authentificationScheme: this.authentificationBuilder?.authentificationScheme
+            }
         }
     }
 
@@ -359,10 +392,14 @@ class RouteHandlerBuilder extends BaseRouteBuilder implements ISingleRouteBuilde
     buildRouter(): e.Router {
         const router = e.Router()
 
+        if (this.authentificationBuilder) {
+            this.withMiddleware(this.authentificationBuilder.handler)
+        }
+
         router[this.requestHandlerConvention.method](
             this.requestHandlerConvention.path,
             ...this.middlewares,
-            this.handlerBuilder.build()
+            this.requestHandlerBuilder.build()
         )
 
         return router
@@ -379,7 +416,7 @@ interface IGroupedRouteBuilder {
     withMetadata: (metadata: object) => IGroupedRouteBuilder,
     withMiddleware: (middleware: RequestHandler) => IGroupedRouteBuilder
     map: (path: string, method: HTTPMethod, controllerType: Constructor, controllerMethod: ControllerMethod) => ISingleRouteBuilder,
-    mapGroup: (prefix: string) => IGroupedRouteBuilder
+    mapGroup: (prefix: string) => IGroupedRouteBuilder,
 }
 
 
@@ -387,7 +424,7 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
     public services: interfaces.Container
     public baseRouteBuilders: BaseRouteBuilder[] = []
     private routesHandlesBuilders: RouteHandlerBuilder[] = []
-    private subgroupsRouteBuilder: { [key: string]: GroupedRouteBuilder } = {}
+    private subgroupsRouteBuilder: GroupedRouteBuilder[] = []
 
     constructor(
         private prefix: string,
@@ -395,9 +432,7 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
         private completePrefix: string = prefix,
         protected metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
-        super(
-            metadataCollection
-        );
+        super(metadataCollection);
 
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(prefix)) {
             throw new Error(`Invalid prefix format for '${prefix}'. Please use '/{string}/...' format.`)
@@ -414,12 +449,18 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
         controllerMethod: ControllerMethod
     ): ISingleRouteBuilder {
 
+        let authentificationBuilder: AuthentificationBuilder | undefined
+        if (this.services.isBound(AuthentificationBuilder)) {
+            authentificationBuilder = this.services.get(AuthentificationBuilder)
+        }
+
         const routeHandleBuilder = new RouteHandlerBuilder(
-            new HandlerBuilder(controllerType, controllerMethod, this.services),
+            new RequestHandlerBuilder(controllerType, controllerMethod, this.services),
             path,
             method,
             this.completePrefix,
-            _.cloneDeep(this.metadataCollection)
+            _.cloneDeep(this.metadataCollection),
+            authentificationBuilder
         )
 
         this.routesHandlesBuilders.push(routeHandleBuilder)
@@ -438,10 +479,8 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
             _.cloneDeep(this.metadataCollection)
         )
 
-        this.subgroupsRouteBuilder = {
-            ...this.subgroupsRouteBuilder,
-            [prefix]: groupedBuilder
-        }
+        this.subgroupsRouteBuilder.push(groupedBuilder)
+
         return groupedBuilder
     }
 
@@ -452,7 +491,7 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
             return requestHandlerConventions
         }, [] as IRequestHandlerConventions[])
 
-        const requestHandlerConventionsSubRoute = values(this.subgroupsRouteBuilder)
+        const requestHandlerConventionsSubRoute = this.subgroupsRouteBuilder
             .reduce((requestsHandlersConventions, subRoute) => {
                 return [...requestsHandlersConventions, ...subRoute.buildRouteHandlers() ?? []]
             }, [] as IRequestHandlerConventions[])
@@ -462,10 +501,11 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
 
     buildRouter(): express.Router {
         const router = e.Router()
-        const routerHandler = this.routesHandlesBuilders.map(routeHandlerBuilder => routeHandlerBuilder.buildRouter())
+        const routerHandler = this.routesHandlesBuilders.map(
+            routeHandlerBuilder => routeHandlerBuilder.buildRouter()
+        )
 
-        const routers = values(this.subgroupsRouteBuilder)
-            .map(subRoute => subRoute.buildRouter())
+        const routers = this.subgroupsRouteBuilder.map(subRoute => subRoute.buildRouter())
 
         router.use(this.prefix, this.middlewares, routerHandler, routers)
 
@@ -493,14 +533,16 @@ export interface IRouteMapBuilder {
 export type RouteMapBuilderCallBack = (routeMapBuilder: IRouteMapBuilder) => IRouteMapBuilder
 export type ConfigureServiceCallback = (services: interfaces.Container) => void
 type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
+type AuthentificationBuilderCallback = (builder: AuthentificationBuilder) => void
 
 interface IApp {
-    addMiddleware: (...callbacks: RequestHandler[] | RequestHandlerParams[]) => IApp;
+    addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: RouteMapBuilderCallBack) => IRouteMapBuilder;
-    addAppEndpoint: (routeAppHandler: IAppEndpoint | ConfigureAppEndpointCallback) => IApp
+    addAppEndpoint: (routeAppHandler: IAppEndpoint | ConfigureAppEndpointCallback) => IApp // A voir c'est bof
     run: () => void;
     configure: (configureServiceCallback: ConfigureServiceCallback) => void;
     mapEndpoints: () => void
+    addAuthentification: (handler: RequestHandler, callback: AuthentificationBuilderCallback) => IApp
 }
 
 export interface IAppEndpoint {
@@ -523,6 +565,19 @@ export class App implements IApp, IRouteMapBuilder {
 
     constructor(config: ConfigApp) {
         this.config = config
+    }
+
+    addAuthentification(handler: RequestHandler, callback: AuthentificationBuilderCallback): IApp {
+        this.services.bind('HandlerAuthentification').toConstantValue(handler)
+
+        this.services
+            .bind(AuthentificationBuilder)
+            .to(AuthentificationBuilder)
+            .inSingletonScope()
+
+        callback(this.services.get(AuthentificationBuilder))
+
+        return this
     }
 
     configure(configureServiceCallback: ConfigureServiceCallback): void {
@@ -575,11 +630,18 @@ export class App implements IApp, IRouteMapBuilder {
         controllerType: Constructor,
         controllerMethod: ControllerMethod
     ): ISingleRouteBuilder {
+        let authentificationBuilder: AuthentificationBuilder | undefined
+        if (this.services.isBound(AuthentificationBuilder)) {
+            authentificationBuilder = this.services.get(AuthentificationBuilder)
+        }
+
         const routeHandlerBuilder = new RouteHandlerBuilder(
-            new HandlerBuilder(controllerType, controllerMethod, this.services),
+            new RequestHandlerBuilder(controllerType, controllerMethod, this.services),
             path,
             method,
-            ''
+            '',
+            new MetadataCollection(),
+            authentificationBuilder
         )
 
         this.baseRouteBuilders.push(routeHandlerBuilder);
