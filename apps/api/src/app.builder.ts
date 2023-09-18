@@ -8,13 +8,23 @@ import {validateSync} from "class-validator";
 import {BadRequestObject} from "./http/errors/BadRequest";
 
 
-export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 type Constructor = new (...args: any[]) => {};
 
+// PARAMS
+type ParamServiceType = Constructor | string
+type ParamPathType = string | number | 'int' | 'float'
+type ParamType = Constructor | ParamPathType | ParamServiceType
 
-type ParamsHandler<T extends Constructor | string | number | 'int' | 'float'> = { [key: string]: { name: string, type: T, required?: boolean } }
 
-abstract class ParamsDecorator<T extends Constructor | string | number | 'int' | 'float'> {
+type Param<T extends ParamType> = { name: string, type: T, required?: boolean }
+type ParamsHandler<T extends ParamType> = Record<number, Param<T>>
+
+
+// HTTP
+export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
+
+
+abstract class ParamsDecorator<T extends ParamType> {
     public metadata: ParamsHandler<T>
 
     // A typer
@@ -32,18 +42,19 @@ abstract class ParamsDecorator<T extends Constructor | string | number | 'int' |
     add(index: number, option?: { required?: boolean, type?: T, name?: string }) {
         const type = option?.type ?? this.types[index]
         const name = option?.name ?? type?.name
-        this.metadata = {
-            ...this.metadata, [index]: {type, name, required: option?.required}
-        }
-        // J'hésite à créer une méthode flush pour la persistance
+        this.metadata[index] = {type, name, required: option?.required}
         Reflect.defineMetadata(this.metadataKey, this.metadata, this.target, this.methodName)
     }
 
+    get values(): Param<T>[] {
+        return values(this.metadata)
+    }
 
-    getParam(index: number) {
+    getParam(index: number): Param<T> {
         return this.metadata[index]
     }
 }
+
 
 class ParamsBodyDecorator extends ParamsDecorator<Constructor> {
 
@@ -54,7 +65,7 @@ class ParamsBodyDecorator extends ParamsDecorator<Constructor> {
         super('params.body', target, methodName);
     }
 
-    override add(index: number) {
+    override add(index: number): void {
         if (values(this.metadata).length >= 1) {
             throw new Error('Only one @Body() decorator is allowed in the method.')
         }
@@ -67,13 +78,13 @@ export function Body(
     target: Object,
     methodName: string,
     parameterIndex: number
-) {
+): void {
     const bodyDecorator = new ParamsBodyDecorator(target, methodName)
     bodyDecorator.add(parameterIndex)
 }
 
 
-class ParamsServiceDecorator extends ParamsDecorator<Constructor | string> {
+class ParamsServiceDecorator extends ParamsDecorator<ParamServiceType> {
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string | symbol
@@ -101,7 +112,7 @@ export function Service(type?: string) {
     }
 }
 
-class ParamsPathDecorator extends ParamsDecorator<string | number | 'int' | 'float'> {
+class ParamsPathDecorator extends ParamsDecorator<ParamPathType> {
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string | symbol
@@ -109,7 +120,7 @@ class ParamsPathDecorator extends ParamsDecorator<string | number | 'int' | 'flo
         super('params.path', target, methodName);
     }
 
-    add(index: number, option: { name: string, type?: 'int' | 'float' }) {
+    add(index: number, option: { name: string, type?: 'int' | 'float' }): void {
         const type = this.types[index]
 
         if (type !== Number && type !== String) {
@@ -156,7 +167,7 @@ class MetadataCollection {
 
 export interface IRequestHandlerConventions {
     params: {
-        path: { name: string, type: string | number | 'int' | 'float', required?: boolean }[]
+        path: Param<ParamPathType>[]
     },
     body?: Constructor,
     path: string,
@@ -183,29 +194,22 @@ function parseNumber(input: string): number | null {
     return null
 }
 
+
+type ArgHandler = InstanceType<Constructor> | number | string
+
 class RequestHandlerBuilder {
-
-    public readonly paramsPath: ParamsPathDecorator = new ParamsPathDecorator(
-        this.controllerType,
-        this.controllerMethod.name
-    )
-
-    public readonly paramBody: ParamsBodyDecorator = new ParamsBodyDecorator(
-        this.controllerType,
-        this.controllerMethod.name
-    )
-
-    public readonly paramsService: ParamsServiceDecorator = new ParamsServiceDecorator(
-        this.controllerType,
-        this.controllerMethod.name
-    )
+    public readonly paramsPath: ParamsPathDecorator;
+    public readonly paramBody: ParamsBodyDecorator;
+    public readonly paramsService: ParamsServiceDecorator;
 
     constructor(
         private readonly controllerType: Constructor,
         private readonly controllerMethod: ControllerMethod,
         private readonly services: interfaces.Container
     ) {
-
+        this.paramsPath = new ParamsPathDecorator(controllerType, controllerMethod.name);
+        this.paramBody = new ParamsBodyDecorator(controllerType, controllerMethod.name);
+        this.paramsService = new ParamsServiceDecorator(controllerType, controllerMethod.name);
     }
 
     public build(): RequestHandler {
@@ -225,7 +229,7 @@ class RequestHandlerBuilder {
         }
     }
 
-    private buildArgs(req: Request): any[] {
+    private buildArgs(req: Request): ArgHandler[] {
         return Array
             .from({length: this.controllerMethod.length}, (_, index) => index)
             .reduce((args, index) => {
@@ -238,8 +242,8 @@ class RequestHandlerBuilder {
                 }
 
                 if (!_.isEmpty(requestBodyParameter)) {
-                    args[index] = plainToInstance(requestBodyParameter.type, req.body)
-                    const errors = validateSync(args[index])
+                    const body = plainToInstance(requestBodyParameter.type, req.body)
+                    const errors = validateSync(body)
 
                     if (errors.length > 0) {
                         throw new BadRequestObject(
@@ -247,6 +251,7 @@ class RequestHandlerBuilder {
                             errors
                         )
                     }
+                    args[index] = body
                     return args
                 }
 
@@ -278,8 +283,8 @@ class RequestHandlerBuilder {
                     }
 
                     if (typeof requestPathParameter.type === 'function' && requestPathParameter.type === Number) {
-                        args[index] = parseNumber(req.params[requestPathParameter.name])
-                        if (isNull(args[index])) {
+                        const pathParam = parseNumber(req.params[requestPathParameter.name])
+                        if (isNull(pathParam)) {
                             throw new BadRequestObject(
                                 `The '${requestPathParameter.name}' parameter should be a number, but a ${
                                     typeof req.params[requestPathParameter.name]
@@ -287,6 +292,7 @@ class RequestHandlerBuilder {
                                 ['Invalid parameter']
                             )
                         }
+                        args[index] = pathParam
                         return args
                     }
 
@@ -295,7 +301,7 @@ class RequestHandlerBuilder {
                 }
 
                 return args
-            }, [] as any[])
+            }, [] as ArgHandler[])
     }
 }
 
@@ -306,7 +312,6 @@ abstract class BaseRouteBuilder {
     protected constructor(
         protected metadataCollection: MetadataCollection
     ) {
-
     }
 
     withMiddleware(middleware: RequestHandler): this {
@@ -354,12 +359,11 @@ class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(path)) {
             throw new Error(`Invalid route format for '${path}'. Please use '/{string}/...' format.`)
         }
-
-        const body = values(this.requestHandlerBuilder.paramBody.metadata).at(0)?.type
+        const body = this.requestHandlerBuilder.paramBody.values.at(0)?.type
 
         this.requestHandlerConvention = {
             params: {
-                path: values(this.requestHandlerBuilder.paramsPath.metadata)
+                path: this.requestHandlerBuilder.paramsPath.values
             },
             method,
             path,
@@ -369,8 +373,8 @@ class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder
         }
     }
 
-    allowAnonymous(): ISingleRouteBuilder{
-        if (!this.authentificationBuilder){
+    allowAnonymous(): ISingleRouteBuilder {
+        if (!this.authentificationBuilder) {
             // Trouver un meilleur message
             throw new Error("Tu ne peux pas utiliser cette fonctionnalité tant que tu n'as pas config l'auth")
         }
@@ -444,7 +448,7 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
     }
 
 
-    allowAnonymous(): IGroupedRouteBuilder{
+    allowAnonymous(): IGroupedRouteBuilder {
         // Idem throw si AuthentificationBuilder est undefenid
         this.isAuth = false
         return this
@@ -551,7 +555,7 @@ interface IApp {
     run: () => void;
     configure: (configureServiceCallback: ConfigureServiceCallback) => void;
     mapEndpoints: () => void
-    addAuthentification: (handler: RequestHandler, schemes: SecurityType[] ,callback?: AuthentificationBuilderCallback) => IApp
+    addAuthentification: (handler: RequestHandler, schemes: SecurityType[], callback?: AuthentificationBuilderCallback) => IApp
 }
 
 export interface IAppEndpoint {
@@ -575,7 +579,7 @@ export class App implements IApp, IRouteMapBuilder {
         this.config = config
     }
 
-    addAuthentification(handler: RequestHandler, schemes: SecurityType[] , callback?: AuthentificationBuilderCallback): IApp {
+    addAuthentification(handler: RequestHandler, schemes: SecurityType[], callback?: AuthentificationBuilderCallback): IApp {
         this.services.bind('HandlerAuthentification').toConstantValue(handler)
         this.services.bind('Schemes').toConstantValue(schemes)
 
@@ -584,7 +588,7 @@ export class App implements IApp, IRouteMapBuilder {
             .to(AuthentificationBuilder)
             .inSingletonScope()
 
-        if (callback){
+        if (callback) {
             callback(this.services.get(AuthentificationBuilder))
         }
 

@@ -1,22 +1,24 @@
 import {SchemaObject} from "openapi3-ts/dist/oas31";
 import {ReferenceObject} from "openapi3-ts/src/model/openapi31";
 
-type Properties = { [propertyName: string]: SchemaObject | ReferenceObject }
-
+type Properties = Record<string, SchemaObject | ReferenceObject>
 type Constructor = new (...args: any[]) => {};
 
 export class OpenApiPropDecorator {
-    public properties: Properties = Reflect.getMetadata('properties', this.target) || {}
-    public required: string[] = Reflect.getMetadata('properties.required', this.target) || []
-    public propertiesArray: Constructor[] = Reflect.getMetadata('properties.array', this.target) ?? []
+    public properties: Properties
+    public required: string[]
+    public propertiesArray: Constructor[]
 
     constructor(
         protected readonly target: Constructor
     ) {
+        this.properties = Reflect.getMetadata('properties', this.target) || {}
+        this.required =  Reflect.getMetadata('properties.required', this.target) || []
+        this.propertiesArray = Reflect.getMetadata('properties.array', this.target) ?? []
     }
 
     addProp(propertyName: string, schemaObject: SchemaObject | ReferenceObject) {
-        this.properties = {...this.properties, [propertyName]: schemaObject}
+        this.properties[propertyName] =  schemaObject
         Reflect.defineMetadata('properties', this.properties, this.target)
     }
 

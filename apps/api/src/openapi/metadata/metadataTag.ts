@@ -9,6 +9,6 @@ export class MetadataTag{
         this.tagObject = {
             name,
             description
-        }
+        } as TagObject
     }
 }

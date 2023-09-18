@@ -18,10 +18,12 @@ import {createResponseObject} from "./create.responseObject";
  */
 // https://blog.simonireilly.com/posts/typescript-openapi
 
+
 type GroupedMetadataSchema = {
     name: string;
     schema: ReferenceObject | SchemaObject;
 };
+
 type GroupedMetadataTag = {
     name: string;
     tag: MetadataTag;

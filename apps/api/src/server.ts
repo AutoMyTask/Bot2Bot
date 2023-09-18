@@ -50,6 +50,9 @@ import {AuthService} from "./auth/auth.service";
 // Il faut que je génére une erreur si j'utilise ces fonctionnalitées sans avoir configurer
 // l'authentification
 
+// VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
+// https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
+
 
 // Avoir un comportement commun pour tous les middlewares
 class UserRequest {
@@ -80,13 +83,10 @@ class UserController {
     }
 
     public static postUser(
-        @Params('id') id: string,
+        @Params('id') id: number,
         @Body userRequest: UserRequest,
         @Service() authService: AuthService
     ): { oui: boolean } {
-        console.log(id)
-        console.log(userRequest)
-        console.log(authService)
         return {oui: true}
     }
 }
@@ -340,6 +340,7 @@ app
 
 app.mapEndpoints()
 
+// A voir ici (addEndpoint ne devrait pas être à la fin)
 app
     .addAppEndpoint((services) => {
         const openAPIObject = services
