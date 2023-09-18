@@ -15,7 +15,7 @@ type Constructor = new (...args: any[]) => {};
 type ParamsHandler<T extends Constructor | string | number | 'int' | 'float'> = { [key: string]: { name: string, type: T, required?: boolean } }
 
 abstract class ParamsDecorator<T extends Constructor | string | number | 'int' | 'float'> {
-    protected metadata: ParamsHandler<T>
+    public metadata: ParamsHandler<T>
 
     // A typer
     protected readonly types: any[]
@@ -43,10 +43,6 @@ abstract class ParamsDecorator<T extends Constructor | string | number | 'int' |
     getParam(index: number) {
         return this.metadata[index]
     }
-
-    get values() {
-        return values(this.metadata)
-    }
 }
 
 class ParamsBodyDecorator extends ParamsDecorator<Constructor> {
@@ -59,7 +55,7 @@ class ParamsBodyDecorator extends ParamsDecorator<Constructor> {
     }
 
     override add(index: number) {
-        if (this.values.length >= 1) {
+        if (values(this.metadata).length >= 1) {
             throw new Error('Only one @Body() decorator is allowed in the method.')
         }
         super.add(index);
@@ -120,8 +116,8 @@ class ParamsPathDecorator extends ParamsDecorator<string | number | 'int' | 'flo
             throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as string}'. The parameter should be a Number or a String, but a ${type.name} was provided.`)
         }
 
-        if (type === String && (option?.type === 'int' || option?.type === 'float') ){
-                throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as string}'. The parameter should be a Number, but a ${type.name} was provided. 'int' or 'float' can only be associated with a 'Number' type for this specific parameter.`);
+        if (type === String && (option?.type === 'int' || option?.type === 'float')) {
+            throw new Error(`Invalid parameter type for '${option.name}' in method '${this.methodName as string}'. The parameter should be a Number, but a ${type.name} was provided. 'int' or 'float' can only be associated with a 'Number' type for this specific parameter.`);
         }
 
         super.add(index, option);
@@ -166,12 +162,11 @@ export interface IRequestHandlerConventions {
     path: string,
     method: HTTPMethod,
     fullPath: string,
-    auth: {
-        authentificationScheme?: string[]
+    auth?: {
+        schemes?: string[]
     },
     metadataCollection: MetadataCollection
 }
-
 
 
 function parseNumber(input: string): number | null {
@@ -331,21 +326,14 @@ abstract class BaseRouteBuilder {
 }
 
 
-type schemeType = 'bearer' | 'oauth2'
+type SecurityType = 'bearer' | 'oauth2'
 
 @injectable()
 class AuthentificationBuilder {
-    public readonly authentificationScheme: string[] = []
-
     constructor(
-        @inject('HandlerAuthentification') public readonly handler: RequestHandler
+        @inject('HandlerAuthentification') public readonly handler: RequestHandler,
+        @inject('Schemes') public readonly schemes: SecurityType[],
     ) {
-    }
-
-    addScheme(...scheme: schemeType[]) {
-        // Throw on ne peux pas avoir deux fois le même scheme
-        this.authentificationScheme.push(...scheme)
-        return this
     }
 }
 
@@ -358,7 +346,8 @@ class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder
         private method: HTTPMethod,
         private readonly prefix: string = '',
         protected metadataCollection: MetadataCollection,
-        private readonly authentificationBuilder?: AuthentificationBuilder
+        private readonly authentificationBuilder?: AuthentificationBuilder,
+        private isAuth = !!authentificationBuilder
     ) {
         super(metadataCollection);
 
@@ -366,25 +355,35 @@ class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder
             throw new Error(`Invalid route format for '${path}'. Please use '/{string}/...' format.`)
         }
 
-        const body = this.requestHandlerBuilder.paramBody.values.at(0)?.type as Constructor
+        const body = values(this.requestHandlerBuilder.paramBody.metadata).at(0)?.type
 
         this.requestHandlerConvention = {
             params: {
-                path: this.requestHandlerBuilder.paramsPath.values as { name: string, type: string | number | 'int' | 'float', required?: boolean }[]
+                path: values(this.requestHandlerBuilder.paramsPath.metadata)
             },
             method,
             path,
             fullPath: this.prefix + this.path,
             body,
-            metadataCollection: this.metadataCollection,
-            auth: {
-                authentificationScheme: this.authentificationBuilder?.authentificationScheme
-            }
+            metadataCollection: this.metadataCollection
         }
     }
 
+    allowAnonymous(): ISingleRouteBuilder{
+        if (!this.authentificationBuilder){
+            // Trouver un meilleur message
+            throw new Error("Tu ne peux pas utiliser cette fonctionnalité tant que tu n'as pas config l'auth")
+        }
+        this.isAuth = false
+        return this
+    }
 
     buildRouteHandlers(): IRequestHandlerConventions[] {
+        if (this.authentificationBuilder && this.isAuth) {
+            this.requestHandlerConvention.auth = {
+                schemes: this.authentificationBuilder.schemes
+            }
+        }
         return [this.requestHandlerConvention]
     }
 
@@ -392,7 +391,7 @@ class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder
     buildRouter(): e.Router {
         const router = e.Router()
 
-        if (this.authentificationBuilder) {
+        if (this.authentificationBuilder && this.isAuth) {
             this.withMiddleware(this.authentificationBuilder.handler)
         }
 
@@ -408,6 +407,7 @@ class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder
 
 
 interface ISingleRouteBuilder {
+    allowAnonymous: () => ISingleRouteBuilder,
     withMetadata: (metadata: object) => ISingleRouteBuilder
     withMiddleware: (middleware: RequestHandler) => ISingleRouteBuilder
 }
@@ -417,6 +417,7 @@ interface IGroupedRouteBuilder {
     withMiddleware: (middleware: RequestHandler) => IGroupedRouteBuilder
     map: (path: string, method: HTTPMethod, controllerType: Constructor, controllerMethod: ControllerMethod) => ISingleRouteBuilder,
     mapGroup: (prefix: string) => IGroupedRouteBuilder,
+    allowAnonymous: () => IGroupedRouteBuilder
 }
 
 
@@ -425,6 +426,7 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
     public baseRouteBuilders: BaseRouteBuilder[] = []
     private singleRoutesBuilders: SingleRouteBuilder[] = []
     private subgroupsRouteBuilder: GroupedRouteBuilder[] = []
+    private isAuth?: boolean = undefined
 
     constructor(
         private prefix: string,
@@ -441,6 +443,12 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
         this.services = routeMapBuilder.services
     }
 
+
+    allowAnonymous(): IGroupedRouteBuilder{
+        // Idem throw si AuthentificationBuilder est undefenid
+        this.isAuth = false
+        return this
+    }
 
     map(
         path: string,
@@ -460,7 +468,8 @@ class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuild
             method,
             this.completePrefix,
             _.cloneDeep(this.metadataCollection),
-            authentificationBuilder
+            authentificationBuilder,
+            this.isAuth
         )
 
         this.singleRoutesBuilders.push(singleRouteBuilder)
@@ -542,15 +551,13 @@ interface IApp {
     run: () => void;
     configure: (configureServiceCallback: ConfigureServiceCallback) => void;
     mapEndpoints: () => void
-    addAuthentification: (handler: RequestHandler, callback: AuthentificationBuilderCallback) => IApp
+    addAuthentification: (handler: RequestHandler, schemes: SecurityType[] ,callback?: AuthentificationBuilderCallback) => IApp
 }
 
 export interface IAppEndpoint {
     route: string,
     handlers: RequestHandler[] | RequestHandlerParams[]
 }
-
-
 
 
 type ControllerMethod = (...args: any[]) => any
@@ -562,22 +569,24 @@ export class App implements IApp, IRouteMapBuilder {
     private static readonly services: interfaces.Container = new Container()
     public readonly baseRouteBuilders: BaseRouteBuilder[] = []
     public readonly services: interfaces.Container = App.services
-
     private readonly config: ConfigApp
 
     constructor(config: ConfigApp) {
         this.config = config
     }
 
-    addAuthentification(handler: RequestHandler, callback: AuthentificationBuilderCallback): IApp {
+    addAuthentification(handler: RequestHandler, schemes: SecurityType[] , callback?: AuthentificationBuilderCallback): IApp {
         this.services.bind('HandlerAuthentification').toConstantValue(handler)
+        this.services.bind('Schemes').toConstantValue(schemes)
 
         this.services
             .bind(AuthentificationBuilder)
             .to(AuthentificationBuilder)
             .inSingletonScope()
 
-        callback(this.services.get(AuthentificationBuilder))
+        if (callback){
+            callback(this.services.get(AuthentificationBuilder))
+        }
 
         return this
     }

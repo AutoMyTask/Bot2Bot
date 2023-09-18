@@ -1,8 +1,6 @@
 import {BadRequest} from "http-errors";
 import {ValidationError} from "class-validator";
 import {OpenapiProp} from "../../openapi/decorators/openapi.prop";
-import {OpenapiPropArray} from "../../openapi/decorators/openapi.prop.array";
-
 
 
 class OpenApiValidationError {
@@ -20,7 +18,7 @@ class OpenApiValidationError {
         [type: string]: string;
     }
 
-    @OpenapiPropArray(OpenApiValidationError, { required: false}) // Je dois pouvoir faire référence à lui même. Il va donc faloir le faire dans le décorateur à mon avis
+    @OpenapiProp(OpenApiValidationError, {type: 'array',  required: false}) // Je dois pouvoir faire référence à lui même. Il va donc faloir le faire dans le décorateur à mon avis
     children?: OpenApiValidationError[]
 
     @OpenapiProp("object", { required: false, additionalProperties: true })
@@ -37,7 +35,7 @@ export class OpenApiBadRequestObject {
     @OpenapiProp('string', { required: false })
     message?: string
 
-    @OpenapiPropArray(OpenApiValidationError)
+    @OpenapiProp(OpenApiValidationError, { type: 'array' })
     errors!: OpenApiValidationError[]
 }
 

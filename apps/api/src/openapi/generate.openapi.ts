@@ -2,14 +2,14 @@ import {
     IRequestHandlerConventions,
     IRouteMapBuilder
 } from "../app.builder";
-import {OpenApiBuilder, ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
+import {OpenApiBuilder, ReferenceObject, SchemaObject, } from "openapi3-ts/oas31";
 import {createPathItem} from "./create.path";
 import {createRequestBody} from "./create.requestBody";
 import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
-import {AuthMetadata} from "./metadata/authMetadata";
+
 
 /**
  * MODULE OPENAPI
@@ -40,18 +40,19 @@ function processRouteHandlers(
         fullPath,
         method,
         body,
-        metadataCollection
+        metadataCollection,
+        auth
     } of requestsHandlersConvention) {
         const metadataTags = metadataCollection.getAllMetadataAttributes(MetadataTag)
+
         const metadataProduces = metadataCollection
             .getAllMetadataAttributes(MetadataProduce)
-            .reduce(
-                (schemas, metadata) => [...schemas, ...metadata.schemas],
+
+        const schemas = metadataProduces.reduce(
+                (schemas, metadata) => [...schemas, ...metadata.schemas, metadata.schema],
                 [] as Schema[])
 
-        const authsMetadata = metadataCollection.getAllMetadataAttributes(AuthMetadata)
-
-        for (const {type, schema} of metadataProduces) {
+        for (const {type, schema} of schemas) {
             if (!groupedMetadataSchemaCollection.has(type.name)) {
                 groupedMetadataSchemaCollection.set(type.name, {
                     name: type.name,
@@ -74,7 +75,7 @@ function processRouteHandlers(
             method,
             metadataTags,
             metadataProduces,
-            authsMetadata,
+            auth?.schemes,
             body
         );
 
@@ -109,7 +110,6 @@ export const generateOpenApi = (
     routeMapBuilder: IRouteMapBuilder
 ): void => {
 
-    // Ce code doit être centraliser dans BaseRouteBuilder?
     const requestsHandlersConvention = routeMapBuilder.baseRouteBuilders.reduce(
         (
             requestsHandlersConvention,
@@ -122,6 +122,7 @@ export const generateOpenApi = (
         groupedMetadataTagCollection,
         groupedMetadataSchemaCollection,
     } = processRouteHandlers(routeMapBuilder, requestsHandlersConvention);
+
 
 
     const openApiBuilder = routeMapBuilder.services.get<OpenApiBuilder>(

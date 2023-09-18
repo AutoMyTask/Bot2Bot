@@ -25,33 +25,31 @@ import {MetadataProduce} from "./openapi/metadata/metadataProduce";
 import {StatutCodes} from "./http/StatutCodes";
 import {OpenApiBadRequestObject} from "./http/errors/BadRequest"; // Je ne sais pas...
 
-// Swagger ui Module
+// 'swagger ui'
 import {useSwaggerUI} from "./swagger-ui";
+
+// 'open api'
 import {OpenapiProp} from "./openapi/decorators/openapi.prop";
 
-// Api CORE
+// 'core'
 import {IsInt, IsNotEmpty, IsString} from "class-validator";
 
-
-// Mon App
+// 'app'
+import {auth} from "express-oauth2-jwt-bearer";
 import {AuthService} from "./auth/auth.service";
 
-// Cela serra native à mon 'core'
-import {AuthMetadata} from "./openapi/metadata/authMetadata";
-import {auth} from "express-oauth2-jwt-bearer";
 
-
-// Peut être supprimer carrément IRequestConvention et tout centraliser dans les metadatas
-// Revoir absolument le mécanisme, il est trop complexe. Faut pas que je passe par des metadata
 // Mon API Core doit avoir la possibilité de construire une authentification et rajouter des informations
 // sur chaque route ou groupe et route. L'authentification serra configurer globalement et par défaut
 // toutes les routes seront authentifiées.
-// Je fournirais une methode AllowAnonymous pour supprimer l'authentification d'une route
-// et une methode RequireAuthorization pour spécifier les authorizations necéssaire.
+// Une methode RequireAuthorization pour spécifier les authorizations necéssaire, c'est à dire que si allowAnonymous est activée
+// et que je require, alors la route serra authentifier. Si je crée un groupe à partir d'un groupe allowAnonymous et
+// si je require, alors elle serra également authentifié.
 // Grosso modo, toutes les routes créées auront forcément un middleware pour l'autorisation
 // J'aurais des décorateurs spécifiques à auth0 pour avoir accés aux informations
 // Il faut que je génére une erreur si j'utilise ces fonctionnalitées sans avoir configurer
 // l'authentification
+
 
 // Avoir un comportement commun pour tous les middlewares
 class UserRequest {
@@ -59,7 +57,7 @@ class UserRequest {
     @IsNotEmpty()
     @OpenapiProp('number', {required: true}) // Générer des erreur pour minLength. Le type doit être de type string ?
     oui!: number /// Pour le type number, faire en sorte de ne pas  rendre obligatoire le passage de paramétre.
-                // Si le type est un number et que je rentre integer ou float, générer une erreur
+    // Si le type est un number et que je rentre integer ou float, générer une erreur
 
 
     @IsNotEmpty()
@@ -101,7 +99,12 @@ const app = App.createApp({port: process.env.PORT})
 
 // Peut être à revoir pour limiter les marges d'erreurs ?
 // En fonction de si c'est une conf oaut2 ou jwbear
+// Il faut impérativement conserver une cohérence entre l'auth de mon api
+// et le schema openapi
+// Ou générer une erreur indiquant que les schemes enregistré doivent être
+// les mêmes que dans mon auth (avec des indications claire)
 app.configure(configureOpenApi(builder => {
+    const authorizationUrl = `${process.env.AUTH0_DOMAIN}/authorize?audience=${process.env.AUTH0_AUDIENCE}&connection=discord`
     builder.addInfo({
         title: 'Mon API',
         version: '1.0.0',
@@ -117,11 +120,11 @@ app.configure(configureOpenApi(builder => {
         type: "oauth2",
         flows: {
             authorizationCode: {
-                authorizationUrl: `${process.env.AUTH0_DOMAIN}/authorize?audience=${process.env.AUTH0_AUDIENCE}i&connection=discord`,
+                authorizationUrl,
                 scopes: {}
             },
             implicit: {
-                authorizationUrl: `${process.env.AUTH0_DOMAIN}/authorize?audience=${process.env.AUTH0_AUDIENCE}i&connection=discord`,
+                authorizationUrl,
                 scopes: {}
             },
         }
@@ -150,17 +153,15 @@ app
     }))
 
 
-
 app.addAuthentification(auth({
     issuerBaseURL: process.env.AUTH0_ISSUER,
     audience: process.env.AUTH0_AUDIENCE,
     tokenSigningAlg: process.env.AUTH0_SIGNING_ALG
-}), (builder) => {
-    builder.addScheme('bearer', 'oauth2')
-})
+}), ['oauth2', 'bearer'])
+
 
 // Vérifier le bon format des routes '/route' au niveau de app endpoint
-// Mise en place de test U ? Integration ? Test de la spec swagger via postman ?
+// Mise en place de test d'intégrations (c'est le minimum syndical)
 app
     .addEndpoint(routeMapBuilder => {
             routeMapBuilder
@@ -174,7 +175,7 @@ app
                         AuthOuiResponse,
                         StatutCodes.Status200OK
                     )
-                ).withMetadata(new AuthMetadata(['bearer'])) // Enlever cette partie à mon sens
+                )
 
 
             routeMapBuilder
@@ -224,11 +225,11 @@ app
                         StatutCodes.Status200OK
                     )
                 ).withMetadata(
-                new MetadataProduce(
-                    OpenApiBadRequestObject,
-                    StatutCodes.Status400BadRequest
+                    new MetadataProduce(
+                        OpenApiBadRequestObject,
+                        StatutCodes.Status400BadRequest
+                    )
                 )
-            )
 
             authGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)

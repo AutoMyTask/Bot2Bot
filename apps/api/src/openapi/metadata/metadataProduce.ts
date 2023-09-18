@@ -1,18 +1,19 @@
 import {createSchema} from "../create.schema";
 import {ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
-import {OpenapiPropArrayDecorator} from "../decorators/openapi.prop.array";
+import {OpenApiPropDecorator} from "../decorators/openapi.decorator";
 
 type New = new (...args: any) => {};
 
 export type Schema = { type: New , schema: ReferenceObject | SchemaObject, statutCode: number }
 
 export class MetadataProduce {
+    schema: Schema
     schemas: Schema[] = []
 
     constructor( public readonly type: New ,public readonly statutCode: number = 200) {
-        const openApiArray = new OpenapiPropArrayDecorator(type)
+        const openApiArray = new OpenApiPropDecorator(type)
 
-        this.schemas.push({ type, schema: createSchema(type), statutCode })
+        this.schema = { type, schema: createSchema(type), statutCode }
 
         for (let type of openApiArray.propertiesArray) {
             this.schemas.push({ type, schema: createSchema(type), statutCode })
