@@ -19,6 +19,9 @@
       // "@openapi/*": ["./src/openapi/*"]
     }
   },
-  "include": ["src/**/*.ts", "env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"],
+  "files": [
+    "src/express.d.ts"
+  ]
 }

@@ -1,8 +1,8 @@
 // ORM: https://github.com/mikro-orm/guide
 // Il y a des choses intéréssantes à utiliser dans mon code: https://fettblog.eu/advanced-typescript-guide/
 
+// DEBUT DES TESTS D'INTEGRATIONS
 
-import {App, Body, Params, Service} from "./app.builder";
 import express from "express";
 import {rateLimiter} from "./middlewares/rate.limiter";
 import cors from "./middlewares/cors";
@@ -37,6 +37,11 @@ import {IsInt, IsNotEmpty, IsString} from "class-validator";
 // 'app'
 import {auth} from "express-oauth2-jwt-bearer";
 import {AuthService} from "./auth/auth.service";
+import {configureAuth} from "./auth/configure.auth";
+import {Params} from "./core/request/params/decorators/params.path.decorator";
+import {Service} from "./core/request/params/decorators/params.service.decorator";
+import {Body} from "./core/request/params/decorators/params.body.decorator";
+import {App} from "./core/app.builder";
 
 
 // Mon API Core doit avoir la possibilité de construire une authentification et rajouter des informations
@@ -77,6 +82,7 @@ class AuthOuiResponse {
 
 class UserController {
     public static findOne(
+        @Params('username') username: string,
         @Params('id', 'float') id: number
     ): AuthOuiResponse {
         return {oui: false}
@@ -134,12 +140,8 @@ app.configure(configureOpenApi(builder => {
         type: 'apiKey',
         in: 'header',
     })
-}))
+})).configure(configureAuth)
 
-
-app.configure(services => {
-    services.bind(AuthService).toSelf()
-})
 
 
 // Donner la possiblité de donner un handler express ou construire le handler
@@ -165,7 +167,7 @@ app.addAuthentification(auth({
 app
     .addEndpoint(routeMapBuilder => {
             routeMapBuilder
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .map('/oui/:id/:username', 'get', UserController, UserController.findOne)
                 .withMiddleware((req, res, next) => {
                     console.log('oui oui je suis un middleware')
                     next()
@@ -174,8 +176,8 @@ app
                     new MetadataProduce(
                         AuthOuiResponse,
                         StatutCodes.Status200OK
-                    )
-                )
+                    ))
+                .allowAnonymous()
 
 
             routeMapBuilder
@@ -229,7 +231,7 @@ app
                         OpenApiBadRequestObject,
                         StatutCodes.Status400BadRequest
                     )
-                )
+                ).allowAnonymous()
 
             authGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)
@@ -340,7 +342,7 @@ app
 
 app.mapEndpoints()
 
-// A voir ici (addEndpoint ne devrait pas être à la fin)
+// A voir ici (addEndpoint ne devrait pas être à la fin) -> utiliser req.app.use ?
 app
     .addAppEndpoint((services) => {
         const openAPIObject = services
@@ -355,3 +357,6 @@ app
 
 // app.build()
 app.run()
+
+
+// Peut être réfléchir à modulariser les comportemtnat avec les delcare

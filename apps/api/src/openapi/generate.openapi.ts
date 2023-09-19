@@ -1,7 +1,3 @@
-import {
-    IRequestHandlerConventions,
-    IRouteMapBuilder
-} from "../app.builder";
 import {OpenApiBuilder, ReferenceObject, SchemaObject, } from "openapi3-ts/oas31";
 import {createPathItem} from "./create.path";
 import {createRequestBody} from "./create.requestBody";
@@ -9,6 +5,8 @@ import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
+import {IRouteMapBuilder} from "../core/routes/types";
+import {IRouteConventions} from "../core/routes/single.route.builder";
 
 
 /**
@@ -32,7 +30,7 @@ type GroupedMetadataTag = {
 
 function processRouteHandlers(
     routeMapBuilder: IRouteMapBuilder,
-    requestsHandlersConvention: IRequestHandlerConventions[]
+    routeConventions: IRouteConventions[]
 ) {
     const groupedMetadataTagCollection = new Map<string, GroupedMetadataTag>()
     const groupedMetadataSchemaCollection = new Map<string, GroupedMetadataSchema>()
@@ -44,7 +42,7 @@ function processRouteHandlers(
         body,
         metadataCollection,
         auth
-    } of requestsHandlersConvention) {
+    } of routeConventions) {
         const metadataTags = metadataCollection.getAllMetadataAttributes(MetadataTag)
 
         const metadataProduces = metadataCollection
@@ -81,7 +79,7 @@ function processRouteHandlers(
             body
         );
 
-        const path = fullPath.replace(/:([^}]*)/g, '{$1}');
+        const path = fullPath.replace(/\/:([^/]+)/g, '/{$1}');
 
         const openApiBuilder = routeMapBuilder.services.get<OpenApiBuilder>(
             OpenApiBuilder
@@ -116,8 +114,8 @@ export const generateOpenApi = (
         (
             requestsHandlersConvention,
             basRouteBuilder
-        ) => [...requestsHandlersConvention, ...basRouteBuilder.buildRouteHandlers()],
-        [] as IRequestHandlerConventions[]
+        ) => [...requestsHandlersConvention, ...basRouteBuilder.buildRouteConventions()],
+        [] as IRouteConventions[]
     );
 
     const {

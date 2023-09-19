@@ -1,10 +1,10 @@
-import {HTTPMethod} from "../app.builder";
 import {ParameterLocation, ParameterObject, PathItemObject} from "openapi3-ts/oas31";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponsesObject} from "./create.responsesObject";
 import {entries} from "lodash";
 import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
+import {HTTPMethod} from "../core/routes/types";
 
 type Constructor = new (...args: any[]) => {};
 
