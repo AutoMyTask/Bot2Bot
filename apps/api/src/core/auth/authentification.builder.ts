@@ -1,6 +1,8 @@
 import {inject, injectable} from "inversify";
 import {RequestHandler} from "express";
-import {SecurityType} from "./types";
+import 'reflect-metadata'
+
+export type SecurityType = 'bearer' | 'oauth2'
 
 @injectable()
 export class AuthentificationBuilder {

@@ -1,5 +1,6 @@
 import {ParamsDecorator} from "./params.decorator";
 import {ParamServiceType} from "../types";
+import 'reflect-metadata'
 
 export class ParamsServiceDecorator extends ParamsDecorator<ParamServiceType> {
     constructor(

@@ -6,9 +6,9 @@ import {Request} from "express";
 import {isNull} from "lodash";
 import {plainToInstance} from "class-transformer";
 import {validateSync} from "class-validator";
-import {BadRequestObject} from "../../../http/errors/BadRequest";
 import {parseNumber} from "../../utils/parse.number";
 import {New} from "../../types";
+import {BadRequestObject} from "../../http/errors/BadRequest";
 
 export type ArgHandler = InstanceType<New> | number | string
 

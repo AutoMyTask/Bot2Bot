@@ -14,12 +14,13 @@ import {ParamsServiceDecorator} from "./request/params/decorators/params.service
 import {RequestHandlerBuilder} from "./request/request.handler.builder";
 import {MetadataCollection} from "./routes/metadata.collection";
 import {GroupedRouteBuilder, IGroupedRouteBuilder} from "./routes/grouped.route.builder";
+import "reflect-metadata";
 
 export type ConfigureServiceCallback = (services: interfaces.Container) => void
 type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
 type AuthentificationBuilderCallback = (builder: AuthentificationBuilder) => void
 
-interface IApp {
+export interface IApp {
     addMiddleware: (...callbacks: RequestHandlerParams[]) => IApp;
     addEndpoint: (callback: CallbackRouteMapBuilder<IRouteMapBuilder>) => IRouteMapBuilder;
     addAppEndpoint: (routeAppHandler: IAppEndpoint | ConfigureAppEndpointCallback) => IApp // A voir c'est bof
@@ -43,7 +44,7 @@ export class App implements IApp, IRouteMapBuilder {
     public readonly services: interfaces.Container = App.services
     private readonly config: ConfigApp
 
-    constructor(config: ConfigApp) {
+    private constructor(config: ConfigApp) {
         this.config = config
     }
 

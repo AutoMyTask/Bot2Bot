@@ -1,5 +1,3 @@
-import {BadRequest} from "http-errors";
-import {ValidationError} from "class-validator";
 import {OpenapiProp} from "../../openapi/decorators/openapi.prop";
 
 
@@ -37,14 +35,4 @@ export class OpenApiBadRequestObject {
 
     @OpenapiProp(OpenApiValidationError, { type: 'array' })
     errors!: OpenApiValidationError[]
-}
-
-
-export class BadRequestObject extends BadRequest{
-    errors: ValidationError[] | string[]
-    constructor(message: string, errors: ValidationError[] | string[]) {
-        super(message);
-        this.errors = errors
-        this.name = 'BadRequestObject'
-    }
 }

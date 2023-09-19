@@ -1,5 +1,6 @@
 import {values} from "lodash";
 import {Param, ParamType} from "../types";
+import 'reflect-metadata'
 
 export abstract class ParamsDecorator<T extends ParamType> {
     public metadata: Record<number, Param<T> & { index: number }> // Utiliser un tableau et non un record

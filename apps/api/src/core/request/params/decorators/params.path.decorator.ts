@@ -1,6 +1,6 @@
 import {ParamsDecorator} from "./params.decorator";
 import {ParamPathType} from "../types";
-
+import 'reflect-metadata'
 
 export class ParamsPathDecorator extends ParamsDecorator<ParamPathType> {
     constructor(

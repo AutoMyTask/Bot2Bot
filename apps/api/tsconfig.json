@@ -4,10 +4,11 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "module": "commonjs",
-    "rootDir": "./",
+    "rootDir": "./src",
     "moduleResolution": "node",
     "types": [
-      "reflect-metadata"
+      "reflect-metadata",
+      "jest"
     ],
     "outDir": "./dist",
     "esModuleInterop": true,
@@ -19,8 +20,8 @@
       // "@openapi/*": ["./src/openapi/*"]
     }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"],
+  "include": ["src/**/*.ts", "jest.config.ts"],
+  "exclude": ["node_modules", "node_modules/openapi3-ts/src"],
   "files": [
     "src/express.d.ts"
   ]

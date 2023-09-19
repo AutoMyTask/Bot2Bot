@@ -1,6 +1,7 @@
 import {ParamsDecorator} from "./params.decorator";
 import {values} from "lodash";
 import {New} from "../../../types";
+import 'reflect-metadata'
 
 export class ParamsBodyDecorator extends ParamsDecorator<New> {
 

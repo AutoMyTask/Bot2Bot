@@ -22,7 +22,6 @@ import {configureOpenApi} from "./openapi/configure.openapi";
 import {generateOpenApi} from "./openapi/generate.openapi";
 import {MetadataTag} from "./openapi/metadata/metadataTag";
 import {MetadataProduce} from "./openapi/metadata/metadataProduce";
-import {StatutCodes} from "./http/StatutCodes";
 import {OpenApiBadRequestObject} from "./http/errors/BadRequest"; // Je ne sais pas...
 
 // 'swagger ui'
@@ -42,6 +41,7 @@ import {Params} from "./core/request/params/decorators/params.path.decorator";
 import {Service} from "./core/request/params/decorators/params.service.decorator";
 import {Body} from "./core/request/params/decorators/params.body.decorator";
 import {App} from "./core/app.builder";
+import {StatutCodes} from "./core/http/StatutCodes";
 
 
 // Mon API Core doit avoir la possibilité de construire une authentification et rajouter des informations
@@ -102,6 +102,7 @@ class UserController {
  * MODULE API CORE
  */
 const app = App.createApp({port: process.env.PORT})
+
 
 // Peut être à revoir pour limiter les marges d'erreurs ?
 // En fonction de si c'est une conf oaut2 ou jwbear

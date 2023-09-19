@@ -1,5 +1,6 @@
 import {SchemaObject} from "openapi3-ts/dist/oas31";
 import {ReferenceObject} from "openapi3-ts/src/model/openapi31";
+import 'reflect-metadata'
 
 type Properties = Record<string, SchemaObject | ReferenceObject>
 type Constructor = new (...args: any[]) => {};
