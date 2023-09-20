@@ -22,14 +22,16 @@ export interface IRouteConventions {
 }
 
 
-export interface ISingleRouteBuilder {
-    allowAnonymous: () => ISingleRouteBuilder,
-    withMetadata: (metadata: object) => ISingleRouteBuilder
-    withMiddleware: (middleware: RequestHandler) => ISingleRouteBuilder
+export interface IEndpointRouteBuilder {
+    allowAnonymous: () => IEndpointRouteBuilder,
+    withMetadata: (metadata: object) => IEndpointRouteBuilder
+    withMiddleware: (middleware: RequestHandler) => IEndpointRouteBuilder
 }
 
-export class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRouteBuilder {
-    public readonly requestHandlerConvention: IRouteConventions
+// lors de la construction des metadata, pour éviter "l'heritage", le passage par refférence
+// stocké des callbacks
+export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointRouteBuilder {
+    public readonly routeConventions: IRouteConventions
 
     constructor(
         private requestHandlerBuilder: RequestHandlerBuilder,
@@ -47,7 +49,7 @@ export class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRoute
         }
         const body = this.requestHandlerBuilder.paramsBuilder.paramBody.values.at(0)?.type
 
-        this.requestHandlerConvention = {
+        this.routeConventions = {
             params: {
                 path: this.requestHandlerBuilder.paramsBuilder.paramsPath.values
             },
@@ -59,7 +61,7 @@ export class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRoute
         }
     }
 
-    allowAnonymous(): ISingleRouteBuilder {
+    allowAnonymous(): IEndpointRouteBuilder {
         if (!this.authentificationBuilder) {
             // Trouver un meilleur message
             throw new Error("Tu ne peux pas utiliser cette fonctionnalité tant que tu n'as pas config l'auth")
@@ -70,11 +72,11 @@ export class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRoute
 
     buildRouteConventions(): IRouteConventions[] {
         if (this.authentificationBuilder && this.isAuth) {
-            this.requestHandlerConvention.auth = {
+            this.routeConventions.auth = {
                 schemes: this.authentificationBuilder.schemes
             }
         }
-        return [this.requestHandlerConvention]
+        return [this.routeConventions]
     }
 
 
@@ -87,8 +89,8 @@ export class SingleRouteBuilder extends BaseRouteBuilder implements ISingleRoute
 
         this.withMiddleware(this.requestHandlerBuilder.argsHandler)
 
-        router[this.requestHandlerConvention.method](
-            this.requestHandlerConvention.path,
+        router[this.routeConventions.method](
+            this.routeConventions.path,
             ...this.middlewares,
             this.requestHandlerBuilder.finalHandler
         )

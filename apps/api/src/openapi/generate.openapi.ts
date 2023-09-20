@@ -6,7 +6,7 @@ import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
 import {IRouteMapBuilder} from "../core/routes/types";
-import {IRouteConventions} from "../core/routes/single.route.builder";
+import {IRouteConventions} from "../core/routes/endpoint.route.builder";
 
 
 /**
@@ -110,11 +110,11 @@ export const generateOpenApi = (
     routeMapBuilder: IRouteMapBuilder
 ): void => {
 
-    const requestsHandlersConvention = routeMapBuilder.baseRouteBuilders.reduce(
+    const requestsHandlersConvention = routeMapBuilder.routesBuilders.reduce(
         (
             requestsHandlersConvention,
-            basRouteBuilder
-        ) => [...requestsHandlersConvention, ...basRouteBuilder.buildRouteConventions()],
+            routeBuilder
+        ) => [...requestsHandlersConvention, ...routeBuilder.buildRouteConventions()],
         [] as IRouteConventions[]
     );
 

@@ -1,5 +1,9 @@
 import express, {RequestHandler} from "express";
-import {IRouteConventions, ISingleRouteBuilder, SingleRouteBuilder} from "./single.route.builder";
+import {
+    EndpointRouteBuilder,
+    IRouteConventions,
+    IEndpointRouteBuilder
+} from "./endpoint.route.builder";
 import {BaseRouteBuilder} from "./base.route.builder";
 import {interfaces} from "inversify";
 import {MetadataCollection} from "./metadata.collection";
@@ -14,28 +18,60 @@ import e from "express";
 import {CallbackRouteMapBuilder, HTTPMethod, IRouteMapBuilder} from "./types";
 import {New} from "../types";
 
-export interface IGroupedRouteBuilder {
-    withMetadata: (metadata: object) => IGroupedRouteBuilder,
-    withMiddleware: (middleware: RequestHandler) => IGroupedRouteBuilder
-    map: (path: string, method: HTTPMethod, controllerType: New, controllerFunction: Function) => ISingleRouteBuilder,
-    mapGroup: (prefix: string) => IGroupedRouteBuilder,
-    allowAnonymous: () => IGroupedRouteBuilder
+export interface IGroupedEndpointRouteBuilder {
+    withMetadata: (metadata: object) => IGroupedEndpointRouteBuilder,
+    withMiddleware: (middleware: RequestHandler) => IGroupedEndpointRouteBuilder
+    map: (path: string, method: HTTPMethod, controllerType: New, controllerFunction: Function) => IEndpointRouteBuilder,
+    mapGroup: (prefix: string) => IGroupedEndpointRouteBuilder,
+    allowAnonymous: () => IGroupedEndpointRouteBuilder
 }
 
-export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRouteBuilder, IRouteMapBuilder {
+
+abstract class EndpointSource {
+    abstract get router(): express.Router
+
+    abstract get routeConventions(): IRouteConventions[]
+}
+
+class GroupedEndpoint extends EndpointSource {
+    constructor(private groupedRouteBuilder: GroupedRouteBuilder) {
+        super()
+    }
+
+    override get routeConventions(): IRouteConventions[] {
+        return []
+    }
+
+    override get router(): express.Router {
+        const router = e.Router()
+
+        const routers = this.groupedRouteBuilder.routesBuilders.map(routeBuilder => routeBuilder.buildRouter())
+
+        router.use(
+            this.groupedRouteBuilder.prefix,
+            this.groupedRouteBuilder.middlewares,
+            routers
+        )
+
+        return router
+    }
+}
+
+
+export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEndpointRouteBuilder, IRouteMapBuilder {
     public services: interfaces.Container
-    public baseRouteBuilders: BaseRouteBuilder[] = []
-    private singleRoutesBuilders: SingleRouteBuilder[] = []
-    private subgroupsRouteBuilder: GroupedRouteBuilder[] = []
+    public routesBuilders: BaseRouteBuilder[] = []
     private isAuth?: boolean = undefined
 
     constructor(
-        private prefix: string,
+        public prefix: string,
         private routeMapBuilder: IRouteMapBuilder,
         private completePrefix: string = prefix,
         protected metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
         super(metadataCollection);
+
+        new GroupedEndpoint(this)
 
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(prefix)) {
             throw new Error(`Invalid prefix format for '${prefix}'. Please use '/{string}/...' format.`)
@@ -45,7 +81,7 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRou
     }
 
 
-    allowAnonymous(): IGroupedRouteBuilder {
+    allowAnonymous(): IGroupedEndpointRouteBuilder {
         // Idem throw si AuthentificationBuilder est undefenid
         this.isAuth = false
         return this
@@ -56,7 +92,7 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRou
         method: HTTPMethod,
         controllerType: New,
         controllerFunction: Function
-    ): ISingleRouteBuilder {
+    ): IEndpointRouteBuilder {
 
         let authentificationBuilder: AuthentificationBuilder | undefined
         if (this.services.isBound(AuthentificationBuilder)) {
@@ -70,7 +106,8 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRou
             this.services
         )
 
-        const singleRouteBuilder = new SingleRouteBuilder(
+
+        const endpointRouteBuilder = new EndpointRouteBuilder(
             new RequestHandlerBuilder(
                 controllerType,
                 controllerFunction,
@@ -79,56 +116,47 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedRou
             path,
             method,
             this.completePrefix,
-            _.cloneDeep(this.metadataCollection),
+            _.cloneDeep(this.metadataCollection), // Ne devrait pas être injecté
             authentificationBuilder,
             this.isAuth
         )
 
-        this.singleRoutesBuilders.push(singleRouteBuilder)
+        this.routesBuilders.push(endpointRouteBuilder)
 
-        return singleRouteBuilder;
+        return endpointRouteBuilder;
     }
 
     mapGroup(
         prefix: string
-    ): IGroupedRouteBuilder {
-
+    ): IGroupedEndpointRouteBuilder {
         const groupedBuilder = new GroupedRouteBuilder(
             prefix,
             this,
-            this.completePrefix + prefix,
-            _.cloneDeep(this.metadataCollection)
+            this.completePrefix + prefix, // Ne devrait pas être injecté
+            _.cloneDeep(this.metadataCollection) // Ne également pas être injecté
         )
 
-        this.subgroupsRouteBuilder.push(groupedBuilder)
+        this.routeMapBuilder.routesBuilders.push(groupedBuilder)
 
         return groupedBuilder
     }
 
     buildRouteConventions(): IRouteConventions[] {
 
-        const routeConventions = this.singleRoutesBuilders.reduce((requestHandlerConventions, routeHandlerBuilder) => {
-            requestHandlerConventions = [...requestHandlerConventions, ...routeHandlerBuilder.buildRouteConventions()]
-            return requestHandlerConventions
-        }, [] as IRouteConventions[])
-
-        const routeConventionsSubRoute = this.subgroupsRouteBuilder
+        const routeConventionsSubRoute = this.routesBuilders
             .reduce((requestsHandlersConventions, subRoute) => {
                 return [...requestsHandlersConventions, ...subRoute.buildRouteConventions() ?? []]
             }, [] as IRouteConventions[])
 
-        return [...routeConventions, ...routeConventionsSubRoute]
+        return [...routeConventionsSubRoute]
     }
 
     buildRouter(): express.Router {
         const router = e.Router()
-        const singleRouters = this.singleRoutesBuilders.map(
-            singleRouteBuilder => singleRouteBuilder.buildRouter()
-        )
 
-        const subgroupRouters = this.subgroupsRouteBuilder.map(subRoute => subRoute.buildRouter())
+        const routers = this.routesBuilders.map(routeBuilder => routeBuilder.buildRouter())
 
-        router.use(this.prefix, this.middlewares, singleRouters, subgroupRouters)
+        router.use(this.prefix, this.middlewares, routers)
 
         return router
     }

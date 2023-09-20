@@ -6,14 +6,14 @@ import {SecurityType} from "./auth/types";
 import {AuthentificationBuilder} from "./auth/authentification.builder";
 import {RequestHandlerParams} from "express-serve-static-core";
 import {New} from "./types";
-import {ISingleRouteBuilder, SingleRouteBuilder} from "./routes/single.route.builder";
+import {IEndpointRouteBuilder, EndpointRouteBuilder} from "./routes/endpoint.route.builder";
 import {ParamsBuilder} from "./request/params/params.builder";
 import {ParamsPathDecorator} from "./request/params/decorators/params.path.decorator";
 import {ParamsBodyDecorator} from "./request/params/decorators/params.body.decorator";
 import {ParamsServiceDecorator} from "./request/params/decorators/params.service.decorator";
 import {RequestHandlerBuilder} from "./request/request.handler.builder";
 import {MetadataCollection} from "./routes/metadata.collection";
-import {GroupedRouteBuilder, IGroupedRouteBuilder} from "./routes/grouped.route.builder";
+import {GroupedRouteBuilder, IGroupedEndpointRouteBuilder} from "./routes/grouped.route.builder";
 import "reflect-metadata";
 
 export type ConfigureServiceCallback = (services: interfaces.Container) => void
@@ -40,7 +40,8 @@ type ConfigApp = { port?: string }
 export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
-    public readonly baseRouteBuilders: BaseRouteBuilder[] = []
+    public readonly routesBuilders: BaseRouteBuilder[] = []
+
     public readonly services: interfaces.Container = App.services
     private readonly config: ConfigApp
 
@@ -97,8 +98,8 @@ export class App implements IApp, IRouteMapBuilder {
     }
 
     mapEndpoints() {
-        for (const baseRouteBuilder of this.baseRouteBuilders) {
-            const router = baseRouteBuilder.buildRouter()
+        for (const routeBuilder of this.routesBuilders) {
+            const router = routeBuilder.buildRouter()
             this.app.use(router)
         }
     }
@@ -114,7 +115,7 @@ export class App implements IApp, IRouteMapBuilder {
         method: HTTPMethod,
         controllerType: New,
         controllerFunction: Function
-    ): ISingleRouteBuilder {
+    ): IEndpointRouteBuilder {
         let authentificationBuilder: AuthentificationBuilder | undefined
         if (this.services.isBound(AuthentificationBuilder)) {
             authentificationBuilder = this.services.get(AuthentificationBuilder)
@@ -127,7 +128,7 @@ export class App implements IApp, IRouteMapBuilder {
             this.services
         )
 
-        const singleRouteBuilder = new SingleRouteBuilder(
+        const endpointRouteBuilder = new EndpointRouteBuilder(
             new RequestHandlerBuilder(controllerType, controllerFunction, paramBuilder),
             path,
             method,
@@ -136,13 +137,13 @@ export class App implements IApp, IRouteMapBuilder {
             authentificationBuilder
         )
 
-        this.baseRouteBuilders.push(singleRouteBuilder);
-        return singleRouteBuilder
+        this.routesBuilders.push(endpointRouteBuilder);
+        return endpointRouteBuilder
     }
 
-    mapGroup(prefix: string): IGroupedRouteBuilder {
+    mapGroup(prefix: string): IGroupedEndpointRouteBuilder {
         const groupedRouteBuilder = new GroupedRouteBuilder(prefix, this)
-        this.baseRouteBuilders.push(groupedRouteBuilder)
+        this.routesBuilders.push(groupedRouteBuilder)
         return groupedRouteBuilder
     }
 

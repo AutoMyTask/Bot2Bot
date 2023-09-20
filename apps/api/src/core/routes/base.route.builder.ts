@@ -1,9 +1,10 @@
 import express, {RequestHandler} from "express";
 import {MetadataCollection} from "./metadata.collection";
-import {IRouteConventions} from "./single.route.builder";
+import {IRouteConventions} from "./endpoint.route.builder";
+
 
 export abstract class BaseRouteBuilder {
-    protected middlewares: RequestHandler[] = []
+    public middlewares: RequestHandler[] = []
 
     protected constructor(
         protected metadataCollection: MetadataCollection

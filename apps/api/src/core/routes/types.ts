@@ -1,7 +1,7 @@
 import {interfaces} from "inversify";
-import {ISingleRouteBuilder} from "./single.route.builder";
+import {IEndpointRouteBuilder} from "./endpoint.route.builder";
 import {BaseRouteBuilder} from "./base.route.builder";
-import {IGroupedRouteBuilder} from "./grouped.route.builder";
+import {IGroupedEndpointRouteBuilder} from "./grouped.route.builder";
 import {New} from "../types";
 
 export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
@@ -9,8 +9,8 @@ export type CallbackRouteMapBuilder<T extends void | IRouteMapBuilder> = (routeM
 
 export interface IRouteMapBuilder {
     services: interfaces.Container;
-    map: (path: string, methode: HTTPMethod, controllerType: New, controllerFunction: Function) => ISingleRouteBuilder
-    mapGroup: (prefix: string) => IGroupedRouteBuilder;
-    baseRouteBuilders: BaseRouteBuilder[];
+    map: (path: string, methode: HTTPMethod, controllerType: New, controllerFunction: Function) => IEndpointRouteBuilder
+    mapGroup: (prefix: string) => IGroupedEndpointRouteBuilder;
+    routesBuilders: BaseRouteBuilder[];
     extensions: (callback: CallbackRouteMapBuilder<void>) => IRouteMapBuilder
 }

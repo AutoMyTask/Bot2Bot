@@ -3,6 +3,7 @@ import {App, IApp} from "./app.builder";
 import {IsInt, IsNotEmpty, IsString} from "class-validator";
 import {Params} from "./request/params/decorators/params.path.decorator";
 import {Body} from "./request/params/decorators/params.body.decorator";
+import {IRouteMapBuilder} from "./routes/types";
 
 class UserRequest {
     @IsInt()
@@ -38,6 +39,7 @@ class UserController {
 
 describe('AppBuilder', () => {
     let appInstance: IApp
+    let appInstanceMapBuilder: IRouteMapBuilder
 
     beforeAll(() => {
         const config = {port: '3000'}
@@ -48,6 +50,8 @@ describe('AppBuilder', () => {
         expect(appInstance).toBeInstanceOf(App)
     });
 
+
+
     it('should add endpoint to baseRouteBuilders', function () {
         appInstance.addEndpoint((builder) => {
             builder
@@ -56,10 +60,12 @@ describe('AppBuilder', () => {
             builder
                 .map('/non/:id/:username', "get", UserController, UserController.findOne)
 
-            expect(builder.baseRouteBuilders.length).toEqual(2)
+            const nonGroup = builder.mapGroup('/non')
+            const ouiGroup = builder.mapGroup('/oui')
+
+
+            expect(builder.routesBuilders.length).toEqual(4)
             return builder
         })
-
-
     });
 })
