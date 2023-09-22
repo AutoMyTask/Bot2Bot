@@ -28,11 +28,8 @@ export interface IEndpointRouteBuilder {
     withMiddleware: (middleware: RequestHandler) => IEndpointRouteBuilder
 }
 
-// lors de la construction des metadata, pour éviter "l'heritage", le passage par refférence
-// stocké des callbacks
-export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointRouteBuilder {
-    public readonly routeConventions: IRouteConventions
 
+export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointRouteBuilder {
     constructor(
         private requestHandlerBuilder: RequestHandlerBuilder,
         private path: string,
@@ -47,18 +44,6 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(path)) {
             throw new Error(`Invalid route format for '${path}'. Please use '/{string}/...' format.`)
         }
-        const body = this.requestHandlerBuilder.paramsBuilder.paramBody.values.at(0)?.type
-
-        this.routeConventions = {
-            params: {
-                path: this.requestHandlerBuilder.paramsBuilder.paramsPath.values
-            },
-            method,
-            path,
-            fullPath: this.prefix + this.path,
-            body,
-            metadataCollection: this.metadataCollection
-        }
     }
 
     allowAnonymous(): IEndpointRouteBuilder {
@@ -71,17 +56,32 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
     }
 
     buildRouteConventions(): IRouteConventions[] {
+        const body = this.requestHandlerBuilder.paramsBuilder.paramBody.values.at(0)?.type
+
+        const routeConventions: IRouteConventions = {
+            params: {
+                path: this.requestHandlerBuilder.paramsBuilder.paramsPath.values
+            },
+            method: this.method,
+            path: this.path,
+            fullPath: this.prefix + this.path,
+            body,
+            metadataCollection: this.metadataCollection
+        }
+
         if (this.authentificationBuilder && this.isAuth) {
-            this.routeConventions.auth = {
+            routeConventions.auth = {
                 schemes: this.authentificationBuilder.schemes
             }
         }
-        return [this.routeConventions]
+        return [routeConventions]
     }
 
 
     buildRouter(): e.Router {
         const router = e.Router()
+
+        const [routeConventions] = this.buildRouteConventions()
 
         if (this.authentificationBuilder && this.isAuth) {
             this.withMiddleware(this.authentificationBuilder.handler)
@@ -89,8 +89,8 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
 
         this.withMiddleware(this.requestHandlerBuilder.argsHandler)
 
-        router[this.routeConventions.method](
-            this.routeConventions.path,
+        router[routeConventions.method](
+            routeConventions.path,
             ...this.middlewares,
             this.requestHandlerBuilder.finalHandler
         )

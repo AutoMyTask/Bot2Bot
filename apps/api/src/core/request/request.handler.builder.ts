@@ -3,13 +3,25 @@ import {NextFunction, Request, RequestHandler, Response} from "express";
 import {isEmpty} from "lodash";
 import {ParamsBuilder} from "./params/params.builder";
 import {New} from "../types";
+import {interfaces} from "inversify";
+import {ParamsPathDecorator} from "./params/decorators/params.path.decorator";
+import {ParamsBodyDecorator} from "./params/decorators/params.body.decorator";
+import {ParamsServiceDecorator} from "./params/decorators/params.service.decorator";
 
 export class RequestHandlerBuilder {
+    public readonly paramsBuilder: ParamsBuilder
+
     constructor(
         private readonly controllerType: New,
         private readonly controllerFunction: Function,
-        public readonly paramsBuilder: ParamsBuilder
+        public readonly services: interfaces.Container
     ) {
+        this.paramsBuilder = new ParamsBuilder(
+            new ParamsPathDecorator(controllerType, controllerFunction.name),
+            new ParamsBodyDecorator(controllerType, controllerFunction.name),
+            new ParamsServiceDecorator(controllerType, controllerFunction.name),
+            this.services
+        )
     }
 
     private tryHandler(buildFunction: CreateRequestHandler): RequestHandler {

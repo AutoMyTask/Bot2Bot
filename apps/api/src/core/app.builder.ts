@@ -41,7 +41,6 @@ export class App implements IApp, IRouteMapBuilder {
     private readonly app: Application = express()
     private static readonly services: interfaces.Container = new Container()
     public readonly routesBuilders: BaseRouteBuilder[] = []
-
     public readonly services: interfaces.Container = App.services
     private readonly config: ConfigApp
 
@@ -121,15 +120,11 @@ export class App implements IApp, IRouteMapBuilder {
             authentificationBuilder = this.services.get(AuthentificationBuilder)
         }
 
-        const paramBuilder = new ParamsBuilder(
-            new ParamsPathDecorator(controllerType, controllerFunction.name),
-            new ParamsBodyDecorator(controllerType, controllerFunction.name),
-            new ParamsServiceDecorator(controllerType, controllerFunction.name),
-            this.services
-        )
-
         const endpointRouteBuilder = new EndpointRouteBuilder(
-            new RequestHandlerBuilder(controllerType, controllerFunction, paramBuilder),
+            new RequestHandlerBuilder(
+                controllerType,
+                controllerFunction,
+                this.services),
             path,
             method,
             '',

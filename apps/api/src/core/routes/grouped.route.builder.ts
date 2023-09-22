@@ -82,7 +82,6 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
 
 
     allowAnonymous(): IGroupedEndpointRouteBuilder {
-        // Idem throw si AuthentificationBuilder est undefenid
         this.isAuth = false
         return this
     }
@@ -99,24 +98,17 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
             authentificationBuilder = this.services.get(AuthentificationBuilder)
         }
 
-        const paramBuilder = new ParamsBuilder(
-            new ParamsPathDecorator(controllerType, controllerFunction.name),
-            new ParamsBodyDecorator(controllerType, controllerFunction.name),
-            new ParamsServiceDecorator(controllerType, controllerFunction.name),
-            this.services
-        )
-
 
         const endpointRouteBuilder = new EndpointRouteBuilder(
             new RequestHandlerBuilder(
                 controllerType,
                 controllerFunction,
-                paramBuilder
+                this.services
             ),
             path,
             method,
             this.completePrefix,
-            _.cloneDeep(this.metadataCollection), // Ne devrait pas être injecté
+            _.cloneDeep(this.metadataCollection),
             authentificationBuilder,
             this.isAuth
         )
@@ -132,8 +124,8 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
         const groupedBuilder = new GroupedRouteBuilder(
             prefix,
             this,
-            this.completePrefix + prefix, // Ne devrait pas être injecté
-            _.cloneDeep(this.metadataCollection) // Ne également pas être injecté
+            this.completePrefix + prefix,
+            _.cloneDeep(this.metadataCollection)
         )
 
         this.routeMapBuilder.routesBuilders.push(groupedBuilder)
