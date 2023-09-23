@@ -7,12 +7,7 @@ import {AuthentificationBuilder} from "./auth/authentification.builder";
 import {RequestHandlerParams} from "express-serve-static-core";
 import {New} from "./types";
 import {IEndpointRouteBuilder, EndpointRouteBuilder} from "./routes/endpoint.route.builder";
-import {ParamsBuilder} from "./request/params/params.builder";
-import {ParamsPathDecorator} from "./request/params/decorators/params.path.decorator";
-import {ParamsBodyDecorator} from "./request/params/decorators/params.body.decorator";
-import {ParamsServiceDecorator} from "./request/params/decorators/params.service.decorator";
 import {RequestHandlerBuilder} from "./request/request.handler.builder";
-import {MetadataCollection} from "./routes/metadata.collection";
 import {GroupedRouteBuilder, IGroupedEndpointRouteBuilder} from "./routes/grouped.route.builder";
 import "reflect-metadata";
 
@@ -127,8 +122,6 @@ export class App implements IApp, IRouteMapBuilder {
                 this.services),
             path,
             method,
-            '',
-            new MetadataCollection(),
             authentificationBuilder
         )
 

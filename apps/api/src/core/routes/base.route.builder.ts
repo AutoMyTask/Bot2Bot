@@ -5,11 +5,8 @@ import {IRouteConventions} from "./endpoint.route.builder";
 
 export abstract class BaseRouteBuilder {
     public middlewares: RequestHandler[] = []
+    protected metadataCollection: MetadataCollection = new MetadataCollection()
 
-    protected constructor(
-        protected metadataCollection: MetadataCollection
-    ) {
-    }
 
     withMiddleware(middleware: RequestHandler): this {
         this.middlewares.push(middleware)

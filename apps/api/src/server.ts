@@ -42,6 +42,8 @@ import {Service} from "./core/request/params/decorators/params.service.decorator
 import {Body} from "./core/request/params/decorators/params.body.decorator";
 import {App} from "./core/app.builder";
 import {StatutCodes} from "./core/http/StatutCodes";
+import {BaseRouteBuilder} from "./core/routes/base.route.builder";
+import {GroupedRouteBuilder} from "./core/routes/grouped.route.builder";
 
 
 // Mon API Core doit avoir la possibilité de construire une authentification et rajouter des informations
@@ -144,7 +146,6 @@ app.configure(configureOpenApi(builder => {
 })).configure(configureAuth)
 
 
-
 // Donner la possiblité de donner un handler express ou construire le handler
 app
     .addMiddleware(express.json())
@@ -228,24 +229,11 @@ app
                         StatutCodes.Status200OK
                     )
                 ).withMetadata(
-                    new MetadataProduce(
-                        OpenApiBadRequestObject,
-                        StatutCodes.Status400BadRequest
-                    )
-                ).allowAnonymous()
-
-            authGroup
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
-                .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    )
+                new MetadataProduce(
+                    OpenApiBadRequestObject,
+                    StatutCodes.Status400BadRequest
                 )
+            ).allowAnonymous()
 
 
             const authOuiGroup = authGroup
@@ -269,7 +257,7 @@ app
                     )
                 )
 
-            const jajaGroup = routeMapBuilder
+            const jajaGroup = authNonGroup
                 .mapGroup('/jaja')
                 .withMiddleware((req, res, next) => {
                     console.log('"auth/nonN/jaja" prefix')

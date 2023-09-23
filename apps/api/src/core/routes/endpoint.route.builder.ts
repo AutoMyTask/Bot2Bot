@@ -8,13 +8,15 @@ import {Param, ParamPathType} from "../request/params/types";
 import {New} from "../types";
 
 export interface IRouteConventions {
+    prefixes: symbol[],
+    handler: RequestHandler,
+    middlewares: RequestHandler[],
     params: {
         path: Param<ParamPathType>[]
     },
     body?: New,
     path: string,
     method: HTTPMethod,
-    fullPath: string,
     auth?: {
         schemes?: string[]
     },
@@ -34,12 +36,10 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         private requestHandlerBuilder: RequestHandlerBuilder,
         private path: string,
         private method: HTTPMethod,
-        private readonly prefix: string = '',
-        protected metadataCollection: MetadataCollection,
         private readonly authentificationBuilder?: AuthentificationBuilder,
         private isAuth = !!authentificationBuilder
     ) {
-        super(metadataCollection);
+        super();
 
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(path)) {
             throw new Error(`Invalid route format for '${path}'. Please use '/{string}/...' format.`)
@@ -55,16 +55,24 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         return this
     }
 
+    // Ajouter un symbole prefix
+    // Cela fera [prefix(group), subRoute(subGroup)]
+    // Je pourrais construire les routes dynamiquement
     buildRouteConventions(): IRouteConventions[] {
         const body = this.requestHandlerBuilder.paramsBuilder.paramBody.values.at(0)?.type
 
         const routeConventions: IRouteConventions = {
+            prefixes: [],
+            middlewares: [
+                this.requestHandlerBuilder.argsHandler,
+                ...this.middlewares
+            ],
+            handler: this.requestHandlerBuilder.finalHandler,
             params: {
                 path: this.requestHandlerBuilder.paramsBuilder.paramsPath.values
             },
             method: this.method,
             path: this.path,
-            fullPath: this.prefix + this.path,
             body,
             metadataCollection: this.metadataCollection
         }
@@ -84,15 +92,16 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         const [routeConventions] = this.buildRouteConventions()
 
         if (this.authentificationBuilder && this.isAuth) {
-            this.withMiddleware(this.authentificationBuilder.handler)
+            routeConventions.middlewares = [
+                this.authentificationBuilder.handler,
+                ...routeConventions.middlewares
+            ]
         }
-
-        this.withMiddleware(this.requestHandlerBuilder.argsHandler)
 
         router[routeConventions.method](
             routeConventions.path,
-            ...this.middlewares,
-            this.requestHandlerBuilder.finalHandler
+            ...routeConventions.middlewares,
+            routeConventions.handler
         )
 
         return router

@@ -62,16 +62,21 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
     public services: interfaces.Container
     public routesBuilders: BaseRouteBuilder[] = []
     private isAuth?: boolean = undefined
+    private readonly prefixes: symbol[] = []
 
     constructor(
         public prefix: string,
         private routeMapBuilder: IRouteMapBuilder,
-        private completePrefix: string = prefix,
-        protected metadataCollection: MetadataCollection = new MetadataCollection()
     ) {
-        super(metadataCollection);
+        super();
 
-        new GroupedEndpoint(this)
+        if (routeMapBuilder instanceof GroupedRouteBuilder){
+            this.prefixes.push(...routeMapBuilder.prefixes)
+            this.metadataCollection.items.push(...routeMapBuilder.metadataCollection.items)
+        }
+        this.prefixes.push(Symbol(prefix))
+
+        // new GroupedEndpoint(this)
 
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(prefix)) {
             throw new Error(`Invalid prefix format for '${prefix}'. Please use '/{string}/...' format.`)
@@ -107,8 +112,6 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
             ),
             path,
             method,
-            this.completePrefix,
-            _.cloneDeep(this.metadataCollection),
             authentificationBuilder,
             this.isAuth
         )
@@ -124,20 +127,27 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
         const groupedBuilder = new GroupedRouteBuilder(
             prefix,
             this,
-            this.completePrefix + prefix,
-            _.cloneDeep(this.metadataCollection)
         )
 
-        this.routeMapBuilder.routesBuilders.push(groupedBuilder)
-
+        this.routesBuilders.push(groupedBuilder)
         return groupedBuilder
     }
 
     buildRouteConventions(): IRouteConventions[] {
-
         const routeConventionsSubRoute = this.routesBuilders
-            .reduce((requestsHandlersConventions, subRoute) => {
-                return [...requestsHandlersConventions, ...subRoute.buildRouteConventions() ?? []]
+            .reduce((requestsHandlersConventions, routeBuilder) => {
+                const routeConventions = routeBuilder.buildRouteConventions()
+
+                for (let routeConvention of routeConventions) {
+                    routeConvention.prefixes = [...this.prefixes]
+                    routeConvention.metadataCollection.items = [...this.metadataCollection.items]
+                }
+
+                if (routeBuilder instanceof GroupedRouteBuilder){
+                    return [...requestsHandlersConventions, ...routeBuilder.buildRouteConventions()]
+                }
+
+                return [...requestsHandlersConventions, ...routeConventions ?? []]
             }, [] as IRouteConventions[])
 
         return [...routeConventionsSubRoute]

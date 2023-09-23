@@ -32,12 +32,14 @@ function processRouteHandlers(
     routeMapBuilder: IRouteMapBuilder,
     routeConventions: IRouteConventions[]
 ) {
+
     const groupedMetadataTagCollection = new Map<string, GroupedMetadataTag>()
     const groupedMetadataSchemaCollection = new Map<string, GroupedMetadataSchema>()
 
     for (const {
+        path,
         params,
-        fullPath,
+        prefixes,
         method,
         body,
         metadataCollection,
@@ -79,13 +81,15 @@ function processRouteHandlers(
             body
         );
 
-        const path = fullPath.replace(/\/:([^/]+)/g, '/{$1}');
+        const fullPath = prefixes.reverse().reduce( (path, prefix) => {
+            return prefix.description + path
+        } , path).replace(/\/:([^/]+)/g, '/{$1}');
 
         const openApiBuilder = routeMapBuilder.services.get<OpenApiBuilder>(
             OpenApiBuilder
         );
 
-        openApiBuilder.addPath(path, pathItem);
+        openApiBuilder.addPath(fullPath, pathItem);
 
         if (body) {
             groupedMetadataSchemaCollection.set(body.name, {
@@ -114,7 +118,9 @@ export const generateOpenApi = (
         (
             requestsHandlersConvention,
             routeBuilder
-        ) => [...requestsHandlersConvention, ...routeBuilder.buildRouteConventions()],
+        ) => {
+            return [...requestsHandlersConvention, ...routeBuilder.buildRouteConventions()]
+        },
         [] as IRouteConventions[]
     );
 
@@ -122,7 +128,6 @@ export const generateOpenApi = (
         groupedMetadataTagCollection,
         groupedMetadataSchemaCollection,
     } = processRouteHandlers(routeMapBuilder, requestsHandlersConvention);
-
 
 
     const openApiBuilder = routeMapBuilder.services.get<OpenApiBuilder>(
