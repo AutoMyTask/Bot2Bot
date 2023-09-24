@@ -6,10 +6,12 @@ import {SecurityType} from "./auth/types";
 import {AuthentificationBuilder} from "./auth/authentification.builder";
 import {RequestHandlerParams} from "express-serve-static-core";
 import {New} from "./types";
-import {IEndpointRouteBuilder, EndpointRouteBuilder} from "./routes/endpoint.route.builder";
+import {IEndpointRouteBuilder, EndpointRouteBuilder, IRouteConventions} from "./routes/endpoint.route.builder";
 import {RequestHandlerBuilder} from "./request/request.handler.builder";
 import {GroupedRouteBuilder, IGroupedEndpointRouteBuilder} from "./routes/grouped.route.builder";
 import "reflect-metadata";
+import e from "express";
+import _ from "lodash";
 
 export type ConfigureServiceCallback = (services: interfaces.Container) => void
 type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
@@ -91,12 +93,51 @@ export class App implements IApp, IRouteMapBuilder {
         return this
     }
 
+    // addAuth aux routes
+
     mapEndpoints() {
         for (const routeBuilder of this.routesBuilders) {
-            const router = routeBuilder.buildRouter()
-            this.app.use(router)
+
+            if (routeBuilder instanceof EndpointRouteBuilder) {
+                const routers = this.createEndpointRouters(routeBuilder.buildRouteConventions())
+                this.app.use(routers)
+            }
+
+            if (routeBuilder instanceof GroupedRouteBuilder) {
+                const conventions = routeBuilder
+                    .buildRouteConventions()
+                    .sort((a, b) => a.prefixes.length - b.prefixes.length)
+
+                let prefixes: symbol[] = []
+                const router = conventions.reduce((router, convention, index, conventions) => {
+                    if (!_.isEqual(prefixes, convention.prefixes)) {
+                        const endpointsConventions = conventions.filter(conventionFilter => _.isEqual(conventionFilter.prefixes, convention.prefixes))
+                        const endpointRouters = this.createEndpointRouters(endpointsConventions)
+                        const prefix = convention.prefixes[convention.prefixes.length - 1]
+                        router.use(prefix?.description ?? '', convention.groupedMiddlewares, router, endpointRouters)
+                        prefixes = convention.prefixes
+                    }
+                    return router
+                }, e.Router())
+
+                this.app.use(router)
+            }
         }
     }
+
+    private createEndpointRouters(conventions: IRouteConventions[]): e.Router[] {
+        return conventions.reduce((routers, convention) => {
+            const router = e.Router()
+            router[convention.method](
+                convention.path,
+                ...convention.middlewares,
+                convention.handler
+            )
+            routers.push(router)
+            return routers
+        }, [] as e.Router[])
+    }
+
 
     run(): void {
         this.app.listen(this.config.port ?? 8000, () => {

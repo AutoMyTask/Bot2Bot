@@ -70,7 +70,7 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
     ) {
         super();
 
-        if (routeMapBuilder instanceof GroupedRouteBuilder){
+        if (routeMapBuilder instanceof GroupedRouteBuilder) {
             this.prefixes.push(...routeMapBuilder.prefixes)
             this.metadataCollection.items.push(...routeMapBuilder.metadataCollection.items)
         }
@@ -138,13 +138,14 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
             .reduce((requestsHandlersConventions, routeBuilder) => {
                 const routeConventions = routeBuilder.buildRouteConventions()
 
-                for (let routeConvention of routeConventions) {
-                    routeConvention.prefixes = [...this.prefixes]
-                    routeConvention.metadataCollection.items = [...this.metadataCollection.items]
+                if (routeBuilder instanceof GroupedRouteBuilder) {
+                    return [...requestsHandlersConventions, ...routeConventions]
                 }
 
-                if (routeBuilder instanceof GroupedRouteBuilder){
-                    return [...requestsHandlersConventions, ...routeBuilder.buildRouteConventions()]
+                for (let routeConvention of routeConventions) {
+                    routeConvention.prefixes = [...this.prefixes]
+                    routeConvention.metadataCollection.items.push(...this.metadataCollection.items)
+                    routeConvention.groupedMiddlewares.push(...this.middlewares)
                 }
 
                 return [...requestsHandlersConventions, ...routeConventions ?? []]
@@ -155,6 +156,7 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
 
     buildRouter(): express.Router {
         const router = e.Router()
+
 
         const routers = this.routesBuilders.map(routeBuilder => routeBuilder.buildRouter())
 

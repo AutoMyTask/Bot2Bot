@@ -272,6 +272,9 @@ app
 
             jajaGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)
+                .withMiddleware((req, res, next) => {
+                    next()
+                })
                 .withMetadata(
                     new MetadataTag(
                         'Arg',

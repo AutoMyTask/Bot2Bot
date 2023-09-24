@@ -8,6 +8,7 @@ import {Param, ParamPathType} from "../request/params/types";
 import {New} from "../types";
 
 export interface IRouteConventions {
+    groupedMiddlewares: RequestHandler[],
     prefixes: symbol[],
     handler: RequestHandler,
     middlewares: RequestHandler[],
@@ -63,6 +64,7 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
 
         const routeConventions: IRouteConventions = {
             prefixes: [],
+            groupedMiddlewares: [],
             middlewares: [
                 this.requestHandlerBuilder.argsHandler,
                 ...this.middlewares
