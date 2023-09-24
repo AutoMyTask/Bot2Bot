@@ -26,38 +26,6 @@ export interface IGroupedEndpointRouteBuilder {
     allowAnonymous: () => IGroupedEndpointRouteBuilder
 }
 
-
-abstract class EndpointSource {
-    abstract get router(): express.Router
-
-    abstract get routeConventions(): IRouteConventions[]
-}
-
-class GroupedEndpoint extends EndpointSource {
-    constructor(private groupedRouteBuilder: GroupedRouteBuilder) {
-        super()
-    }
-
-    override get routeConventions(): IRouteConventions[] {
-        return []
-    }
-
-    override get router(): express.Router {
-        const router = e.Router()
-
-        const routers = this.groupedRouteBuilder.routesBuilders.map(routeBuilder => routeBuilder.buildRouter())
-
-        router.use(
-            this.groupedRouteBuilder.prefix,
-            this.groupedRouteBuilder.middlewares,
-            routers
-        )
-
-        return router
-    }
-}
-
-
 export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEndpointRouteBuilder, IRouteMapBuilder {
     public services: interfaces.Container
     public routesBuilders: BaseRouteBuilder[] = []
@@ -75,8 +43,6 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
             this.metadataCollection.items.push(...routeMapBuilder.metadataCollection.items)
         }
         this.prefixes.push(Symbol(prefix))
-
-        // new GroupedEndpoint(this)
 
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(prefix)) {
             throw new Error(`Invalid prefix format for '${prefix}'. Please use '/{string}/...' format.`)
@@ -98,12 +64,6 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
         controllerFunction: Function
     ): IEndpointRouteBuilder {
 
-        let authentificationBuilder: AuthentificationBuilder | undefined
-        if (this.services.isBound(AuthentificationBuilder)) {
-            authentificationBuilder = this.services.get(AuthentificationBuilder)
-        }
-
-
         const endpointRouteBuilder = new EndpointRouteBuilder(
             new RequestHandlerBuilder(
                 controllerType,
@@ -112,7 +72,6 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
             ),
             path,
             method,
-            authentificationBuilder,
             this.isAuth
         )
 
@@ -156,7 +115,6 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
 
     buildRouter(): express.Router {
         const router = e.Router()
-
 
         const routers = this.routesBuilders.map(routeBuilder => routeBuilder.buildRouter())
 

@@ -66,13 +66,12 @@ class UserRequest {
     @IsInt()
     @IsNotEmpty()
     @OpenapiProp('number', {required: true}) // Générer des erreur pour minLength. Le type doit être de type string ?
-    oui!: number /// Pour le type number, faire en sorte de ne pas  rendre obligatoire le passage de paramétre.
-    // Si le type est un number et que je rentre integer ou float, générer une erreur
+    oui!: number
 
 
     @IsNotEmpty()
     @IsString()
-    @OpenapiProp('string', {required: true}) // Idem que en haut, si c'est un string et que le type est interger ou float alors générer une erreur
+    @OpenapiProp('string', {required: true})
     non!: string
 }
 
@@ -166,7 +165,7 @@ app.addAuthentification(auth({
 
 // Vérifier le bon format des routes '/route' au niveau de app endpoint
 // Mise en place de test d'intégrations (c'est le minimum syndical)
-app
+const endpoints = app
     .addEndpoint(routeMapBuilder => {
             routeMapBuilder
                 .map('/oui/:id/:username', 'get', UserController, UserController.findOne)
@@ -279,13 +278,12 @@ app
                     new MetadataTag(
                         'Arg',
                         "Une description d'arg "
-                    ))
-                .withMetadata(
+                    ),
                     new MetadataProduce(
                         AuthOuiResponse,
                         StatutCodes.Status200OK
-                    )
-                )
+                    ))
+
 
             authNonGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)
@@ -329,10 +327,13 @@ app
             return routeMapBuilder
         }
     )
-    .extensions(generateOpenApi)
 
-
+app.build()
+app.useAuthentification()
 app.mapEndpoints()
+// Ou peut être appeller cela mapConventions
+app.use(generateOpenApi)
+
 
 // A voir ici (addEndpoint ne devrait pas être à la fin) -> utiliser req.app.use ?
 app

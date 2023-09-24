@@ -5,8 +5,8 @@ import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
-import {IRouteMapBuilder} from "../core/routes/types";
 import {IRouteConventions} from "../core/routes/endpoint.route.builder";
+import {interfaces} from "inversify";
 
 
 /**
@@ -29,8 +29,8 @@ type GroupedMetadataTag = {
 
 
 function processRouteHandlers(
-    routeMapBuilder: IRouteMapBuilder,
-    routeConventions: IRouteConventions[]
+    services: interfaces.Container,
+    conventions: IRouteConventions[]
 ) {
 
     const groupedMetadataTagCollection = new Map<string, GroupedMetadataTag>()
@@ -44,7 +44,7 @@ function processRouteHandlers(
         body,
         metadataCollection,
         auth
-    } of routeConventions) {
+    } of conventions) {
         const metadataTags = metadataCollection.getAllMetadataAttributes(MetadataTag)
 
         const metadataProduces = metadataCollection
@@ -85,7 +85,7 @@ function processRouteHandlers(
             return prefix.description + path
         } , path).replace(/\/:([^/]+)/g, '/{$1}');
 
-        const openApiBuilder = routeMapBuilder.services.get<OpenApiBuilder>(
+        const openApiBuilder = services.get<OpenApiBuilder>(
             OpenApiBuilder
         );
 
@@ -111,26 +111,17 @@ function processRouteHandlers(
 
 
 export const generateOpenApi = (
-    routeMapBuilder: IRouteMapBuilder
+    conventions: IRouteConventions[],
+    services: interfaces.Container
 ): void => {
-
-    const requestsHandlersConvention = routeMapBuilder.routesBuilders.reduce(
-        (
-            requestsHandlersConvention,
-            routeBuilder
-        ) => {
-            return [...requestsHandlersConvention, ...routeBuilder.buildRouteConventions()]
-        },
-        [] as IRouteConventions[]
-    );
 
     const {
         groupedMetadataTagCollection,
         groupedMetadataSchemaCollection,
-    } = processRouteHandlers(routeMapBuilder, requestsHandlersConvention);
+    } = processRouteHandlers(services, conventions);
 
 
-    const openApiBuilder = routeMapBuilder.services.get<OpenApiBuilder>(
+    const openApiBuilder = services.get<OpenApiBuilder>(
         OpenApiBuilder
     );
 

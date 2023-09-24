@@ -13,8 +13,8 @@ export abstract class BaseRouteBuilder {
         return this
     }
 
-    withMetadata(metadata: object): this {
-        this.metadataCollection.push(metadata)
+    withMetadata(...metadata: object[]): this {
+        this.metadataCollection.push(...metadata)
         return this;
     }
 

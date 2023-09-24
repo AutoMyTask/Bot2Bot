@@ -24,7 +24,15 @@ export interface IApp {
     run: () => void;
     configure: (configureServiceCallback: ConfigureServiceCallback) => IApp;
     mapEndpoints: () => void
+    useAuthentification: () => void,
+    build: () => void,
     addAuthentification: (handler: RequestHandler, schemes: SecurityType[], callback?: AuthentificationBuilderCallback) => IApp
+    use: (
+        callback: (
+            conventions: IRouteConventions[],
+            services: interfaces.Container
+        ) => void
+    ) => void
 }
 
 export interface IAppEndpoint {
@@ -40,6 +48,7 @@ export class App implements IApp, IRouteMapBuilder {
     public readonly routesBuilders: BaseRouteBuilder[] = []
     public readonly services: interfaces.Container = App.services
     private readonly config: ConfigApp
+    public conventions: IRouteConventions[] = []
 
     private constructor(config: ConfigApp) {
         this.config = config
@@ -93,35 +102,51 @@ export class App implements IApp, IRouteMapBuilder {
         return this
     }
 
-    // addAuth aux routes
-
-    mapEndpoints() {
-        for (const routeBuilder of this.routesBuilders) {
-
-            if (routeBuilder instanceof EndpointRouteBuilder) {
-                const routers = this.createEndpointRouters(routeBuilder.buildRouteConventions())
-                this.app.use(routers)
+    useAuthentification(): void {
+        if (this.services.isBound(AuthentificationBuilder)) {
+            for (let convention of this.conventions) {
+                const {handler, schemes} = this.services.get(AuthentificationBuilder)
+                convention.middlewares.unshift(handler)
+                convention.auth = {schemes}
             }
+        }
+    }
 
-            if (routeBuilder instanceof GroupedRouteBuilder) {
-                const conventions = routeBuilder
-                    .buildRouteConventions()
-                    .sort((a, b) => a.prefixes.length - b.prefixes.length)
 
-                let prefixes: symbol[] = []
-                const router = conventions.reduce((router, convention, index, conventions) => {
-                    if (!_.isEqual(prefixes, convention.prefixes)) {
-                        const endpointsConventions = conventions.filter(conventionFilter => _.isEqual(conventionFilter.prefixes, convention.prefixes))
-                        const endpointRouters = this.createEndpointRouters(endpointsConventions)
-                        const prefix = convention.prefixes[convention.prefixes.length - 1]
-                        router.use(prefix?.description ?? '', convention.groupedMiddlewares, router, endpointRouters)
-                        prefixes = convention.prefixes
-                    }
-                    return router
-                }, e.Router())
+    build(): void {
+        this.conventions = this.routesBuilders.reduce((conventions, routeBuilder) => {
+            conventions.push(...routeBuilder.buildRouteConventions())
+            return conventions
+        }, [] as IRouteConventions[])
+    }
 
-                this.app.use(router)
-            }
+
+    // Normalement j'y aurais uniquement accès à app, le reste c'est app.builder
+    mapEndpoints(): void {
+        // Pour les endpoints non groupé
+        const conventionsWithNullPrefix = this.conventions.filter(convention => convention.prefixes.length === 0)
+        const endpointRouters = this.createEndpointRouters(conventionsWithNullPrefix)
+        this.app.use(endpointRouters)
+
+        // Pour les endpoints groupé
+        const conventionsWithOnePrefix = this.conventions.filter(convention => convention.prefixes.length === 1)
+        for (let conventionWithOnePrefix of conventionsWithOnePrefix) {
+            const firstPrefix = conventionWithOnePrefix.prefixes[0] // Regrouper les iroutesconventions ayant le même premier prefix commun / trouver un autre mecanisme
+            const conventionsWithPrefix = this.conventions.filter(convention => convention.prefixes.includes(firstPrefix))
+            const conventionsPrefixesSorted = conventionsWithPrefix
+                .sort((a, b) => a.prefixes.length - b.prefixes.length)
+            let prefixes: symbol[] = []
+            const router = conventionsPrefixesSorted.reduce((router, convention, index, conventions) => {
+                if (!_.isEqual(prefixes, convention.prefixes)) {
+                    const endpointsConventions = conventions.filter(conventionFilter => _.isEqual(conventionFilter.prefixes, convention.prefixes))
+                    const endpointRouters = this.createEndpointRouters(endpointsConventions)
+                    const prefix = convention.prefixes[convention.prefixes.length - 1]
+                    router.use(prefix?.description ?? '', convention.groupedMiddlewares, router, endpointRouters)
+                    prefixes = convention.prefixes
+                }
+                return router
+            }, e.Router())
+            this.app.use(router)
         }
     }
 
@@ -151,19 +176,14 @@ export class App implements IApp, IRouteMapBuilder {
         controllerType: New,
         controllerFunction: Function
     ): IEndpointRouteBuilder {
-        let authentificationBuilder: AuthentificationBuilder | undefined
-        if (this.services.isBound(AuthentificationBuilder)) {
-            authentificationBuilder = this.services.get(AuthentificationBuilder)
-        }
-
         const endpointRouteBuilder = new EndpointRouteBuilder(
             new RequestHandlerBuilder(
                 controllerType,
                 controllerFunction,
-                this.services),
+                this.services
+            ),
             path,
             method,
-            authentificationBuilder
         )
 
         this.routesBuilders.push(endpointRouteBuilder);
@@ -179,5 +199,15 @@ export class App implements IApp, IRouteMapBuilder {
     extensions(callback: CallbackRouteMapBuilder<IRouteMapBuilder>): IRouteMapBuilder {
         callback(this)
         return this;
+    }
+
+    // Appeller extensions peut être une fois tout buildé
+    use(
+        callback: (
+            conventions: IRouteConventions[],
+            services: interfaces.Container
+        ) => void
+    ) {
+        callback(this.conventions, this.services)
     }
 }

@@ -27,7 +27,7 @@ export interface IRouteConventions {
 
 export interface IEndpointRouteBuilder {
     allowAnonymous: () => IEndpointRouteBuilder,
-    withMetadata: (metadata: object) => IEndpointRouteBuilder
+    withMetadata: (...metadata: object[]) => IEndpointRouteBuilder
     withMiddleware: (middleware: RequestHandler) => IEndpointRouteBuilder
 }
 
@@ -37,8 +37,7 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         private requestHandlerBuilder: RequestHandlerBuilder,
         private path: string,
         private method: HTTPMethod,
-        private readonly authentificationBuilder?: AuthentificationBuilder,
-        private isAuth = !!authentificationBuilder
+        private isAuth = false
     ) {
         super();
 
@@ -48,17 +47,10 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
     }
 
     allowAnonymous(): IEndpointRouteBuilder {
-        if (!this.authentificationBuilder) {
-            // Trouver un meilleur message
-            throw new Error("Tu ne peux pas utiliser cette fonctionnalité tant que tu n'as pas config l'auth")
-        }
         this.isAuth = false
         return this
     }
 
-    // Ajouter un symbole prefix
-    // Cela fera [prefix(group), subRoute(subGroup)]
-    // Je pourrais construire les routes dynamiquement
     buildRouteConventions(): IRouteConventions[] {
         const body = this.requestHandlerBuilder.paramsBuilder.paramBody.values.at(0)?.type
 
@@ -78,12 +70,6 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
             body,
             metadataCollection: this.metadataCollection
         }
-
-        if (this.authentificationBuilder && this.isAuth) {
-            routeConventions.auth = {
-                schemes: this.authentificationBuilder.schemes
-            }
-        }
         return [routeConventions]
     }
 
@@ -92,13 +78,6 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         const router = e.Router()
 
         const [routeConventions] = this.buildRouteConventions()
-
-        if (this.authentificationBuilder && this.isAuth) {
-            routeConventions.middlewares = [
-                this.authentificationBuilder.handler,
-                ...routeConventions.middlewares
-            ]
-        }
 
         router[routeConventions.method](
             routeConventions.path,
