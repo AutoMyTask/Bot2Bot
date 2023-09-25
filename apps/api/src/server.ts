@@ -1,12 +1,13 @@
 // ORM: https://github.com/mikro-orm/guide
 // Il y a des choses intéréssantes à utiliser dans mon code: https://fettblog.eu/advanced-typescript-guide/
 
+
 // DEBUT DES TESTS D'INTEGRATIONS
 
 import express from "express";
-import {rateLimiter} from "./middlewares/rate.limiter";
-import cors from "./middlewares/cors";
 import helmet from 'helmet';
+
+import cors from "cors";
 
 // Api Core
 import {logError} from "./middlewares/log.error"; //  (peut être le supprimer)
@@ -19,13 +20,10 @@ import {
     OpenApiBuilder
 } from "openapi3-ts/oas31";
 import {configureOpenApi} from "./openapi/configure.openapi";
-import {generateOpenApi} from "./openapi/generate.openapi";
+import {openapi} from "./openapi/openapi";
 import {MetadataTag} from "./openapi/metadata/metadataTag";
 import {MetadataProduce} from "./openapi/metadata/metadataProduce";
 import {OpenApiBadRequestObject} from "./http/errors/BadRequest"; // Je ne sais pas...
-
-// 'swagger ui'
-import {useSwaggerUI} from "./swagger-ui";
 
 // 'open api'
 import {OpenapiProp} from "./openapi/decorators/openapi.prop";
@@ -40,10 +38,10 @@ import {configureAuth} from "./auth/configure.auth";
 import {Params} from "./core/request/params/decorators/params.path.decorator";
 import {Service} from "./core/request/params/decorators/params.service.decorator";
 import {Body} from "./core/request/params/decorators/params.body.decorator";
-import {App} from "./core/app.builder";
+import {AppBuilder} from "./core/app.builder";
 import {StatutCodes} from "./core/http/StatutCodes";
-import {BaseRouteBuilder} from "./core/routes/base.route.builder";
-import {GroupedRouteBuilder} from "./core/routes/grouped.route.builder";
+import rateLimit from "express-rate-limit";
+import swaggerUi from "swagger-ui-express";
 
 
 // Mon API Core doit avoir la possibilité de construire une authentification et rajouter des informations
@@ -102,7 +100,7 @@ class UserController {
 /**
  * MODULE API CORE
  */
-const app = App.createApp({port: process.env.PORT})
+const builder = AppBuilder.createAppBuilder()
 
 
 // Peut être à revoir pour limiter les marges d'erreurs ?
@@ -111,7 +109,7 @@ const app = App.createApp({port: process.env.PORT})
 // et le schema openapi
 // Ou générer une erreur indiquant que les schemes enregistré doivent être
 // les mêmes que dans mon auth (avec des indications claire)
-app.configure(configureOpenApi(builder => {
+builder.configure(configureOpenApi(builder => {
     const authorizationUrl = `${process.env.AUTH0_DOMAIN}/authorize?audience=${process.env.AUTH0_AUDIENCE}&connection=discord`
     builder.addInfo({
         title: 'Mon API',
@@ -145,27 +143,14 @@ app.configure(configureOpenApi(builder => {
 })).configure(configureAuth)
 
 
-// Donner la possiblité de donner un handler express ou construire le handler
-app
-    .addMiddleware(express.json())
-    .addMiddleware(express.urlencoded({extended: true}))
-    .addMiddleware(rateLimiter)
-    .addMiddleware(cors)
-    .addMiddleware(helmet({
-        contentSecurityPolicy: false
-    }))
-
-
-app.addAuthentification(auth({
+builder.addAuthentification(auth({
     issuerBaseURL: process.env.AUTH0_ISSUER,
     audience: process.env.AUTH0_AUDIENCE,
     tokenSigningAlg: process.env.AUTH0_SIGNING_ALG
 }), ['oauth2', 'bearer'])
 
 
-// Vérifier le bon format des routes '/route' au niveau de app endpoint
-// Mise en place de test d'intégrations (c'est le minimum syndical)
-const endpoints = app
+builder
     .addEndpoint(routeMapBuilder => {
             routeMapBuilder
                 .map('/oui/:id/:username', 'get', UserController, UserController.findOne)
@@ -178,7 +163,6 @@ const endpoints = app
                         AuthOuiResponse,
                         StatutCodes.Status200OK
                     ))
-                .allowAnonymous()
 
 
             routeMapBuilder
@@ -205,7 +189,7 @@ const endpoints = app
                         'Auth',
                         'Description de Auth'
                     )
-                )
+                ).allowAnonymous()
 
             authGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)
@@ -232,7 +216,7 @@ const endpoints = app
                     OpenApiBadRequestObject,
                     StatutCodes.Status400BadRequest
                 )
-            ).allowAnonymous()
+            )
 
 
             const authOuiGroup = authGroup
@@ -242,7 +226,7 @@ const endpoints = app
                     next()
                 }).withMetadata(
                     new MetadataTag('AuthOui', 'AuthOui description')
-                )
+                ).requireAuthorization()
 
             const authNonGroup = authGroup
                 .mapGroup('/nonN')
@@ -254,7 +238,7 @@ const endpoints = app
                         'AuthNon',
                         'AuthNon description'
                     )
-                )
+                ).requireAuthorization()
 
             const jajaGroup = authNonGroup
                 .mapGroup('/jaja')
@@ -267,7 +251,7 @@ const endpoints = app
                         'Jaja',
                         'une petite description jaja'
                     )
-                )
+                ).allowAnonymous()
 
             jajaGroup
                 .map('/oui/:id', 'get', UserController, UserController.findOne)
@@ -296,10 +280,11 @@ const endpoints = app
                         AuthOuiResponse,
                         StatutCodes.Status200OK
                     )
-                )
+                ).allowAnonymous()
 
             authNonGroup
                 .map('/non/:id', 'get', UserController, UserController.findOne)
+                // A mon avis utilise des decorateur pour mapper
                 .withMiddleware((req, res, next) => {
                     console.log('oui oui je suis un middleware')
                     next()
@@ -328,28 +313,38 @@ const endpoints = app
         }
     )
 
-app.build()
-app.useAuthentification()
-app.mapEndpoints()
-// Ou peut être appeller cela mapConventions
-app.use(generateOpenApi)
 
+const app = builder.build()
 
-// A voir ici (addEndpoint ne devrait pas être à la fin) -> utiliser req.app.use ?
 app
-    .addAppEndpoint((services) => {
-        const openAPIObject = services
+    .useAuthentification()
+    .use(openapi)
+    .use((app) => {
+        const openAPIObject = app.services
             .get<OpenApiBuilder>(OpenApiBuilder)
             .getSpec()
+        app.app.use('/docs', swaggerUi.serve, swaggerUi.setup(openAPIObject))
+    })
+    .use(logError)
+    .use(errorHandler)
+    .use((app) => {
+        app.app
+            .use(
+                express.json(),
+                express.urlencoded({extended: true}),
+                rateLimit({
+                    windowMs: 60 * 60 * 60,
+                    max: 100,
+                }),
+                cors({
+                    origin: 'http://localhost:8080'
+                }),
+                helmet()
+            )
+    })
+    .mapEndpoints()
 
-        return useSwaggerUI('/docs', openAPIObject)
-    }) // Vérifier le bon format du chemin ('/docs'). Peut êre revoir l'archi derriere tout cela
-    .addMiddleware(logError) // Je pense supprimer `log error` (il ne sert pas à grand chose)
-    .addMiddleware(errorHandler)
+
+app.run({port: process.env.PORT})
 
 
-// app.build()
-app.run()
-
-
-// Peut être réfléchir à modulariser les comportemtnat avec les delcare

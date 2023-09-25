@@ -24,6 +24,7 @@ export interface IGroupedEndpointRouteBuilder {
     map: (path: string, method: HTTPMethod, controllerType: New, controllerFunction: Function) => IEndpointRouteBuilder,
     mapGroup: (prefix: string) => IGroupedEndpointRouteBuilder,
     allowAnonymous: () => IGroupedEndpointRouteBuilder
+    requireAuthorization: () => IGroupedEndpointRouteBuilder
 }
 
 export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEndpointRouteBuilder, IRouteMapBuilder {
@@ -49,12 +50,6 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
         }
 
         this.services = routeMapBuilder.services
-    }
-
-
-    allowAnonymous(): IGroupedEndpointRouteBuilder {
-        this.isAuth = false
-        return this
     }
 
     map(
@@ -104,7 +99,7 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
                 for (let routeConvention of routeConventions) {
                     routeConvention.prefixes = [...this.prefixes]
                     routeConvention.metadataCollection.items.push(...this.metadataCollection.items)
-                    routeConvention.groupedMiddlewares.push(...this.middlewares)
+                    routeConvention.middlewares.unshift(...this.middlewares)
                 }
 
                 return [...requestsHandlersConventions, ...routeConventions ?? []]

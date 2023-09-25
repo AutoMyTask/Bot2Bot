@@ -6,6 +6,7 @@ import e, {RequestHandler} from "express";
 import {HTTPMethod} from "./types";
 import {Param, ParamPathType} from "../request/params/types";
 import {New} from "../types";
+import {AllowAnonymousAttribute} from "./metadata/AllowAnonymousAttribute";
 
 export interface IRouteConventions {
     groupedMiddlewares: RequestHandler[],
@@ -27,6 +28,7 @@ export interface IRouteConventions {
 
 export interface IEndpointRouteBuilder {
     allowAnonymous: () => IEndpointRouteBuilder,
+    requireAuthorization: () => IEndpointRouteBuilder,
     withMetadata: (...metadata: object[]) => IEndpointRouteBuilder
     withMiddleware: (middleware: RequestHandler) => IEndpointRouteBuilder
 }
@@ -44,11 +46,6 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         if (!/^\/([^/]+(\/[^/]+)*|[^/]+)$/.test(path)) {
             throw new Error(`Invalid route format for '${path}'. Please use '/{string}/...' format.`)
         }
-    }
-
-    allowAnonymous(): IEndpointRouteBuilder {
-        this.isAuth = false
-        return this
     }
 
     buildRouteConventions(): IRouteConventions[] {

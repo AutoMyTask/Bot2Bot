@@ -7,6 +7,7 @@ import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
 import {IRouteConventions} from "../core/routes/endpoint.route.builder";
 import {interfaces} from "inversify";
+import {IApp} from "../core/app";
 
 
 /**
@@ -81,7 +82,7 @@ function processRouteHandlers(
             body
         );
 
-        const fullPath = prefixes.reverse().reduce( (path, prefix) => {
+        const fullPath = prefixes.slice().reverse().reduce( (path, prefix) => {
             return prefix.description + path
         } , path).replace(/\/:([^/]+)/g, '/{$1}');
 
@@ -110,18 +111,15 @@ function processRouteHandlers(
 }
 
 
-export const generateOpenApi = (
-    conventions: IRouteConventions[],
-    services: interfaces.Container
-): void => {
+export const openapi = (app: IApp): void => {
 
     const {
         groupedMetadataTagCollection,
         groupedMetadataSchemaCollection,
-    } = processRouteHandlers(services, conventions);
+    } = processRouteHandlers(app.services, app.conventions);
 
 
-    const openApiBuilder = services.get<OpenApiBuilder>(
+    const openApiBuilder = app.services.get<OpenApiBuilder>(
         OpenApiBuilder
     );
 
