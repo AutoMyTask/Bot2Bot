@@ -4,7 +4,6 @@ import {New} from "../../../types";
 import 'reflect-metadata'
 
 export class ParamsBodyDecorator extends ParamsDecorator<New> {
-
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string

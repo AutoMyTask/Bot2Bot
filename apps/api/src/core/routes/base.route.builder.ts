@@ -1,8 +1,10 @@
-import express, {RequestHandler} from "express";
+import express, {NextFunction, RequestHandler} from "express";
 import {MetadataCollection} from "./metadata.collection";
 import {IEndpointRouteBuilder, IRouteConventions} from "./endpoint.route.builder";
 import {AllowAnonymousAttribute} from "./metadata/AllowAnonymousAttribute";
 import {AuthorizeAttribute} from "./metadata/AuthorizeAttribute";
+import {extend} from "lodash";
+
 
 
 export abstract class BaseRouteBuilder {
@@ -30,8 +32,6 @@ export abstract class BaseRouteBuilder {
         this.metadataCollection.push(...metadata)
         return this;
     }
-
-    abstract buildRouter(): express.Router
 
     abstract buildRouteConventions(): IRouteConventions[]
 }

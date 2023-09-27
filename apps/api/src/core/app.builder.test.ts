@@ -1,5 +1,5 @@
 import {beforeAll, describe, expect} from "@jest/globals";
-import {App, IApp} from "./app.builder";
+import {App, AppBuilder, IApp, IAppBuilder} from "./app.builder";
 import {IsInt, IsNotEmpty, IsString} from "class-validator";
 import {Params} from "./request/params/decorators/params.path.decorator";
 import {Body} from "./request/params/decorators/params.body.decorator";
@@ -38,22 +38,22 @@ class UserController {
 
 
 describe('AppBuilder', () => {
-    let appInstance: IApp
+    let builder: IAppBuilder
     let appInstanceMapBuilder: IRouteMapBuilder
 
     beforeAll(() => {
         const config = {port: '3000'}
-        appInstance =  App.createApp(config)
+        builder =  AppBuilder.createAppBuilder(config)
     })
 
     it('should create an instance of App ', function () {
-        expect(appInstance).toBeInstanceOf(App)
+        expect(builder).toBeInstanceOf(AppBuilder)
     });
 
 
 
     it('should add endpoint to baseRouteBuilders', function () {
-        appInstance.addEndpoint((builder) => {
+        builder.addEndpoint((builder) => {
             builder
                 .map('/oui/:id/:username', 'get', UserController, UserController.findOne)
 

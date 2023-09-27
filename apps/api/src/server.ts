@@ -4,14 +4,14 @@
 
 // DEBUT DES TESTS D'INTEGRATIONS
 
-import express from "express";
+import express, {NextFunction} from "express";
 import helmet from 'helmet';
 
 import cors from "cors";
 
 // Api Core
-import {logError} from "./middlewares/log.error"; //  (peut être le supprimer)
-import {errorHandler} from "./middlewares/error.handler";
+import {logError} from "./core/http/errors/middlewares/log.error";
+import {errorHandler} from "./core/http/errors/middlewares/error.handler";
 import 'reflect-metadata';
 
 
@@ -44,17 +44,6 @@ import rateLimit from "express-rate-limit";
 import swaggerUi from "swagger-ui-express";
 
 
-// Mon API Core doit avoir la possibilité de construire une authentification et rajouter des informations
-// sur chaque route ou groupe et route. L'authentification serra configurer globalement et par défaut
-// toutes les routes seront authentifiées.
-// Une methode RequireAuthorization pour spécifier les authorizations necéssaire, c'est à dire que si allowAnonymous est activée
-// et que je require, alors la route serra authentifier. Si je crée un groupe à partir d'un groupe allowAnonymous et
-// si je require, alors elle serra également authentifié.
-// Grosso modo, toutes les routes créées auront forcément un middleware pour l'autorisation
-// J'aurais des décorateurs spécifiques à auth0 pour avoir accés aux informations
-// Il faut que je génére une erreur si j'utilise ces fonctionnalitées sans avoir configurer
-// l'authentification
-
 // VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
 // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
 
@@ -63,7 +52,7 @@ import swaggerUi from "swagger-ui-express";
 class UserRequest {
     @IsInt()
     @IsNotEmpty()
-    @OpenapiProp('number', {required: true}) // Générer des erreur pour minLength. Le type doit être de type string ?
+    @OpenapiProp('number', {required: true})
     oui!: number
 
 
@@ -78,6 +67,15 @@ class AuthOuiResponse {
     public oui!: boolean
 }
 
+function postUserMiddleware(
+    id: number,
+    userRequest: UserRequest,
+    authService: AuthService,
+    next: NextFunction
+) {
+    console.log(id)
+    next()
+}
 
 class UserController {
     public static findOne(
@@ -97,18 +95,9 @@ class UserController {
 }
 
 
-/**
- * MODULE API CORE
- */
 const builder = AppBuilder.createAppBuilder()
 
 
-// Peut être à revoir pour limiter les marges d'erreurs ?
-// En fonction de si c'est une conf oaut2 ou jwbear
-// Il faut impérativement conserver une cohérence entre l'auth de mon api
-// et le schema openapi
-// Ou générer une erreur indiquant que les schemes enregistré doivent être
-// les mêmes que dans mon auth (avec des indications claire)
 builder.configure(configureOpenApi(builder => {
     const authorizationUrl = `${process.env.AUTH0_DOMAIN}/authorize?audience=${process.env.AUTH0_AUDIENCE}&connection=discord`
     builder.addInfo({
@@ -155,7 +144,6 @@ builder
             routeMapBuilder
                 .map('/oui/:id/:username', 'get', UserController, UserController.findOne)
                 .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
                     next()
                 })
                 .withMetadata(
@@ -181,7 +169,6 @@ builder
             const authGroup = routeMapBuilder
                 .mapGroup('/auth')
                 .withMiddleware((req, res, next) => {
-                    console.log('"auth" préfix')
                     next()
                 })
                 .withMetadata(
@@ -191,32 +178,33 @@ builder
                     )
                 ).allowAnonymous()
 
-            authGroup
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
-                .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    )
-                )
-
-            authGroup
-                .map('/oui/:id', 'post', UserController, UserController.postUser)
-                .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    )
-                ).withMetadata(
-                new MetadataProduce(
-                    OpenApiBadRequestObject,
-                    StatutCodes.Status400BadRequest
-                )
-            )
+            //authGroup
+           //     .map('/oui/:id', 'get', UserController, UserController.findOne)
+           //     .withMiddleware((req, res, next) => {
+           //         console.log('oui oui je suis un middleware')
+           //         next()
+           //     })
+           //     .withMetadata(
+           //         new MetadataProduce(
+           //             AuthOuiResponse,
+           //             StatutCodes.Status200OK
+           //         )
+           //     )
+//
+           // authGroup
+           //     .map('/oui/:id', 'post', UserController, UserController.postUser)
+           //     .withMetadata(
+           //         new MetadataProduce(
+           //             AuthOuiResponse,
+           //             StatutCodes.Status200OK
+           //         )
+           //     )
+           //     .withMetadata(
+           //         new MetadataProduce(
+           //             OpenApiBadRequestObject,
+           //             StatutCodes.Status400BadRequest
+           //         )
+           //     )
 
 
             const authOuiGroup = authGroup
@@ -319,16 +307,16 @@ const app = builder.build()
 app
     .useAuthentification()
     .use(openapi)
-    .use((app) => {
-        const openAPIObject = app.services
+    .use(({app, services}) => {
+        const openAPIObject = services
             .get<OpenApiBuilder>(OpenApiBuilder)
             .getSpec()
-        app.app.use('/docs', swaggerUi.serve, swaggerUi.setup(openAPIObject))
+        app.use('/docs', swaggerUi.serve, swaggerUi.setup(openAPIObject))
     })
     .use(logError)
     .use(errorHandler)
-    .use((app) => {
-        app.app
+    .use(({app}) => {
+        app
             .use(
                 express.json(),
                 express.urlencoded({extended: true}),

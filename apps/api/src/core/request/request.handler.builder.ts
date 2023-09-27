@@ -25,7 +25,7 @@ export class RequestHandlerBuilder {
     }
 
     private tryHandler(buildFunction: CreateRequestHandler): RequestHandler {
-        return async (req, res, next) => {
+        return async (req: Request, res: Response, next: NextFunction) => {
             try {
                 const result = buildFunction(req, res, next)
                 if (result instanceof Promise) {
@@ -38,6 +38,7 @@ export class RequestHandlerBuilder {
             }
         }
     }
+
 
     public get argsHandler() {
         return this.tryHandler(this.createArgsHandler)

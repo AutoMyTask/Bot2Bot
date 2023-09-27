@@ -1,17 +1,14 @@
 import {BaseRouteBuilder} from "./base.route.builder";
 import {RequestHandlerBuilder} from "../request/request.handler.builder";
 import {MetadataCollection} from "./metadata.collection";
-import {AuthentificationBuilder} from "../auth/authentification.builder";
 import e, {RequestHandler} from "express";
 import {HTTPMethod} from "./types";
 import {Param, ParamPathType} from "../request/params/types";
 import {New} from "../types";
-import {AllowAnonymousAttribute} from "./metadata/AllowAnonymousAttribute";
 
 export interface IRouteConventions {
-    groupedMiddlewares: RequestHandler[],
+    requestHandler: RequestHandlerBuilder,
     prefixes: symbol[],
-    handler: RequestHandler,
     middlewares: RequestHandler[],
     params: {
         path: Param<ParamPathType>[]
@@ -39,7 +36,6 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         private requestHandlerBuilder: RequestHandlerBuilder,
         private path: string,
         private method: HTTPMethod,
-        private isAuth = false
     ) {
         super();
 
@@ -52,13 +48,11 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         const body = this.requestHandlerBuilder.paramsBuilder.paramBody.values.at(0)?.type
 
         const routeConventions: IRouteConventions = {
+            requestHandler: this.requestHandlerBuilder,
             prefixes: [],
-            groupedMiddlewares: [],
             middlewares: [
-                this.requestHandlerBuilder.argsHandler,
                 ...this.middlewares
             ],
-            handler: this.requestHandlerBuilder.finalHandler,
             params: {
                 path: this.requestHandlerBuilder.paramsBuilder.paramsPath.values
             },
@@ -68,20 +62,5 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
             metadataCollection: this.metadataCollection
         }
         return [routeConventions]
-    }
-
-
-    buildRouter(): e.Router {
-        const router = e.Router()
-
-        const [routeConventions] = this.buildRouteConventions()
-
-        router[routeConventions.method](
-            routeConventions.path,
-            ...routeConventions.middlewares,
-            routeConventions.handler
-        )
-
-        return router
     }
 }

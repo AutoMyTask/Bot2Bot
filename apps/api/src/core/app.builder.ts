@@ -10,12 +10,9 @@ import {IEndpointRouteBuilder, EndpointRouteBuilder, IRouteConventions} from "./
 import {RequestHandlerBuilder} from "./request/request.handler.builder";
 import {GroupedRouteBuilder, IGroupedEndpointRouteBuilder} from "./routes/grouped.route.builder";
 import "reflect-metadata";
-import e from "express";
-import _ from "lodash";
 import {App, IApp} from "./app";
 
 export type ConfigureServiceCallback = (services: interfaces.Container) => void
-type ConfigureAppEndpointCallback = (services: interfaces.Container) => IAppEndpoint
 type AuthentificationBuilderCallback = (builder: AuthentificationBuilder) => void
 
 export interface IAppBuilder {
@@ -24,13 +21,6 @@ export interface IAppBuilder {
     build: () => IApp,
     addAuthentification: (handler: RequestHandler, schemes: SecurityType[], callback?: AuthentificationBuilderCallback) => IAppBuilder
 }
-
-export interface IAppEndpoint {
-    route: string,
-    handlers: RequestHandler[] | RequestHandlerParams[]
-}
-
-
 export class AppBuilder implements IAppBuilder, IRouteMapBuilder {
     private readonly app: Application = express() // Pas dans le builder mais dans App
     private static readonly services: interfaces.Container = new Container()

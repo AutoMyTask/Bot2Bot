@@ -6,14 +6,7 @@ import {
 } from "./endpoint.route.builder";
 import {BaseRouteBuilder} from "./base.route.builder";
 import {interfaces} from "inversify";
-import {MetadataCollection} from "./metadata.collection";
-import {AuthentificationBuilder} from "../auth/authentification.builder";
-import {ParamsBuilder} from "../request/params/params.builder";
-import {ParamsPathDecorator} from "../request/params/decorators/params.path.decorator";
-import {ParamsBodyDecorator} from "../request/params/decorators/params.body.decorator";
-import {ParamsServiceDecorator} from "../request/params/decorators/params.service.decorator";
 import {RequestHandlerBuilder} from "../request/request.handler.builder";
-import _ from "lodash";
 import e from "express";
 import {CallbackRouteMapBuilder, HTTPMethod, IRouteMapBuilder} from "./types";
 import {New} from "../types";
@@ -30,7 +23,6 @@ export interface IGroupedEndpointRouteBuilder {
 export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEndpointRouteBuilder, IRouteMapBuilder {
     public services: interfaces.Container
     public routesBuilders: BaseRouteBuilder[] = []
-    private isAuth?: boolean = undefined
     private readonly prefixes: symbol[] = []
 
     constructor(
@@ -66,13 +58,12 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
                 this.services
             ),
             path,
-            method,
-            this.isAuth
+            method
         )
 
         this.routesBuilders.push(endpointRouteBuilder)
 
-        return endpointRouteBuilder;
+        return endpointRouteBuilder
     }
 
     mapGroup(
@@ -99,23 +90,15 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
                 for (let routeConvention of routeConventions) {
                     routeConvention.prefixes = [...this.prefixes]
                     routeConvention.metadataCollection.items.push(...this.metadataCollection.items)
-                    routeConvention.middlewares.unshift(...this.middlewares)
+                    routeConvention.middlewares.unshift(
+                        ...this.middlewares
+                    )
                 }
 
                 return [...requestsHandlersConventions, ...routeConventions ?? []]
             }, [] as IRouteConventions[])
 
         return [...routeConventionsSubRoute]
-    }
-
-    buildRouter(): express.Router {
-        const router = e.Router()
-
-        const routers = this.routesBuilders.map(routeBuilder => routeBuilder.buildRouter())
-
-        router.use(this.prefix, this.middlewares, routers)
-
-        return router
     }
 
     extensions(callback: CallbackRouteMapBuilder<void>): IRouteMapBuilder {

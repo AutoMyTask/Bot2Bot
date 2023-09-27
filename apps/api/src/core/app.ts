@@ -1,7 +1,7 @@
 import {IRouteConventions} from "./routes/endpoint.route.builder";
 import {interfaces} from "inversify";
 import e from "express";
-import _ from "lodash";
+import _, {entries, values} from "lodash";
 import {AuthentificationBuilder} from "./auth/authentification.builder";
 import {AllowAnonymousAttribute} from "./routes/metadata/AllowAnonymousAttribute";
 import {AuthorizeAttribute} from "./routes/metadata/AuthorizeAttribute";
@@ -35,17 +35,20 @@ export class App implements IApp {
     }
 
     useAuthentification(): IApp {
-        if (this.services.isBound(AuthentificationBuilder)) {
-            for (let convention of this.conventions) {
-                const {handler, schemes} = this.services.get(AuthentificationBuilder)
-                if (
-                    (!convention.metadataCollection.items.some(item => item instanceof AllowAnonymousAttribute)
+        for (let convention of this.conventions) {
+            const mustAuthenticated = (!convention.metadataCollection.items.some(item => item instanceof AllowAnonymousAttribute)
                     && convention.metadataCollection.items.some(item => item instanceof AuthorizeAttribute))
-                    || !convention.metadataCollection.items.some(item => item instanceof AllowAnonymousAttribute)
-                ) {
-                    convention.middlewares.unshift(handler)
-                    convention.auth = {schemes}
-                }
+                || !convention.metadataCollection.items.some(item => item instanceof AllowAnonymousAttribute)
+
+            if (!this.services.isBound(AuthentificationBuilder) && mustAuthenticated) {
+                // Trouver un meilleur message d'erreur
+                throw new Error("Veuillier configurer l'authentification")
+            }
+
+            const {handler, schemes} = this.services.get(AuthentificationBuilder)
+            if (mustAuthenticated) {
+                convention.middlewares.unshift(handler)
+                convention.auth = {schemes}
             }
         }
 
@@ -63,20 +66,25 @@ export class App implements IApp {
         const endpointRouters = this.createEndpointRouters(conventionsWithNullPrefix)
         this.app.use(endpointRouters)
 
-        // Pour les endpoints groupé
-        const conventionsWithOnePrefix = this.conventions.filter(convention => convention.prefixes.length === 1)
-        for (let conventionWithOnePrefix of conventionsWithOnePrefix) {
-            const firstPrefix = conventionWithOnePrefix.prefixes[0] // Regrouper les iroutesconventions ayant le même premier prefix commun / trouver un autre mecanisme
-            const conventionsWithPrefix = this.conventions.filter(convention => convention.prefixes.includes(firstPrefix))
-            const conventionsPrefixesSorted = conventionsWithPrefix
+
+        const conventionGroup = this.groupConventionsByPrefix()
+        for (let conventions of values(conventionGroup)) {
+            const conventionsPrefixesSorted = conventions
                 .sort((a, b) => a.prefixes.length - b.prefixes.length)
             let prefixes: symbol[] = []
+            let count: number = 0
             const router = conventionsPrefixesSorted.reduce((router, convention, index, conventions) => {
+                if (count !== convention.prefixes.length){
+                    console.log(convention.prefixes[count]?.description)
+                    router.use(convention.prefixes[count]?.description ?? '', router)
+                    count = convention.prefixes.length
+                }
                 if (!_.isEqual(prefixes, convention.prefixes)) {
                     const endpointsConventions = conventions.filter(conventionFilter => _.isEqual(conventionFilter.prefixes, convention.prefixes))
                     const endpointRouters = this.createEndpointRouters(endpointsConventions)
                     const prefix = convention.prefixes[convention.prefixes.length - 1]
-                    router.use(prefix?.description ?? '', convention.groupedMiddlewares, router, endpointRouters)
+                    console.log(prefix?.description)
+                    router.use(prefix?.description ?? '', router, endpointRouters)
                     prefixes = convention.prefixes
                 }
                 return router
@@ -85,13 +93,31 @@ export class App implements IApp {
         }
     }
 
+    groupConventionsByPrefix(): { [prefix: string]: IRouteConventions[] } {
+        const conventionsMap: { [prefix: string]: IRouteConventions[] } = {};
+        for (const convention of this.conventions) {
+            const prefixes = convention.prefixes;
+
+            if (prefixes.length > 0) {
+                const firstPrefix = prefixes[0].description;
+
+                if (!conventionsMap[firstPrefix!]) {
+                    conventionsMap[firstPrefix!] = [];
+                }
+
+                conventionsMap[firstPrefix!].push(convention);
+            }
+        }
+        return conventionsMap
+    }
+
     private createEndpointRouters(conventions: IRouteConventions[]): e.Router[] {
         return conventions.reduce((routers, convention) => {
             const router = e.Router()
             router[convention.method](
                 convention.path,
-                ...convention.middlewares,
-                convention.handler
+                ...[convention.requestHandler.argsHandler, ...convention.middlewares],
+                convention.requestHandler.finalHandler
             )
             routers.push(router)
             return routers
