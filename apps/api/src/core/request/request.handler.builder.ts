@@ -7,6 +7,7 @@ import {interfaces} from "inversify";
 import {ParamsPathDecorator} from "./params/decorators/params.path.decorator";
 import {ParamsBodyDecorator} from "./params/decorators/params.body.decorator";
 import {ParamsServiceDecorator} from "./params/decorators/params.service.decorator";
+import {ParamsMapDecorator} from "./params/decorators/params.map.decorator";
 
 export class RequestHandlerBuilder {
     public readonly paramsBuilder: ParamsBuilder
@@ -20,6 +21,7 @@ export class RequestHandlerBuilder {
             new ParamsPathDecorator(controllerType, controllerFunction.name),
             new ParamsBodyDecorator(controllerType, controllerFunction.name),
             new ParamsServiceDecorator(controllerType, controllerFunction.name),
+            new ParamsMapDecorator(controllerType, controllerFunction.name),
             this.services
         )
     }
@@ -49,12 +51,13 @@ export class RequestHandlerBuilder {
     }
 
     private createArgsHandler = async (req: Request, res: Response, next: NextFunction) => {
-        if (!isEmpty(req.body)) {
-            this.paramsBuilder.createBodyArg(req)
-        }
         if (!isEmpty(req.params)) {
             this.paramsBuilder.createParamsArg(req)
         }
+        if (!isEmpty(req.body)) {
+            this.paramsBuilder.createBodyArg(req)
+        }
+        this.paramsBuilder.createMapArg(req)
         req.args = this.paramsBuilder.getArgs
         next()
     }

@@ -9,7 +9,7 @@ export abstract class ParamsDecorator<T extends ParamType> {
     protected readonly types: any[]
 
     protected constructor(
-        public readonly metadataKey: 'body' | 'services' | 'params',
+        public readonly metadataKey: 'body' | 'services' | 'params' | 'map',
         protected readonly target: Object,
         protected readonly methodName: string | symbol
     ) {

@@ -1,10 +1,10 @@
 import {createSchema} from "../create.schema";
 import {ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
-import {OpenApiPropDecorator} from "../decorators/openapi.decorator";
+import {Enum, OpenApiPropDecorator} from "../decorators/openapi.decorator";
 
 type New = new (...args: any) => {};
 
-export type Schema = { type: New , schema: ReferenceObject | SchemaObject, statutCode: number }
+export type Schema = { type: New | { name: string, type: Enum } , schema: ReferenceObject | SchemaObject, statutCode: number }
 
 export class MetadataProduce {
     schema: Schema
@@ -15,7 +15,10 @@ export class MetadataProduce {
 
         this.schema = { type, schema: createSchema(type), statutCode }
 
-        for (let type of openApiArray.propertiesArray) {
+        for (const type of openApiArray.schemas) {
+            this.schemas.push({ type, schema: createSchema(type), statutCode })
+        }
+        for (const type of openApiArray.enums){
             this.schemas.push({ type, schema: createSchema(type), statutCode })
         }
     }

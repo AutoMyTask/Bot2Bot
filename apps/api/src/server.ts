@@ -4,9 +4,8 @@
 
 // DEBUT DES TESTS D'INTEGRATIONS
 
-import express, {NextFunction} from "express";
+import express from "express";
 import helmet from 'helmet';
-
 import cors from "cors";
 
 // Api Core
@@ -23,76 +22,24 @@ import {configureOpenApi} from "./openapi/configure.openapi";
 import {openapi} from "./openapi/openapi";
 import {MetadataTag} from "./openapi/metadata/metadataTag";
 import {MetadataProduce} from "./openapi/metadata/metadataProduce";
-import {OpenApiBadRequestObject} from "./http/errors/BadRequest"; // Je ne sais pas...
 
-// 'open api'
-import {OpenapiProp} from "./openapi/decorators/openapi.prop";
-
-// 'core'
-import {IsInt, IsNotEmpty, IsString} from "class-validator";
 
 // 'app'
 import {auth} from "express-oauth2-jwt-bearer";
-import {AuthService} from "./auth/auth.service";
-import {configureAuth} from "./auth/configure.auth";
-import {Params} from "./core/request/params/decorators/params.path.decorator";
-import {Service} from "./core/request/params/decorators/params.service.decorator";
-import {Body} from "./core/request/params/decorators/params.body.decorator";
 import {AppBuilder} from "./core/app.builder";
 import {StatutCodes} from "./core/http/StatutCodes";
 import rateLimit from "express-rate-limit";
 import swaggerUi from "swagger-ui-express";
+import {configureAuth0} from "./auth0/auth0.service";
+import {configureDiscord} from "./discord";
+import {UserController} from "./users/UserController";
+import {Unauthorized} from "./http/errors/Unauthorized";
+import {UserResponse} from "./users/ressources/UserResponse";
+import {BadRequestObject} from "./http/errors/BadRequest";
 
 
 // VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
 // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
-
-
-// Avoir un comportement commun pour tous les middlewares
-class UserRequest {
-    @IsInt()
-    @IsNotEmpty()
-    @OpenapiProp('number', {required: true})
-    oui!: number
-
-
-    @IsNotEmpty()
-    @IsString()
-    @OpenapiProp('string', {required: true})
-    non!: string
-}
-
-class AuthOuiResponse {
-    @OpenapiProp('boolean')
-    public oui!: boolean
-}
-
-function postUserMiddleware(
-    id: number,
-    userRequest: UserRequest,
-    authService: AuthService,
-    next: NextFunction
-) {
-    console.log(id)
-    next()
-}
-
-class UserController {
-    public static findOne(
-        @Params('username') username: string,
-        @Params('id', 'float') id: number
-    ): AuthOuiResponse {
-        return {oui: false}
-    }
-
-    public static postUser(
-        @Params('id') id: number,
-        @Body userRequest: UserRequest,
-        @Service() authService: AuthService
-    ): { oui: boolean } {
-        return {oui: true}
-    }
-}
 
 
 const builder = AppBuilder.createAppBuilder()
@@ -129,7 +76,14 @@ builder.configure(configureOpenApi(builder => {
         type: 'apiKey',
         in: 'header',
     })
-})).configure(configureAuth)
+}))
+    .configure(configureAuth0(
+        process.env.AUTH0_API_MANAGEMENT_CLIENT_ID ?? '',
+        process.env.AUTH0_API_MANAGEMENT_CLIENT_SECRET ?? '',
+        process.env.AUTH0_API_MANAGEMENT_GRANT_TYPE ?? '',
+        process.env.AUTH0_API_MANAGEMENT_AUDIENCE ?? ''
+    ))
+    .configure(configureDiscord)
 
 
 builder.addAuthentification(auth({
@@ -141,160 +95,18 @@ builder.addAuthentification(auth({
 
 builder
     .addEndpoint(routeMapBuilder => {
-            routeMapBuilder
-                .map('/oui/:id/:username', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    next()
-                })
+            const userGroup = routeMapBuilder
+                .mapGroup('/users')
                 .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    ))
-
-
-            routeMapBuilder
-                .map('/non/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('non non je suis un middleware')
-                    next()
-                })
-                .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    )
+                    new MetadataTag('Users')
                 )
 
-            const authGroup = routeMapBuilder
-                .mapGroup('/auth')
-                .withMiddleware((req, res, next) => {
-                    next()
-                })
+            userGroup
+                .map('/@me', 'get', UserController, UserController.me)
                 .withMetadata(
-                    new MetadataTag(
-                        'Auth',
-                        'Description de Auth'
-                    )
-                ).allowAnonymous()
-
-            //authGroup
-           //     .map('/oui/:id', 'get', UserController, UserController.findOne)
-           //     .withMiddleware((req, res, next) => {
-           //         console.log('oui oui je suis un middleware')
-           //         next()
-           //     })
-           //     .withMetadata(
-           //         new MetadataProduce(
-           //             AuthOuiResponse,
-           //             StatutCodes.Status200OK
-           //         )
-           //     )
-//
-           // authGroup
-           //     .map('/oui/:id', 'post', UserController, UserController.postUser)
-           //     .withMetadata(
-           //         new MetadataProduce(
-           //             AuthOuiResponse,
-           //             StatutCodes.Status200OK
-           //         )
-           //     )
-           //     .withMetadata(
-           //         new MetadataProduce(
-           //             OpenApiBadRequestObject,
-           //             StatutCodes.Status400BadRequest
-           //         )
-           //     )
-
-
-            const authOuiGroup = authGroup
-                .mapGroup('/ouiN')
-                .withMiddleware((req, res, next) => {
-                    console.log('"auth/ouiN" prefix')
-                    next()
-                }).withMetadata(
-                    new MetadataTag('AuthOui', 'AuthOui description')
-                ).requireAuthorization()
-
-            const authNonGroup = authGroup
-                .mapGroup('/nonN')
-                .withMiddleware((req, res, next) => {
-                    console.log('"auth/nonN" prefix')
-                    next()
-                }).withMetadata(
-                    new MetadataTag(
-                        'AuthNon',
-                        'AuthNon description'
-                    )
-                ).requireAuthorization()
-
-            const jajaGroup = authNonGroup
-                .mapGroup('/jaja')
-                .withMiddleware((req, res, next) => {
-                    console.log('"auth/nonN/jaja" prefix')
-                    next()
-                })
-                .withMetadata(
-                    new MetadataTag(
-                        'Jaja',
-                        'une petite description jaja'
-                    )
-                ).allowAnonymous()
-
-            jajaGroup
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    next()
-                })
-                .withMetadata(
-                    new MetadataTag(
-                        'Arg',
-                        "Une description d'arg "
-                    ),
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    ))
-
-
-            authNonGroup
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
-                .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    )
-                ).allowAnonymous()
-
-            authNonGroup
-                .map('/non/:id', 'get', UserController, UserController.findOne)
-                // A mon avis utilise des decorateur pour mapper
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
-                .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    )
-                )
-
-            authOuiGroup
-                .map('/oui/:id', 'get', UserController, UserController.findOne)
-                .withMiddleware((req, res, next) => {
-                    console.log('oui oui je suis un middleware')
-                    next()
-                })
-                .withMetadata(
-                    new MetadataProduce(
-                        AuthOuiResponse,
-                        StatutCodes.Status200OK
-                    )
+                    new MetadataProduce(UserResponse),
+                    new MetadataProduce(Unauthorized, StatutCodes.Status401Unauthorized),
+                    new MetadataProduce(BadRequestObject, StatutCodes.Status400BadRequest)
                 )
 
             return routeMapBuilder
@@ -308,13 +120,15 @@ app
     .useAuthentification()
     .use(openapi)
     .use(({app, services}) => {
-        const openAPIObject = services
+        const openAPISpec = services
             .get<OpenApiBuilder>(OpenApiBuilder)
             .getSpec()
-        app.use('/docs', swaggerUi.serve, swaggerUi.setup(openAPIObject))
+
+        app.use('/docs', swaggerUi.serve, swaggerUi.setup(openAPISpec))
+        app.use('/swagger.json', (req, res) => {
+            res.json(openAPISpec)
+        })
     })
-    .use(logError)
-    .use(errorHandler)
     .use(({app}) => {
         app
             .use(
@@ -327,10 +141,14 @@ app
                 cors({
                     origin: 'http://localhost:8080'
                 }),
-                helmet()
+                helmet(),
             )
     })
     .mapEndpoints()
+
+app
+    .use(logError)
+    .use(errorHandler)
 
 
 app.run({port: process.env.PORT})

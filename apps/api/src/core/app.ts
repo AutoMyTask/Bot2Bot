@@ -61,10 +61,12 @@ export class App implements IApp {
     }
 
     mapEndpoints(): void {
-        // Pour les endpoints non groupé
         const conventionsWithNullPrefix = this.conventions.filter(convention => convention.prefixes.length === 0)
         const endpointRouters = this.createEndpointRouters(conventionsWithNullPrefix)
-        this.app.use(endpointRouters)
+        if (endpointRouters.length > 0){
+            this.app.use(endpointRouters)
+        }
+
 
 
         const conventionGroup = this.groupConventionsByPrefix()
@@ -75,7 +77,6 @@ export class App implements IApp {
             let count: number = 0
             const router = conventionsPrefixesSorted.reduce((router, convention, index, conventions) => {
                 if (count !== convention.prefixes.length){
-                    console.log(convention.prefixes[count]?.description)
                     router.use(convention.prefixes[count]?.description ?? '', router)
                     count = convention.prefixes.length
                 }
@@ -83,7 +84,6 @@ export class App implements IApp {
                     const endpointsConventions = conventions.filter(conventionFilter => _.isEqual(conventionFilter.prefixes, convention.prefixes))
                     const endpointRouters = this.createEndpointRouters(endpointsConventions)
                     const prefix = convention.prefixes[convention.prefixes.length - 1]
-                    console.log(prefix?.description)
                     router.use(prefix?.description ?? '', router, endpointRouters)
                     prefixes = convention.prefixes
                 }
@@ -116,7 +116,7 @@ export class App implements IApp {
             const router = e.Router()
             router[convention.method](
                 convention.path,
-                ...[convention.requestHandler.argsHandler, ...convention.middlewares],
+                ...[...convention.middlewares, convention.requestHandler.argsHandler],
                 convention.requestHandler.finalHandler
             )
             routers.push(router)

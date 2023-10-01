@@ -4,7 +4,6 @@ import {Container, interfaces} from "inversify";
 import {BaseRouteBuilder} from "./routes/base.route.builder";
 import {SecurityType} from "./auth/types";
 import {AuthentificationBuilder} from "./auth/authentification.builder";
-import {RequestHandlerParams} from "express-serve-static-core";
 import {New} from "./types";
 import {IEndpointRouteBuilder, EndpointRouteBuilder, IRouteConventions} from "./routes/endpoint.route.builder";
 import {RequestHandlerBuilder} from "./request/request.handler.builder";

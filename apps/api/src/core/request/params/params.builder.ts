@@ -9,8 +9,10 @@ import {validateSync} from "class-validator";
 import {parseNumber} from "../../utils/parse.number";
 import {New} from "../../types";
 import {BadRequestObject} from "../../http/errors/BadRequest";
+import {ParamsMapDecorator} from "./decorators/params.map.decorator";
+import {Express} from "express-serve-static-core";
 
-export type ArgHandler = InstanceType<New> | number | string
+export type ArgHandler = InstanceType<New> | number | string | any
 
 export class ParamsBuilder {
     private args: ArgHandler[] = []
@@ -19,6 +21,7 @@ export class ParamsBuilder {
         public readonly paramsPath: ParamsPathDecorator,
         public readonly paramBody: ParamsBodyDecorator,
         public readonly paramsService: ParamsServiceDecorator,
+        public readonly paramsMap: ParamsMapDecorator,
         private readonly services: interfaces.Container
     ) {
         for (let {index, type} of this.paramsService.values) {
@@ -68,6 +71,21 @@ export class ParamsBuilder {
                 return this
             }
             this.args[index] = req.params[name]
+        }
+        return this
+    }
+
+    createMapArg(req: Request): ParamsBuilder {
+        for (let {index, name} of this.paramsMap.values) {
+            const entry = Object.entries(req).find(([key]) => key === name)
+
+            if (!entry) {
+                throw new Error('une erreur')
+            }
+
+            const [_, value] = entry
+
+            this.args[index] = value
         }
         return this
     }
