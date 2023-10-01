@@ -30,7 +30,6 @@ export interface User {
 @injectable()
 export class DiscordService {
     public client: AxiosInstance
-    private sub?: string
 
     constructor(
         @inject(Auth0Service) private auth0Service: Auth0Service
