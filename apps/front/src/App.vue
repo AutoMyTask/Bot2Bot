@@ -1,5 +1,6 @@
 <template>
   <button @click="login">Login</button>
+  <button @click="onLogout">Logout</button>
   <router-view></router-view>
 </template>
 
@@ -10,7 +11,7 @@ import { onMounted } from 'vue';
 
 export default {
   setup() {
-    const { loginWithRedirect } = useAuth0();
+    const { loginWithRedirect, logout } = useAuth0();
 
     onMounted(() => {
       console.log(process.env);
@@ -22,8 +23,10 @@ export default {
           appState: { target: '/home' },
         });
       },
+      onLogout() {
+        logout();
+      },
     };
   },
 };
-
 </script>

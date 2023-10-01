@@ -45,7 +45,8 @@ export default defineComponent({
     onMounted(async () => {
       const { getAccessTokenSilently } = useAuth0();
       const token = await getAccessTokenSilently();
-      const response = await fetch(process.env.VUE_APP_API_SERVER, {
+      console.log(token);
+      const response = await fetch(process.env.VUE_APP_APP_DOMAIN, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
