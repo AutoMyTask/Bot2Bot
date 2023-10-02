@@ -1,6 +1,7 @@
 import {ParamsDecorator} from "./params.decorator";
+import {RequestCore} from "api-common";
 
-export class ParamsMapDecorator extends ParamsDecorator<any>{
+export class ParamsMapDecorator extends ParamsDecorator<any> implements RequestCore.Params.IParamsMapDecorator {
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string

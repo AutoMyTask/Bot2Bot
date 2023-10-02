@@ -1,9 +1,9 @@
 import {values} from "lodash";
-import {Param, ParamType} from "../types";
 import 'reflect-metadata'
+import {RequestCore} from "api-common";
 
-export abstract class ParamsDecorator<T extends ParamType> {
-    public metadata: Record<number, Param<T> & { index: number }> // Utiliser un tableau et non un record
+export abstract class ParamsDecorator<T extends RequestCore.Params.ParamType> implements RequestCore.Params.IParamsDecorator<T>{
+    public metadata: Record<number, RequestCore.Params.Param<T> & { index: number }> // Utiliser un tableau et non un record
 
     // A typer
     protected readonly types: any[]
@@ -24,12 +24,12 @@ export abstract class ParamsDecorator<T extends ParamType> {
         Reflect.defineMetadata(this.metadataKey, this.metadata, this.target, this.methodName)
     }
 
-    get values(): (Param<T> & { index: number })[] {
+    get values(): (RequestCore.Params.Param<T> & { index: number })[] {
         return values(this.metadata)
     }
 
     // Indiquer qu'il peut être undefenid ! important !
-    getParam(index: number): Param<T> & { index: number } {
+    getParam(index: number): RequestCore.Params.Param<T> & { index: number } {
         return this.metadata[index]
     }
 }

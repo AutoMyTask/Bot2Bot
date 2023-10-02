@@ -1,33 +1,17 @@
-import express, {RequestHandler} from "express";
-import {
-    EndpointRouteBuilder,
-    IRouteConventions,
-    IEndpointRouteBuilder
-} from "./endpoint.route.builder";
+import {EndpointRouteBuilder,} from "./endpoint.route.builder";
 import {BaseRouteBuilder} from "./base.route.builder";
-import {interfaces} from "inversify";
 import {RequestHandlerBuilder} from "../request/request.handler.builder";
-import e from "express";
-import {CallbackRouteMapBuilder, HTTPMethod, IRouteMapBuilder} from "./types";
-import {New} from "../types";
+import { IServiceCollection, RouteCore, TypesCore} from "api-common";
 
-export interface IGroupedEndpointRouteBuilder {
-    withMetadata: (metadata: object) => IGroupedEndpointRouteBuilder,
-    withMiddleware: (middleware: RequestHandler) => IGroupedEndpointRouteBuilder
-    map: (path: string, method: HTTPMethod, controllerType: New, controllerFunction: Function) => IEndpointRouteBuilder,
-    mapGroup: (prefix: string) => IGroupedEndpointRouteBuilder,
-    allowAnonymous: () => IGroupedEndpointRouteBuilder
-    requireAuthorization: () => IGroupedEndpointRouteBuilder
-}
 
-export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEndpointRouteBuilder, IRouteMapBuilder {
-    public services: interfaces.Container
+export class GroupedRouteBuilder extends BaseRouteBuilder implements RouteCore.IGroupedEndpointRouteBuilder, RouteCore.IRouteMapBuilder {
+    public services: IServiceCollection
     public routesBuilders: BaseRouteBuilder[] = []
     private readonly prefixes: symbol[] = []
 
     constructor(
         public prefix: string,
-        private routeMapBuilder: IRouteMapBuilder,
+        private routeMapBuilder: RouteCore.IRouteMapBuilder,
     ) {
         super();
 
@@ -46,10 +30,10 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
 
     map(
         path: string,
-        method: HTTPMethod,
-        controllerType: New,
+        method: RouteCore.HTTPMethod,
+        controllerType: TypesCore.New,
         controllerFunction: Function
-    ): IEndpointRouteBuilder {
+    ): RouteCore.IEndpointRouteBuilder {
 
         const endpointRouteBuilder = new EndpointRouteBuilder(
             new RequestHandlerBuilder(
@@ -68,7 +52,7 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
 
     mapGroup(
         prefix: string
-    ): IGroupedEndpointRouteBuilder {
+    ): RouteCore.IGroupedEndpointRouteBuilder {
         const groupedBuilder = new GroupedRouteBuilder(
             prefix,
             this,
@@ -78,7 +62,7 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
         return groupedBuilder
     }
 
-    buildRouteConventions(): IRouteConventions[] {
+    buildRouteConventions(): RouteCore.IRouteConventions[] {
         const routeConventionsSubRoute = this.routesBuilders
             .reduce((requestsHandlersConventions, routeBuilder) => {
                 const routeConventions = routeBuilder.buildRouteConventions()
@@ -96,12 +80,12 @@ export class GroupedRouteBuilder extends BaseRouteBuilder implements IGroupedEnd
                 }
 
                 return [...requestsHandlersConventions, ...routeConventions ?? []]
-            }, [] as IRouteConventions[])
+            }, [] as RouteCore.IRouteConventions[])
 
         return [...routeConventionsSubRoute]
     }
 
-    extensions(callback: CallbackRouteMapBuilder<void>): IRouteMapBuilder {
+    extensions(callback: RouteCore.CallbackRouteMapBuilder<void>): RouteCore.IRouteMapBuilder {
         callback(this)
         return this;
     }

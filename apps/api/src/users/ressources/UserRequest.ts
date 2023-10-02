@@ -1,5 +1,5 @@
 import {IsInt, IsNotEmpty, IsString} from "class-validator";
-import {OpenapiProp} from "../../openapi/decorators/openapi.prop";
+import {OpenapiProp} from "openapi";
 
 export class UserRequest {
     @IsInt()

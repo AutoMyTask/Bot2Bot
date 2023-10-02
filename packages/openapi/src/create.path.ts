@@ -4,15 +4,14 @@ import {MetadataProduce} from "./metadata/metadataProduce";
 import {createResponsesObject} from "./create.responsesObject";
 import {entries} from "lodash";
 import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
-import {HTTPMethod} from "../core/routes/types";
+import {RouteCore, TypesCore} from "api-common";
 
-type Constructor = new (...args: any[]) => {};
 
 type ParamsConventions = {
     path: { name: string, type: string | number | 'int' | 'float', required?: boolean }[]
 }
 
-const createFormat = (type: Constructor | string | number | 'int' | 'float') => {
+const createFormat = (type: TypesCore.New | string | number | 'int' | 'float') => {
     if (typeof type === 'string'){
         return type
     }
@@ -24,11 +23,11 @@ const createFormat = (type: Constructor | string | number | 'int' | 'float') => 
 
 export const createPathItem = (
     params: ParamsConventions,
-    method: HTTPMethod,
+    method: RouteCore.HTTPMethod,
     metadataTags: MetadataTag[],
     metadataProduces: MetadataProduce[],
     schemes?: string[],
-    body?: Constructor,): PathItemObject => {
+    body?: TypesCore.New,): PathItemObject => {
     const responses = createResponsesObject(metadataProduces)
     const tags = metadataTags.map(metadataTag => metadataTag.name)
     let parameters: ParameterObject[] = []

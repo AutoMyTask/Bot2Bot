@@ -2,20 +2,20 @@ import {CreateRequestHandler} from "./types";
 import {NextFunction, Request, RequestHandler, Response} from "express";
 import {isEmpty} from "lodash";
 import {ParamsBuilder} from "./params/params.builder";
-import {New} from "../types";
-import {interfaces} from "inversify";
 import {ParamsPathDecorator} from "./params/decorators/params.path.decorator";
 import {ParamsBodyDecorator} from "./params/decorators/params.body.decorator";
 import {ParamsServiceDecorator} from "./params/decorators/params.service.decorator";
 import {ParamsMapDecorator} from "./params/decorators/params.map.decorator";
+import {IServiceCollection, RequestCore, TypesCore} from "api-common";
 
-export class RequestHandlerBuilder {
-    public readonly paramsBuilder: ParamsBuilder
+
+export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder{
+    public readonly paramsBuilder: RequestCore.Params.IParamsBuilder
 
     constructor(
-        private readonly controllerType: New,
+        private readonly controllerType: TypesCore.New,
         private readonly controllerFunction: Function,
-        public readonly services: interfaces.Container
+        public readonly services: IServiceCollection
     ) {
         this.paramsBuilder = new ParamsBuilder(
             new ParamsPathDecorator(controllerType, controllerFunction.name),
@@ -42,7 +42,7 @@ export class RequestHandlerBuilder {
     }
 
 
-    public get argsHandler() {
+    public get argsHandler(): RequestHandler {
         return this.tryHandler(this.createArgsHandler)
     }
 

@@ -1,8 +1,7 @@
 import {ReferenceObject, RequestBodyObject} from "openapi3-ts/oas31";
+import {TypesCore} from "api-common";
 
-type Constructor = new (...args: any[]) => {};
-
-export const createRequestBody = (schema: Constructor): RequestBodyObject | ReferenceObject => {
+export const createRequestBody = (schema: TypesCore.New): RequestBodyObject | ReferenceObject => {
     return {
         description: '',
         required: undefined,

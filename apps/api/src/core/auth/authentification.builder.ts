@@ -4,6 +4,7 @@ import 'reflect-metadata'
 
 export type SecurityType = 'bearer' | 'oauth2'
 
+
 @injectable()
 export class AuthentificationBuilder {
     constructor(

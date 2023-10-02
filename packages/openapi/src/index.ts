@@ -5,9 +5,7 @@ import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
-import {IRouteConventions} from "../core/routes/endpoint.route.builder";
-import {interfaces} from "inversify";
-import {IApp} from "../core/app";
+import {AppCore, IServiceCollection, RouteCore} from "api-common";
 
 
 /**
@@ -30,8 +28,8 @@ type GroupedMetadataTag = {
 
 
 function processRouteHandlers(
-    services: interfaces.Container,
-    conventions: IRouteConventions[]
+    services: IServiceCollection,
+    conventions: RouteCore.IRouteConventions[]
 ) {
 
     const groupedMetadataTagCollection = new Map<string, GroupedMetadataTag>()
@@ -110,8 +108,14 @@ function processRouteHandlers(
     return {groupedMetadataTagCollection, groupedMetadataSchemaCollection}
 }
 
+export { configureOpenApi } from './configure.openapi'
 
-export const openapi = (app: IApp): void => {
+export { MetadataTag } from './metadata/metadataTag'
+
+export { MetadataProduce } from './metadata/metadataProduce'
+
+export  { OpenapiProp } from './decorators/openapi.prop'
+export const openapi = (app: AppCore.IApp): void => {
 
     const {
         groupedMetadataTagCollection,

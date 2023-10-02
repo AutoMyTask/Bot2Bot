@@ -1,8 +1,8 @@
 import {ParamsDecorator} from "./params.decorator";
-import {ParamServiceType} from "../types";
 import 'reflect-metadata'
+import {RequestCore} from "api-common";
 
-export class ParamsServiceDecorator extends ParamsDecorator<ParamServiceType> {
+export class ParamsServiceDecorator extends ParamsDecorator<RequestCore.Params.ParamServiceType> implements RequestCore.Params.IParamsServiceDecorator {
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string | symbol

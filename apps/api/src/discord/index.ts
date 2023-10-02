@@ -23,10 +23,6 @@ export interface User {
     verified: boolean | null
 }
 
-// Si je veux augmenter la réutilisation il faudrait que je crée un orchestrator
-// Je le ferais lorsque je voudrais composer des données d'auth0 avec des données de discord
-// Pour l'instant, mon service discord dépend fortement de mon service auth0
-// Il devrait normalement prendre en dépendance externe un access token
 @injectable()
 export class DiscordService {
     public client: AxiosInstance

@@ -1,9 +1,15 @@
-import {New} from "../types";
+import {New} from "api-common/src/types";
 
-export class MetadataCollection {
+export interface IMetadataCollection {
+    items: object[]
+    getAllMetadataAttributes<T extends New>(type: T): InstanceType<T>[]
+    push(...metadata: object[]): void
+}
+
+export class MetadataCollection implements IMetadataCollection {
     public items: object[] = []
 
-    push(...metadata: object[]) {
+    push(...metadata: object[]): void {
         this.items.push(...metadata)
     }
 

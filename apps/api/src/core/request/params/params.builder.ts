@@ -1,28 +1,24 @@
 import {ParamsPathDecorator} from "./decorators/params.path.decorator";
 import {ParamsBodyDecorator} from "./decorators/params.body.decorator";
 import {ParamsServiceDecorator} from "./decorators/params.service.decorator";
-import {interfaces} from "inversify";
 import {Request} from "express";
 import {isNull} from "lodash";
 import {plainToInstance} from "class-transformer";
 import {validateSync} from "class-validator";
 import {parseNumber} from "../../utils/parse.number";
-import {New} from "../../types";
 import {BadRequestObject} from "../../http/errors/BadRequest";
 import {ParamsMapDecorator} from "./decorators/params.map.decorator";
-import {Express} from "express-serve-static-core";
+import {IServiceCollection, RequestCore} from "api-common";
 
-export type ArgHandler = InstanceType<New> | number | string | any
-
-export class ParamsBuilder {
-    private args: ArgHandler[] = []
+export class ParamsBuilder implements RequestCore.Params.IParamsBuilder{
+    private args: RequestCore.Params.ArgHandler[] = []
 
     constructor(
         public readonly paramsPath: ParamsPathDecorator,
         public readonly paramBody: ParamsBodyDecorator,
         public readonly paramsService: ParamsServiceDecorator,
         public readonly paramsMap: ParamsMapDecorator,
-        private readonly services: interfaces.Container
+        private readonly services: IServiceCollection
     ) {
         for (let {index, type} of this.paramsService.values) {
             this.args[index] = this.services.get(type)
@@ -112,7 +108,7 @@ export class ParamsBuilder {
         return this
     }
 
-    get getArgs(): ArgHandler[] {
+    get getArgs(): RequestCore.Params.ArgHandler[] {
         return this.args
     }
 }

@@ -1,5 +1,5 @@
-import {OpenapiProp} from "../../openapi/decorators/openapi.prop";
 import {User} from "../../discord";
+import {OpenapiProp} from "openapi";
 
 enum PremiumTypesEnum {
     None ,

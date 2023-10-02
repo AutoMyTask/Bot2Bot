@@ -1,9 +1,8 @@
 import {OpenApiBuilder} from "openapi3-ts/oas31";
-import {interfaces} from "inversify";
-import {ConfigureServiceCallback} from "../core/app.builder";
+import {ConfigureServiceCallback, IServiceCollection} from "api-common";
 
 export const configureOpenApi = (callbackConfigureOpenApi: (builder: OpenApiBuilder) => void) : ConfigureServiceCallback => {
-    return ((service: interfaces.Container) => {
+    return ((service: IServiceCollection) => {
         service
             .bind<OpenApiBuilder>(OpenApiBuilder)
             .toDynamicValue(() => OpenApiBuilder.create())

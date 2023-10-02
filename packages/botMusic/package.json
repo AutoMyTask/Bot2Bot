@@ -15,7 +15,7 @@
     "publish": "npm version patch && npm publish --access public"
   },
   "keywords": [],
-  "author": "",
+  "author": "François-Pierre ROUSSEAU",
   "license": "ISC",
   "dependencies": {
     "@discordjs/builders": "^1.6.1",

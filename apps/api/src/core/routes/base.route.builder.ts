@@ -1,13 +1,11 @@
-import express, {NextFunction, RequestHandler} from "express";
+import {RequestHandler} from "express";
 import {MetadataCollection} from "./metadata.collection";
-import {IEndpointRouteBuilder, IRouteConventions} from "./endpoint.route.builder";
 import {AllowAnonymousAttribute} from "./metadata/AllowAnonymousAttribute";
 import {AuthorizeAttribute} from "./metadata/AuthorizeAttribute";
-import {extend} from "lodash";
+import {RouteCore} from "api-common";
 
 
-
-export abstract class BaseRouteBuilder {
+export abstract class BaseRouteBuilder implements RouteCore.IBaseRouteBuilder{
     public middlewares: RequestHandler[] = []
     protected metadataCollection: MetadataCollection = new MetadataCollection()
 
@@ -33,5 +31,5 @@ export abstract class BaseRouteBuilder {
         return this;
     }
 
-    abstract buildRouteConventions(): IRouteConventions[]
+    abstract buildRouteConventions(): RouteCore.IRouteConventions[]
 }

@@ -1,41 +1,12 @@
 import {BaseRouteBuilder} from "./base.route.builder";
 import {RequestHandlerBuilder} from "../request/request.handler.builder";
-import {MetadataCollection} from "./metadata.collection";
-import e, {RequestHandler} from "express";
-import {HTTPMethod} from "./types";
-import {Param, ParamPathType} from "../request/params/types";
-import {New} from "../types";
+import {RouteCore} from "api-common";
 
-export interface IRouteConventions {
-    requestHandler: RequestHandlerBuilder,
-    prefixes: symbol[],
-    middlewares: RequestHandler[],
-    params: {
-        path: Param<ParamPathType>[]
-    },
-    body?: New,
-    path: string,
-    method: HTTPMethod,
-    auth?: {
-        schemes?: string[]
-    },
-    metadataCollection: MetadataCollection
-}
-
-
-export interface IEndpointRouteBuilder {
-    allowAnonymous: () => IEndpointRouteBuilder,
-    requireAuthorization: () => IEndpointRouteBuilder,
-    withMetadata: (...metadata: object[]) => IEndpointRouteBuilder
-    withMiddleware: (middleware: RequestHandler) => IEndpointRouteBuilder
-}
-
-
-export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointRouteBuilder {
+export class EndpointRouteBuilder extends BaseRouteBuilder implements RouteCore.IEndpointRouteBuilder {
     constructor(
         private requestHandlerBuilder: RequestHandlerBuilder,
         private path: string,
-        private method: HTTPMethod,
+        private method: RouteCore.HTTPMethod,
     ) {
         super();
 
@@ -44,10 +15,10 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements IEndpointR
         }
     }
 
-    buildRouteConventions(): IRouteConventions[] {
+    buildRouteConventions(): RouteCore.IRouteConventions[] {
         const body = this.requestHandlerBuilder.paramsBuilder.paramBody.values.at(0)?.type
 
-        const routeConventions: IRouteConventions = {
+        const routeConventions: RouteCore.IRouteConventions = {
             requestHandler: this.requestHandlerBuilder,
             prefixes: [],
             middlewares: [

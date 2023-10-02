@@ -1,10 +1,9 @@
 import {SchemaObject} from "openapi3-ts/oas31";
 import {ReferenceObject} from "openapi3-ts/src/model/openapi31";
 import {Enum, OpenApiPropDecorator} from "./decorators/openapi.decorator";
+import {TypesCore} from "api-common";
 
-type Constructor = new (...args: any[]) => {};
-
-export const createSchema = (schema: Constructor | { name: string; type: Enum; }): ReferenceObject | SchemaObject => {
+export const createSchema = (schema: TypesCore.New | { name: string; type: Enum; }): ReferenceObject | SchemaObject => {
     if (typeof schema === 'object'){
         const obj = schema as { name: string; type: Enum; }
         const entries = Object.entries(obj.type)

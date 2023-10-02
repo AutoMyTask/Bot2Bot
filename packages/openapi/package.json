@@ -1,0 +1,27 @@
+{
+  "name": "openapi",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "source": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "François-Pierre ROUSSEAU",
+  "license": "ISC",
+  "dependencies": {
+    "api-common": "*",
+    "openapi3-ts": "^4.1.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  },
+  "type": "commonjs"
+}
