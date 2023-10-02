@@ -1,7 +1,7 @@
 import {createSchema} from "../create.schema";
 import {ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
 import {Enum, OpenApiPropDecorator} from "../decorators/openapi.decorator";
-import {TypesCore} from "api-common";
+import {TypesCore} from "core-types";
 export type Schema = { type: TypesCore.New | { name: string, type: Enum } , schema: ReferenceObject | SchemaObject, statutCode: number }
 
 export class MetadataProduce {

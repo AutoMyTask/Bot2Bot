@@ -3,7 +3,7 @@ import {UserResponse} from "./ressources/UserResponse";
 import {Unauthorized} from "../http/errors/Unauthorized";
 import {StatutCodes} from "../core/http/StatutCodes";
 import {BadRequestObject} from "../http/errors/BadRequest";
-import {RouteCore} from "api-common";
+import {RouteCore} from "core-types";
 import {MetadataProduce, MetadataTag} from "openapi";
 
 export const endpoints = (routeMapBuilder: RouteCore.IRouteMapBuilder) => {

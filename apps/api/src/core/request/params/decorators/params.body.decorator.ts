@@ -1,7 +1,7 @@
 import {ParamsDecorator} from "./params.decorator";
 import {values} from "lodash";
 import 'reflect-metadata'
-import {RequestCore, TypesCore} from "api-common";
+import {RequestCore, TypesCore} from "core-types";
 
 export class ParamsBodyDecorator extends ParamsDecorator<TypesCore.New> implements RequestCore.Params.IParamsBodyDecorator{
     constructor(

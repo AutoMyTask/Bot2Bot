@@ -1,6 +1,6 @@
 import {BaseRouteBuilder} from "./base.route.builder";
 import {RequestHandlerBuilder} from "../request/request.handler.builder";
-import {RouteCore} from "api-common";
+import {RouteCore} from "core-types";
 
 export class EndpointRouteBuilder extends BaseRouteBuilder implements RouteCore.IEndpointRouteBuilder {
     constructor(

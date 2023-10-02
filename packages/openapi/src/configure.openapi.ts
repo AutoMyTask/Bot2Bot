@@ -1,5 +1,5 @@
 import {OpenApiBuilder} from "openapi3-ts/oas31";
-import {ConfigureServiceCallback, IServiceCollection} from "api-common";
+import {ConfigureServiceCallback, IServiceCollection} from "core-types";
 
 export const configureOpenApi = (callbackConfigureOpenApi: (builder: OpenApiBuilder) => void) : ConfigureServiceCallback => {
     return ((service: IServiceCollection) => {

@@ -6,7 +6,7 @@ import {ParamsPathDecorator} from "./params/decorators/params.path.decorator";
 import {ParamsBodyDecorator} from "./params/decorators/params.body.decorator";
 import {ParamsServiceDecorator} from "./params/decorators/params.service.decorator";
 import {ParamsMapDecorator} from "./params/decorators/params.map.decorator";
-import {IServiceCollection, RequestCore, TypesCore} from "api-common";
+import {IServiceCollection, RequestCore, TypesCore} from "core-types";
 
 
 export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder{

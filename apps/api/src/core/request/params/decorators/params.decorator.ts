@@ -1,6 +1,6 @@
 import {values} from "lodash";
 import 'reflect-metadata'
-import {RequestCore} from "api-common";
+import {RequestCore} from "core-types";
 
 export abstract class ParamsDecorator<T extends RequestCore.Params.ParamType> implements RequestCore.Params.IParamsDecorator<T>{
     public metadata: Record<number, RequestCore.Params.Param<T> & { index: number }> // Utiliser un tableau et non un record

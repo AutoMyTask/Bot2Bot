@@ -25,7 +25,10 @@ import swaggerUi from 'swagger-ui-express'
 // VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
 // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
 
-// Creer un custom database auth0
+/*
+    Creer un custom database auth0
+    Auto générer un sdk et le publier dans un package repository
+ */
 const builder = AppBuilder.createAppBuilder()
 
 builder.configure(configureOpenApi(builder => {

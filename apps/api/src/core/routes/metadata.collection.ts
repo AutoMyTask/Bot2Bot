@@ -1,4 +1,4 @@
-import {New} from "api-common/src/types";
+import {New} from "core-types";
 
 export interface IMetadataCollection {
     items: object[]

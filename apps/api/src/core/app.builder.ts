@@ -8,7 +8,7 @@ import {RequestHandlerBuilder} from "./request/request.handler.builder";
 import {GroupedRouteBuilder} from "./routes/grouped.route.builder";
 import "reflect-metadata";
 import {App} from "./app";
-import {AppCore, ConfigureServiceCallback, IServiceCollection, RouteCore, TypesCore} from "api-common";
+import {AppCore, ConfigureServiceCallback, IServiceCollection, RouteCore, TypesCore} from "core-types";
 
 
 type AuthentificationBuilderCallback = (builder: AuthentificationBuilder) => void

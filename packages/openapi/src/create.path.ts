@@ -4,7 +4,7 @@ import {MetadataProduce} from "./metadata/metadataProduce";
 import {createResponsesObject} from "./create.responsesObject";
 import {entries} from "lodash";
 import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
-import {RouteCore, TypesCore} from "api-common";
+import {RouteCore, TypesCore} from "core-types";
 
 
 type ParamsConventions = {

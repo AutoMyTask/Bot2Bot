@@ -1,7 +1,7 @@
 import {EndpointRouteBuilder,} from "./endpoint.route.builder";
 import {BaseRouteBuilder} from "./base.route.builder";
 import {RequestHandlerBuilder} from "../request/request.handler.builder";
-import { IServiceCollection, RouteCore, TypesCore} from "api-common";
+import { IServiceCollection, RouteCore, TypesCore} from "core-types";
 
 
 export class GroupedRouteBuilder extends BaseRouteBuilder implements RouteCore.IGroupedEndpointRouteBuilder, RouteCore.IRouteMapBuilder {

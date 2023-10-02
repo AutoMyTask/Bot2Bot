@@ -2,7 +2,7 @@ import {RequestHandler} from "express";
 import {MetadataCollection} from "./metadata.collection";
 import {AllowAnonymousAttribute} from "./metadata/AllowAnonymousAttribute";
 import {AuthorizeAttribute} from "./metadata/AuthorizeAttribute";
-import {RouteCore} from "api-common";
+import {RouteCore} from "core-types";
 
 
 export abstract class BaseRouteBuilder implements RouteCore.IBaseRouteBuilder{

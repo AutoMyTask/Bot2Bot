@@ -1,6 +1,6 @@
 import {Request, Response, NextFunction} from "express";
 import {HttpError} from "http-errors";
-import {AppCore} from "api-common";
+import {AppCore} from "core-types";
 
 export const errorHandler = ({app}: AppCore.IApp) => {
     app.use((err: HttpError, req: Request, res: Response, next: NextFunction) => {

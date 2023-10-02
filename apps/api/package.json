@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "api-common": "*",
+    "core-types": "*",
     "openapi": "*",
     "axios": "^1.5.1",
     "class-transformer": "^0.5.1",

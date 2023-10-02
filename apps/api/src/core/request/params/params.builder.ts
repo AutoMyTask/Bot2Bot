@@ -8,7 +8,7 @@ import {validateSync} from "class-validator";
 import {parseNumber} from "../../utils/parse.number";
 import {BadRequestObject} from "../../http/errors/BadRequest";
 import {ParamsMapDecorator} from "./decorators/params.map.decorator";
-import {IServiceCollection, RequestCore} from "api-common";
+import {IServiceCollection, RequestCore} from "core-types";
 
 export class ParamsBuilder implements RequestCore.Params.IParamsBuilder{
     private args: RequestCore.Params.ArgHandler[] = []

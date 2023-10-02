@@ -1,6 +1,6 @@
 import {ParamsDecorator} from "./params.decorator";
 import 'reflect-metadata'
-import {RequestCore} from "api-common";
+import {RequestCore} from "core-types";
 
 
 export class ParamsPathDecorator extends ParamsDecorator<RequestCore.Params.ParamPathType> implements RequestCore.Params.IParamsPathDecorator{

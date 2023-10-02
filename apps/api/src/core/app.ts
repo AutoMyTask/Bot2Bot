@@ -3,7 +3,7 @@ import _, {values} from "lodash";
 import {AuthentificationBuilder} from "./auth/authentification.builder";
 import {AllowAnonymousAttribute} from "./routes/metadata/AllowAnonymousAttribute";
 import {AuthorizeAttribute} from "./routes/metadata/AuthorizeAttribute";
-import {AppCore, IServiceCollection, RouteCore} from "api-common";
+import {AppCore, IServiceCollection, RouteCore} from "core-types";
 
 
 export class App implements AppCore.IApp {

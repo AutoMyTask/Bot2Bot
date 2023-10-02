@@ -9,8 +9,9 @@ export class UserService {
     ) {
     }
 
+    // Peut-être créer un paramètre spécifique pour populate l'utilisateur des données
+    // provenant de discord ou autre plateforme
     async getUser(sub: string): Promise<UserResponse> {
-        return await this.discordService.getUser(sub)
+        return await this.discordService.user.getUser(sub)
     }
-
 }
