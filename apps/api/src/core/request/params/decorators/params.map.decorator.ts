@@ -8,6 +8,14 @@ export class ParamsMapDecorator extends ParamsDecorator<any> implements RequestC
     ) {
         super('map', target, methodName);
     }
+
+    override add(index: number, option?: { required?: boolean; type?: any; name?: string }): void {
+        if (!option?.name){
+            throw new Error('une erreur')
+        }
+
+        super.addParameter(index, undefined, option.name, option.required)
+    }
 }
 
 

@@ -1,9 +1,8 @@
 import {BadRequest} from "http-errors";
-import {ValidationError} from "class-validator";
 
 export class BadRequestObject extends BadRequest{
-    errors: ValidationError[] | string[]
-    constructor(message: string, errors: ValidationError[] | string[]) {
+    errors: any[] | ReadonlyArray<any>
+    constructor(errors: any[] | ReadonlyArray<any>, message?: string) {
         super(message);
         this.errors = errors
         this.name = 'BadRequestObject'

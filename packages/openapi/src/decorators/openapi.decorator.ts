@@ -1,9 +1,9 @@
 import {SchemaObject} from "openapi3-ts/dist/oas31";
 import {ReferenceObject} from "openapi3-ts/src/model/openapi31";
 import 'reflect-metadata'
+import {TypesCore} from "core-types";
 
-type Properties = Record<string, SchemaObject | ReferenceObject>
-export type Constructor = new (...args: any[]) => {};
+type Properties = Record<string, SchemaObject>
 
 export type Enum = Record<string, string | number>
 
@@ -20,11 +20,11 @@ export type DefaultType =
 export class OpenApiPropDecorator {
     public properties: Properties
     public required: string[]
-    public schemas: Constructor[]
+    public schemas: TypesCore.New[]
     public enums: { name: string, type: Enum }[]
 
     constructor(
-        protected readonly target: Constructor
+        protected readonly target: TypesCore.New
     ) {
         this.properties = Reflect.getMetadata('properties', this.target) || {}
         this.required = Reflect.getMetadata('properties.required', this.target) || []
@@ -43,22 +43,35 @@ export class OpenApiPropDecorator {
         return property
     }
 
-    addDefaultProperty(propName: string, property: {
-        type: DefaultType | DefaultType[],
-        maxLength?: number,
-        minLength?: number,
-        additionalProperties?: SchemaObject | ReferenceObject | boolean
-    }) {
+    addUnionRefProperty(propName: string, type: string, options: { type?: 'object' | 'array' }) {
+        const property: SchemaObject = {
+            type: options.type,
+            items: {
+                $ref: `#/components/schemas/${type}`
+            }
+        }
+        this.addUnionProp(propName, property)
+        return property
+    }
+
+    addDefaultProperty(propName: string, property: SchemaObject | ReferenceObject) {
         this.addProp(propName, property)
         return property
     }
 
+    addUnionProp(propertyName: string, schemaObject: SchemaObject | ReferenceObject){
+        this.properties[propertyName] ??= {}
+        this.properties[propertyName].oneOf ??=  []
+        this.properties[propertyName].oneOf?.push(schemaObject)
+        Reflect.defineMetadata('properties', this.properties, this.target)
+    }
 
     addProp(propertyName: string, schemaObject: SchemaObject | ReferenceObject) {
         this.properties[propertyName] = {
             ...this.properties[propertyName],
             ...schemaObject
         }
+
         Reflect.defineMetadata('properties', this.properties, this.target)
     }
 
@@ -68,7 +81,7 @@ export class OpenApiPropDecorator {
     }
 
     // Peut être être beaucoup générique est l'appeller properties.schemas
-    addSchema(type: Constructor) {
+    addSchema(type: TypesCore.New) {
         this.schemas.push(type)
         Reflect.defineMetadata('properties.schemas', this.schemas, this.target)
     }

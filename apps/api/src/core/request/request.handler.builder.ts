@@ -1,15 +1,15 @@
 import {CreateRequestHandler} from "./types";
 import {NextFunction, Request, RequestHandler, Response} from "express";
-import {isEmpty} from "lodash";
 import {ParamsBuilder} from "./params/params.builder";
 import {ParamsPathDecorator} from "./params/decorators/params.path.decorator";
 import {ParamsBodyDecorator} from "./params/decorators/params.body.decorator";
 import {ParamsServiceDecorator} from "./params/decorators/params.service.decorator";
 import {ParamsMapDecorator} from "./params/decorators/params.map.decorator";
 import {IServiceCollection, RequestCore, TypesCore} from "core-types";
+import {ParamsQueryDecorator} from "./params/decorators/params.query.decorator";
 
 
-export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder{
+export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder {
     public readonly paramsBuilder: RequestCore.Params.IParamsBuilder
 
     constructor(
@@ -22,6 +22,7 @@ export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder
             new ParamsBodyDecorator(controllerType, controllerFunction.name),
             new ParamsServiceDecorator(controllerType, controllerFunction.name),
             new ParamsMapDecorator(controllerType, controllerFunction.name),
+            new ParamsQueryDecorator(controllerType, controllerFunction.name),
             this.services
         )
     }
@@ -51,13 +52,14 @@ export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder
     }
 
     private createArgsHandler = async (req: Request, res: Response, next: NextFunction) => {
-        if (!isEmpty(req.params)) {
-            this.paramsBuilder.createParamsArg(req)
-        }
-        if (!isEmpty(req.body)) {
-            this.paramsBuilder.createBodyArg(req)
-        }
-        this.paramsBuilder.createMapArg(req)
+        await Promise.all(
+            [
+                this.paramsBuilder.createParamsArg(req),
+                this.paramsBuilder.createBodyArg(req),
+                this.paramsBuilder.createQueryArg(req),
+                this.paramsBuilder.createMapArg(req)
+            ]
+        )
         req.args = this.paramsBuilder.getArgs
         next()
     }

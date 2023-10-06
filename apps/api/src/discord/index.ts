@@ -3,7 +3,7 @@ import {AxiosInstance, AxiosResponse} from "axios/index";
 import {inject, injectable, interfaces} from "inversify";
 import {BadGatewayObject} from "../core/http/errors/BadGateway";
 import {Auth0Service} from "../auth0/auth0.service";
-import {UserManagement} from "./users/UserManagement";
+import {UserManagement} from "./users/user.management";
 
 @injectable()
 export class DiscordService {

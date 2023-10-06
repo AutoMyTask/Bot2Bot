@@ -25,7 +25,8 @@ export class EndpointRouteBuilder extends BaseRouteBuilder implements RouteCore.
                 ...this.middlewares
             ],
             params: {
-                path: this.requestHandlerBuilder.paramsBuilder.paramsPath.values
+                path: this.requestHandlerBuilder.paramsBuilder.paramsPath.values,
+                query: this.requestHandlerBuilder.paramsBuilder.paramsQuery.values
             },
             method: this.method,
             path: this.path,

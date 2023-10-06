@@ -8,9 +8,6 @@ import cors from "cors";
 import {logError} from "./core/http/errors/middlewares/log.error";
 import {errorHandler} from "./core/http/errors/middlewares/error.handler";
 import 'reflect-metadata';
-import {
-    OpenApiBuilder
-} from "openapi3-ts/oas31";
 import {auth} from "express-oauth2-jwt-bearer";
 import {AppBuilder} from "./core/app.builder";
 import rateLimit from "express-rate-limit";
@@ -18,7 +15,7 @@ import {configureAuth0} from "./auth0/auth0.service";
 import {configureDiscord} from "./discord";
 import {endpoints as userEndpoints} from "./users/endpoints";
 import {configure as configureUser} from "./users/configure";
-import {openapi, configureOpenApi} from "openapi";
+import {openapi, configureOpenApi, OpenApiBuilder} from "openapi";
 import swaggerUi from 'swagger-ui-express'
 
 
@@ -26,8 +23,20 @@ import swaggerUi from 'swagger-ui-express'
 // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
 
 /*
-    Creer un custom database auth0
-    Auto générer un sdk et le publier dans un package repository
+    Front end: afficher les erreurs
+    Toaster vue.js : https://vue-toastification.maronato.dev/?ref=madewithvuejs.com
+ */
+
+/*
+    Créer un custom database auth0
+    Auto générer un sdk dans un package. Configurer la synchro des commandes turbo repos pour prendre en compte les changements
+
+    Utilisation d'un validator
+    https://express-validator.github.io/docs/migration-v6-to-v7 (l'utiliser pour la validation au sein du core)
+    Pour les objets utiliser class validator et pour les simples chaine de caractéere express validator
+    Uniformiser les erreurs
+
+    Va falloir que je sécurise les connections (application -> github, application -> openapi.json, user -> swagger))
  */
 const builder = AppBuilder.createAppBuilder()
 
@@ -98,7 +107,9 @@ app
     .use(({app}) => {
         app
             .use(
-                express.json(),
+                express.json({
+                    limit: '1mb'
+                }),
                 express.urlencoded({extended: true}),
                 rateLimit({
                     windowMs: 60 * 60 * 60,

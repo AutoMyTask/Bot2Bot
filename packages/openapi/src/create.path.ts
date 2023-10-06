@@ -4,14 +4,16 @@ import {MetadataProduce} from "./metadata/metadataProduce";
 import {createResponsesObject} from "./create.responsesObject";
 import {entries} from "lodash";
 import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
-import {RouteCore, TypesCore} from "core-types";
+import {RequestCore, RouteCore, TypesCore} from "core-types";
 
 
 type ParamsConventions = {
-    path: { name: string, type: string | number | 'int' | 'float', required?: boolean }[]
+    path: RequestCore.Params.Param<RequestCore.Params.ParamPathType>[]
+    query: RequestCore.Params.Param<RequestCore.Params.ParamQueryType>[]
 }
 
-const createFormat = (type: TypesCore.New | string | number | 'int' | 'float') => {
+// Remplacer par les types défini dans core-type
+const createFormat = (type: TypesCore.New | 'string' | 'number' | 'int' | 'float') => {
     if (typeof type === 'string'){
         return type
     }
@@ -27,6 +29,7 @@ export const createPathItem = (
     metadataTags: MetadataTag[],
     metadataProduces: MetadataProduce[],
     schemes?: string[],
+    // Body devrait être dans param convention
     body?: TypesCore.New,): PathItemObject => {
     const responses = createResponsesObject(metadataProduces)
     const tags = metadataTags.map(metadataTag => metadataTag.name)

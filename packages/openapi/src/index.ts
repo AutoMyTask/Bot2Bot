@@ -5,7 +5,7 @@ import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce, Schema} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
-import {AppCore, IServiceCollection, RouteCore} from "api-common";
+import {AppCore, IServiceCollection, RouteCore} from "core-types";
 
 
 /**
@@ -134,5 +134,7 @@ export const openapi = (app: AppCore.IApp): void => {
     for (const metadataScheme of groupedMetadataSchemaCollection.values()) {
         openApiBuilder.addSchema(metadataScheme.name, metadataScheme.schema)
     }
-
 }
+
+
+export { OpenApiBuilder }

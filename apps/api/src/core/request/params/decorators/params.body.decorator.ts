@@ -3,6 +3,7 @@ import {values} from "lodash";
 import 'reflect-metadata'
 import {RequestCore, TypesCore} from "core-types";
 
+
 export class ParamsBodyDecorator extends ParamsDecorator<TypesCore.New> implements RequestCore.Params.IParamsBodyDecorator{
     constructor(
         protected readonly target: Object,
@@ -15,7 +16,8 @@ export class ParamsBodyDecorator extends ParamsDecorator<TypesCore.New> implemen
         if (values(this.metadata).length >= 1) {
             throw new Error('Only one @Body() decorator is allowed in the method.')
         }
-        super.add(index);
+        const type = this.types[index]
+        super.addParameter(index, type, type.name);
     }
 }
 

@@ -2,7 +2,9 @@ import {ParamsDecorator} from "./params.decorator";
 import 'reflect-metadata'
 import {RequestCore} from "core-types";
 
-export class ParamsServiceDecorator extends ParamsDecorator<RequestCore.Params.ParamServiceType> implements RequestCore.Params.IParamsServiceDecorator {
+export class ParamsServiceDecorator extends ParamsDecorator<
+    RequestCore.Params.ParamServiceType
+> implements RequestCore.Params.IParamsServiceDecorator {
     constructor(
         protected readonly target: Object,
         protected readonly methodName: string | symbol
@@ -11,7 +13,15 @@ export class ParamsServiceDecorator extends ParamsDecorator<RequestCore.Params.P
     }
 
     override add(index: number, option?: { type?: string }) {
-        super.add(index, option);
+        const typeConstructor = this.types[index]
+
+        if (typeConstructor === String || typeConstructor === Number ) {
+            throw new Error("Message d'erreur indiquant que tu ne peux pas utiliser number et string")
+        }
+
+        const type = option?.type ?? typeConstructor
+        const name = option?.type ?? typeConstructor.name
+        super.addParameter(index, type, name, undefined)
     }
 }
 

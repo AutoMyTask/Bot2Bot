@@ -2,58 +2,102 @@ import {OpenapiProp} from "openapi";
 import {User} from "../../discord/users/User";
 
 enum PremiumTypesEnum {
-    None ,
+    None,
     NitroClassic,
     Nitro,
     NitroBasic
 }
 
 export class UserResponse implements User {
-    @OpenapiProp(['string'])
+    @OpenapiProp([
+        {type: 'string'}
+    ])
     id!: string
 
-    @OpenapiProp(['string'])
+    @OpenapiProp([
+        {type: 'string'}
+    ])
     username!: string
 
-    @OpenapiProp(['string'], { required: false })
+    @OpenapiProp([
+        {type: 'string'}
+    ], {required: false})
     avatar!: string | null
 
-    @OpenapiProp(['string'])
+    @OpenapiProp([
+        {type: 'string'}
+    ], {required: false})
     discriminator!: string
 
-    @OpenapiProp(['integer', 'null'])
+    @OpenapiProp([
+        {type: 'integer'},
+        {type: 'null'}
+    ], {required: false})
     public_flags: number | null = null
 
-    @OpenapiProp(['integer', 'null'])
+    @OpenapiProp([
+        {type: 'integer'},
+        {type: 'null'}
+    ], {required: false})
     flags: number | null = null
 
-    @OpenapiProp(['string', 'null'])
+    @OpenapiProp([
+        {type: 'string'},
+        {type: 'null'}
+    ], {required: false})
     banner: string | null = null
 
-    @OpenapiProp(['integer', 'null'])
+    @OpenapiProp([
+        {type: 'integer'},
+        {type: 'null'}
+    ], {required: false})
     accent_color: number | null = null
 
-    @OpenapiProp(['string', 'null'])
+    @OpenapiProp([
+        {type: 'string'},
+        {type: 'null'}
+    ], {required: false})
     global_name: string | null = null
 
-    @OpenapiProp(['string', 'null'])
+    @OpenapiProp([
+        {type: 'string'},
+        {type: 'null'}
+    ], {required: false})
     avatar_decoration_data: string | null = null
 
-    @OpenapiProp(['string', 'null'])
+    @OpenapiProp([
+        {type: 'string'},
+        {type: 'null'}
+    ], {required: false})
     banner_color: string | null = null
 
-    @OpenapiProp(['boolean', 'null'] )
-    mfa_enabled:  boolean | null = null
+    @OpenapiProp([
+        {type: 'boolean'},
+        {type: 'null'}
+    ], {required: false})
+    mfa_enabled: boolean | null = null
 
-    @OpenapiProp(['string', 'null'])
+    @OpenapiProp([
+        {type: 'string'},
+        {type: 'null'}
+    ], {required: false})
     locale: string | null = null
 
-    @OpenapiProp([PremiumTypesEnum, 'null'], {type: "object", enum: 'PremiumTypesEnum' })
+    @OpenapiProp([
+        {type: PremiumTypesEnum, option: {type: 'object', enum: 'PremiumTypesEnum'}},
+        {type: 'null'},
+    ], {required: false})
     premium_type: PremiumTypesEnum | null = null
 
-    @OpenapiProp(['string', 'null'])
+    @OpenapiProp([
+        {type: 'string'},
+        {type: 'null'},
+    ], {required: false})
     email: string | null = null
 
-    @OpenapiProp(['boolean', 'null'])
+    @OpenapiProp([
+        {type: 'boolean'},
+        {type: 'null'}
+    ], {required: false})
     verified: boolean | null = null
 }

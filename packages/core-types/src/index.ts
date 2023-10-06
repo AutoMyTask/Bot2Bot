@@ -21,7 +21,6 @@ export namespace AppCore {
 }
 
 export namespace RouteCore {
-    import Params = RequestCore.Params;
     export type CallbackRouteMapBuilder<T extends void | IRouteMapBuilder> = (routeMapBuilder: IRouteMapBuilder) => T
 
     export interface IRouteMapBuilder {
@@ -40,7 +39,8 @@ export namespace RouteCore {
         prefixes: symbol[],
         middlewares: RequestHandler[],
         params: {
-            path: Params.Param<Params.ParamPathType>[]
+            path: RequestCore.Params.Param<RequestCore.Params.ParamPathType>[]
+            query: RequestCore.Params.Param<RequestCore.Params.ParamQueryType>[]
         },
         body?: TypesCore.New,
         path: string,
@@ -99,40 +99,48 @@ export namespace TypesCore {
 export namespace RequestCore {
 
     export namespace Params {
-        export type ArgHandler = InstanceType<TypesCore.New> | number | string | any
+        export type ArgHandler = InstanceType<TypesCore.New> | number | string | any | undefined
 
-        export type ParamPathType = string | number | 'int' | 'float'
-        export type ParamType = TypesCore.New | ParamPathType | ParamServiceType
-        export type Param<TParam extends ParamType> = { name: string, type: TParam, required?: boolean }
+        export type ParamBodyType = TypesCore.New
+
         export type ParamServiceType = TypesCore.New | string
+
+        export type ParamPathType = 'number' | 'string' | 'int' | 'float'
+
+        export type ParamQueryType = ParamPathType
+
+        export type ParamType = ParamBodyType | ParamPathType | ParamServiceType | ParamQueryType
+        export type Param<T extends ParamType> = { name: string, type: T, required?: boolean }
+
 
         export interface IParamsDecorator<T extends ParamType> {
             metadata: Record<number, Param<T> & { index: number }> // Utiliser un tableau et non un record
-            metadataKey: 'body' | 'services' | 'params' | 'map',
+            metadataKey: 'body' | 'services' | 'params' | 'map' | 'query',
 
             add(index: number, option?: { required?: boolean, type?: T, name?: string }): void
 
             get values(): (Param<T> & { index: number })[]
         }
 
-        export interface IParamsBodyDecorator extends IParamsDecorator<TypesCore.New> {
-        }
+        export interface IParamsBodyDecorator extends IParamsDecorator<TypesCore.New> { }
 
-        export interface IParamsMapDecorator extends IParamsDecorator<any> {
-        }
+        export interface IParamsMapDecorator extends IParamsDecorator<any> { }
 
-        export interface IParamsPathDecorator extends IParamsDecorator<ParamPathType> {
-        }
+        export interface IParamsPathDecorator extends IParamsDecorator<ParamPathType> { }
 
-        export interface IParamsServiceDecorator extends IParamsDecorator<ParamServiceType> {
-        }
+        export interface IParamsServiceDecorator extends IParamsDecorator<ParamServiceType> { }
+
+        export interface IParamsQueryDecorator extends IParamsDecorator<ParamQueryType> { }
+
 
         export interface IParamsBuilder {
-            createParamsArg(req: Request): IParamsBuilder
+            createParamsArg(req: Request): Promise<IParamsBuilder>
 
-            createMapArg(req: Request): IParamsBuilder
+            createMapArg(req: Request): Promise<IParamsBuilder>
 
-            createBodyArg(req: Request): IParamsBuilder
+            createBodyArg(req: Request): Promise<IParamsBuilder>
+
+            createQueryArg(req: Request): Promise<IParamsBuilder>
 
             get getArgs(): ArgHandler[],
 
@@ -140,6 +148,7 @@ export namespace RequestCore {
             paramBody: IParamsBodyDecorator,
             paramsService: IParamsServiceDecorator,
             paramsMap: IParamsMapDecorator
+            paramsQuery: IParamsQueryDecorator
         }
     }
 

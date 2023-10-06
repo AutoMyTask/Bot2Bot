@@ -1,15 +1,20 @@
 import {values} from "lodash";
 import 'reflect-metadata'
-import {RequestCore} from "core-types";
+import {RequestCore, TypesCore} from "core-types";
+import * as expressValidators from "express-validator";
 
-export abstract class ParamsDecorator<T extends RequestCore.Params.ParamType> implements RequestCore.Params.IParamsDecorator<T>{
-    public metadata: Record<number, RequestCore.Params.Param<T> & { index: number }> // Utiliser un tableau et non un record
+
+export abstract class ParamsDecorator<
+    TParam extends RequestCore.Params.ParamType,
+    TConstructor extends TypesCore.New = TypesCore.New
+> implements RequestCore.Params.IParamsDecorator<TParam> {
+    public metadata: Record<number, RequestCore.Params.Param<TParam> & { index: number }> // Utiliser un tableau et non un record
 
     // A typer
-    protected readonly types: any[]
+    protected readonly types: TConstructor[]
 
     protected constructor(
-        public readonly metadataKey: 'body' | 'services' | 'params' | 'map',
+        public readonly metadataKey: 'body' | 'services' | 'params' | 'map' | 'query',
         protected readonly target: Object,
         protected readonly methodName: string | symbol
     ) {
@@ -17,19 +22,21 @@ export abstract class ParamsDecorator<T extends RequestCore.Params.ParamType> im
         this.types = Reflect.getMetadata('design:paramtypes', target, methodName)
     }
 
-    add(index: number, option?: { required?: boolean, type?: T, name?: string }) {
-        const type = option?.type ?? this.types[index]
-        const name = option?.name ?? type?.name
-        this.metadata[index] = {index, type, name, required: option?.required}
-        Reflect.defineMetadata(this.metadataKey, this.metadata, this.target, this.methodName)
-    }
 
-    get values(): (RequestCore.Params.Param<T> & { index: number })[] {
+    abstract add(index: number, option?: { required?: boolean, type?: TParam, name?: string }): void
+
+
+    get values(): (RequestCore.Params.Param<TParam> & { index: number })[] {
         return values(this.metadata)
     }
 
+    protected addParameter(index: number, type: TParam, name: string, required?: boolean): void {
+        this.metadata[index] = { index, type, name, required };
+        Reflect.defineMetadata(this.metadataKey, this.metadata, this.target, this.methodName);
+    }
+
     // Indiquer qu'il peut être undefenid ! important !
-    getParam(index: number): RequestCore.Params.Param<T> & { index: number } {
+    getParam(index: number): RequestCore.Params.Param<TParam> & { index: number } {
         return this.metadata[index]
     }
 }

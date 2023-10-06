@@ -1,8 +1,8 @@
-import {New} from "core-types";
+import {TypesCore} from "core-types";
 
 export interface IMetadataCollection {
     items: object[]
-    getAllMetadataAttributes<T extends New>(type: T): InstanceType<T>[]
+    getAllMetadataAttributes<T extends TypesCore.New>(type: T): InstanceType<T>[]
     push(...metadata: object[]): void
 }
 
@@ -13,7 +13,7 @@ export class MetadataCollection implements IMetadataCollection {
         this.items.push(...metadata)
     }
 
-    getAllMetadataAttributes<T extends New>(type: T): InstanceType<T>[] {
+    getAllMetadataAttributes<T extends TypesCore.New>(type: T): InstanceType<T>[] {
         return this.items
             .filter(metadata => metadata instanceof type)
             .map(metadata => metadata as InstanceType<T>);
