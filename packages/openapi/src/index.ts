@@ -1,25 +1,20 @@
-import {OpenApiBuilder, ReferenceObject, SchemaObject, } from "openapi3-ts/oas31";
+import {OpenApiBuilder, } from "openapi3-ts/oas31";
 import {createPathItem} from "./create.path";
 import {createRequestBody} from "./create.requestBody";
-import {createSchema} from "./create.schema";
 import {MetadataTag} from "./metadata/metadataTag";
-import {MetadataProduce, Schema} from "./metadata/metadataProduce";
+import {MetadataProduce} from "./metadata/metadataProduce";
 import {createResponseObject} from "./create.responseObject";
 import {AppCore, IServiceCollection, RouteCore} from "core-types";
+import {SchemaStore} from "./store/schema.store";
 
 
 /**
  * MODULE OPENAPI
- * J'utiliserai toute les metadata que je peux enregister dans les metadonnées
- * Autrement je passerai pas des décorateurs
+ * Créer un referenciel de schema commun. J'ajoute à ce reférenciel tout les schema pour éviter
+ * la récursion et une boucle infini. Si il schema à déja été ajouté à ce referenciel commun, je retourne sinon je continue
+ * pour éviter justement cette recursion inifi
  */
 // https://blog.simonireilly.com/posts/typescript-openapi
-
-
-type GroupedMetadataSchema = {
-    name: string;
-    schema: ReferenceObject | SchemaObject;
-};
 
 type GroupedMetadataTag = {
     name: string;
@@ -31,9 +26,10 @@ function processRouteHandlers(
     services: IServiceCollection,
     conventions: RouteCore.IRouteConventions[]
 ) {
+    const schemaStore = new SchemaStore()
 
     const groupedMetadataTagCollection = new Map<string, GroupedMetadataTag>()
-    const groupedMetadataSchemaCollection = new Map<string, GroupedMetadataSchema>()
+
 
     for (const {
         path,
@@ -49,18 +45,7 @@ function processRouteHandlers(
         const metadataProduces = metadataCollection
             .getAllMetadataAttributes(MetadataProduce)
 
-        const schemas = metadataProduces.reduce(
-                (schemas, metadata) => [...schemas, ...metadata.schemas, metadata.schema],
-                [] as Schema[])
 
-        for (const {type, schema} of schemas) {
-            if (!groupedMetadataSchemaCollection.has(type.name)) {
-                groupedMetadataSchemaCollection.set(type.name, {
-                    name: type.name,
-                    schema,
-                });
-            }
-        }
 
         for (const metadataTag of metadataTags) {
             if (!groupedMetadataTagCollection.has(metadataTag.name)) {
@@ -80,9 +65,9 @@ function processRouteHandlers(
             body
         );
 
-        const fullPath = prefixes.slice().reverse().reduce( (path, prefix) => {
+        const fullPath = prefixes.slice().reverse().reduce((path, prefix) => {
             return prefix.description + path
-        } , path).replace(/\/:([^/]+)/g, '/{$1}');
+        }, path).replace(/\/:([^/]+)/g, '/{$1}');
 
         const openApiBuilder = services.get<OpenApiBuilder>(
             OpenApiBuilder
@@ -91,10 +76,7 @@ function processRouteHandlers(
         openApiBuilder.addPath(fullPath, pathItem);
 
         if (body) {
-            groupedMetadataSchemaCollection.set(body.name, {
-                name: body.name,
-                schema: createSchema(body),
-            });
+            schemaStore.addSchema(body)  // Peut être qu'il n'y aura pas besoin de le rajouter !!!
             const reqBody = createRequestBody(body);
             openApiBuilder.addRequestBody(body.name, reqBody);
         }
@@ -105,21 +87,20 @@ function processRouteHandlers(
         }
     }
 
-    return {groupedMetadataTagCollection, groupedMetadataSchemaCollection}
+    return {groupedMetadataTagCollection}
 }
 
-export { configureOpenApi } from './configure.openapi'
+export {configureOpenApi} from './configure.openapi'
 
-export { MetadataTag } from './metadata/metadataTag'
+export {MetadataTag} from './metadata/metadataTag'
 
-export { MetadataProduce } from './metadata/metadataProduce'
+export {MetadataProduce} from './metadata/metadataProduce'
 
-export  { OpenapiProp } from './decorators/openapi.prop'
+export {OpenapiProp} from './decorators/openapi.prop'
 export const openapi = (app: AppCore.IApp): void => {
 
     const {
         groupedMetadataTagCollection,
-        groupedMetadataSchemaCollection,
     } = processRouteHandlers(app.services, app.conventions);
 
 
@@ -131,10 +112,13 @@ export const openapi = (app: AppCore.IApp): void => {
         openApiBuilder.addTag(metadataTag.tag.tagObject)
     }
 
-    for (const metadataScheme of groupedMetadataSchemaCollection.values()) {
-        openApiBuilder.addSchema(metadataScheme.name, metadataScheme.schema)
+
+    const schemaStore = new SchemaStore()
+
+    for (const {type, schema} of schemaStore.schemas.values()) {
+        openApiBuilder.addSchema(type.name, schema)
     }
 }
 
 
-export { OpenApiBuilder }
+export {OpenApiBuilder}

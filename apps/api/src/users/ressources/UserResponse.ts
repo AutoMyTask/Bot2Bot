@@ -75,7 +75,6 @@ export class UserResponse implements User {
     ], {required: false})
     locale: string | null = null
 
-    // pour les enums
     @OpenapiProp([
         {type: 'object', option: {type: { type: PremiumTypesEnum, name: 'PremiumTypesEnum' }}},
         {type: 'null'},

@@ -47,6 +47,5 @@ export function Query(
             paramsQuery.add(parameterIndex, { name: paramName })
         }
 
-
     }
 }

@@ -7,6 +7,7 @@ import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
 import {RequestCore, RouteCore, TypesCore} from "core-types";
 
 
+// Pas à mettre ici, mais de core type. Cela doit être construit par mon core
 type ParamsConventions = {
     path: RequestCore.Params.Param<RequestCore.Params.ParamPathType>[]
     query: RequestCore.Params.Param<RequestCore.Params.ParamQueryType>[]

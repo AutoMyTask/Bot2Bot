@@ -8,7 +8,7 @@ import {BadRequestObject} from "../../http/errors/BadRequest";
 import {ParamsMapDecorator} from "./decorators/params.map.decorator";
 import {IServiceCollection, RequestCore} from "core-types";
 import {ParamsQueryDecorator} from "./decorators/params.query.decorator";
-import {param, query} from "express-validator";
+import {param, query, ValidationError} from "express-validator";
 import {isEmpty} from "lodash";
 
 

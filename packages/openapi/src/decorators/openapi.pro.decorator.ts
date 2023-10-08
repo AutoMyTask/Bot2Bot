@@ -17,6 +17,8 @@ interface OpenApiPropMetadata {
 }
 
 
+// Fusionner enum et schema dans un seul et même objet
+
 export class OpenApiPropDecorator {
     public metadata: OpenApiPropMetadata;
 
@@ -36,22 +38,21 @@ export class OpenApiPropDecorator {
             ...this.metadata.properties[propertyName],
             ...schemaObject
         }
-
-        Reflect.defineMetadata('properties', this.metadata, this.target)
     }
 
     addRequired(propName: string) {
         this.metadata.required.push(propName)
-        Reflect.defineMetadata('properties', this.metadata, this.target)
     }
 
     addSchema(type: TypesCore.New) {
         this.metadata.schemas.push(type)
-        Reflect.defineMetadata('properties', this.metadata, this.target)
     }
 
     addEnum(type: EnumType) {
         this.metadata.enums.push(type)
+    }
+
+    update(){
         Reflect.defineMetadata('properties', this.metadata, this.target)
     }
 }

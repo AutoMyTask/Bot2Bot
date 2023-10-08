@@ -31,9 +31,6 @@ import swaggerUi from 'swagger-ui-express'
     Créer un custom database auth0
     Auto générer un sdk dans un package. Configurer la synchro des commandes turbo repos pour prendre en compte les changements
 
-    Utilisation d'un validator
-    https://express-validator.github.io/docs/migration-v6-to-v7 (l'utiliser pour la validation au sein du core)
-    Pour les objets utiliser class validator et pour les simples chaine de caractéere express validator
     Uniformiser les erreurs
 
     Va falloir que je sécurise les connections (application -> github, application -> openapi.json, user -> swagger))
@@ -126,7 +123,6 @@ app
 app
     .use(logError)
     .use(errorHandler)
-
 
 app.run({port: process.env.PORT})
 

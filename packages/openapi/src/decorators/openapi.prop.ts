@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import {OpenApiPropDecorator, Enum} from "./openapi.decorator";
+import {OpenApiPropDecorator, Enum} from "./openapi.pro.decorator";
 import {TypesCore} from "core-types";
 import {ArrayObjectProperty, PropertyDefault} from "../builders/property.builder";
 
@@ -66,7 +66,6 @@ export function OpenapiProp(
                 return new PropertyDefault(prop.type)
             }
 
-
             let itemTypes: ItemArrayObjectType[] = []
 
             if (!Array.isArray(prop.option.type)) {
@@ -104,5 +103,7 @@ export function OpenapiProp(
         if (options.required) {
             openApiProp.addRequired(propName)
         }
+
+        openApiProp.update()
     };
 }
