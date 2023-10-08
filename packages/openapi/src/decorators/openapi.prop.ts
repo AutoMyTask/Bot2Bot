@@ -1,60 +1,102 @@
 import 'reflect-metadata'
-import {DefaultType, OpenApiPropDecorator, Enum} from "./openapi.decorator";
+import {OpenApiPropDecorator, Enum} from "./openapi.decorator";
 import {TypesCore} from "core-types";
+import {ArrayObjectProperty, PropertyDefault} from "../builders/property.builder";
 
 
-type OpenapiPropOption = {
-    required?: boolean,
-    minMax?: { maxLength?: number, minLength?: number },
-    additionalProperties?: boolean
+export type NullType = 'null'
+
+type ArrayType = 'array'
+
+type ObjectType = 'object'
+
+export type PrimitiveType = 'integer' | 'number' | 'string' | 'boolean' | ObjectType
+
+export type DefaultType = PrimitiveType | NullType
+export type EnumType = { type: Enum, name: string }
+
+export type ItemArrayObjectType = TypesCore.New | EnumType | PrimitiveType
+
+type DefaultPropObject = { type: ObjectType, option: { additionalProperties: boolean } }
+type DefaultProp = { type: DefaultType }
+
+type ArrayObjectProp = {
+    type: ArrayType | ObjectType,
+    option: { type: ItemArrayObjectType | ItemArrayObjectType[] }
 }
 
-type OpenapiOptionType = {
-    type?: 'object' | 'array',   // Si le type principal et le type optionnel sont 'object' générer une exeption. Idem pour array
-                                 // Si le type principal est un CONSTRUCTOR il faut absolument indiquer si c'est un array ou un object type. Idem pour enum
-    enum?: string
+
+function isDefaultPropObject(value: any): value is DefaultPropObject {
+    return value && value.type === 'object' && typeof value.option === 'object' && 'additionalProperties' in value.option;
 }
 
-
-type OpenapiType = {
-    type: DefaultType | TypesCore.New | Enum,
-    option?: OpenapiOptionType
+function isDefaultProp(value: any): value is DefaultProp {
+    return value
+        && typeof value.type === 'string' && ['integer', 'number', 'string', 'boolean', 'null', 'object'].includes(value.type)
+        && value.option === undefined;
 }
 
+type OpenapiPropOption = { required: boolean }
+
+
+// Avoir une separation claire des object et array (pas besoin des mêmes types)
+// Pour l'objet par exemple, il faut absolument un type object de base suivie des unions ou un 'additionalProperties'
+// Pour array on peut avoir un tableau de integer, string... on s'en fou.
 export function OpenapiProp(
-    types: OpenapiType[],
+    types: DefaultPropObject|DefaultProp|ArrayObjectProp|(DefaultPropObject|DefaultProp|ArrayObjectProp)[],
     options: OpenapiPropOption = {required: true}
 ) {
 
     return (target: Object, propName: string) => {
         const openApiProp = new OpenApiPropDecorator(target.constructor as TypesCore.New)
 
-        // Alors union type !!!
-        if (types.length > 1) {
-            for (const type of types) {
-                if (typeof type.type === 'function' || typeof type.type === 'object') {
-                    generateUnionEnumAndConstructorSpec(openApiProp, propName, type.type, type.option)
-                } else {
-                    openApiProp.addUnionProp(propName, {
-                        type: type.type as DefaultType,
-                        maxLength: options.minMax?.maxLength,
-                        minLength: options.minMax?.minLength,
-                        additionalProperties: options.additionalProperties
-                    })
+        let props: (DefaultPropObject | DefaultProp | ArrayObjectProp)[] = []
+
+        if (!Array.isArray(types)) {
+            props.push(types)
+        } else {
+            props = types
+        }
+
+        const propertyDefaults = props.map(prop => {
+            if (isDefaultPropObject(prop)) {
+                return new PropertyDefault(prop.type, prop.option)
+            }
+            if (isDefaultProp(prop)) {
+                return new PropertyDefault(prop.type)
+            }
+
+
+            let itemTypes: ItemArrayObjectType[] = []
+
+            if (!Array.isArray(prop.option.type)) {
+                itemTypes.push(prop.option.type)
+            } else {
+                itemTypes = prop.option.type
+            }
+
+            for (const itemType of itemTypes) {
+                if (typeof itemType === 'function') {
+                    openApiProp.addSchema(itemType)
+                }
+                if (typeof itemType === 'object' && typeof itemType !== 'function'){
+                    openApiProp.addEnum(itemType)
                 }
             }
-        } else  { // Sinon pas union type
-            for (const type of types) {
-                if (typeof type.type === 'function' || typeof type.type === 'object') {
-                    generateEnumAndConstructorSpec(openApiProp, propName, type.type, type.option)
-                } else {
-                    openApiProp.addDefaultProperty(propName, {
-                        type: type.type as DefaultType,
-                        maxLength: options.minMax?.maxLength,
-                        minLength: options.minMax?.minLength,
-                        additionalProperties: options.additionalProperties
-                    })
-                }
+
+            return new ArrayObjectProperty(prop.type, itemTypes)
+        })
+
+
+
+        const unionProp = new PropertyDefault()
+
+        for (const propertyDefault of propertyDefaults) {
+            if (propertyDefaults.length > 1) {
+                unionProp.addUnion(propertyDefault.property)
+                openApiProp.addProp(propName, unionProp.property)
+            } else {
+                openApiProp.addProp(propName, propertyDefault.property)
             }
         }
 
@@ -63,38 +105,4 @@ export function OpenapiProp(
             openApiProp.addRequired(propName)
         }
     };
-}
-
-
-const generateUnionEnumAndConstructorSpec = (
-    openApiProp: OpenApiPropDecorator,
-    propName: string,
-    type: TypesCore.New | Enum,
-    options?: OpenapiOptionType
-) => {
-    if (typeof type === 'function' && options && options.type) {
-        openApiProp.addUnionRefProperty(propName, type.name, options)
-        openApiProp.addSchema(type)
-    }
-    if (options && options.enum && typeof type !== 'function') {
-        openApiProp.addUnionRefProperty(propName, options.enum, options)
-        openApiProp.addEnum({name: options.enum, type})
-    }
-}
-
-
-const generateEnumAndConstructorSpec = (
-    openApiProp: OpenApiPropDecorator,
-    propName: string,
-    type: TypesCore.New | Enum,
-    options?: OpenapiOptionType
-) => {
-    if (typeof type === 'function' && options && options.type) {
-        openApiProp.addRefProperty(propName, type.name, options)
-        openApiProp.addSchema(type)
-    }
-    if (options && options.enum && typeof type !== 'function') {
-        openApiProp.addRefProperty(propName, options.enum, options)
-        openApiProp.addEnum({name: options.enum, type})
-    }
 }

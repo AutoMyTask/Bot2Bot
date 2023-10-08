@@ -9,24 +9,16 @@ enum PremiumTypesEnum {
 }
 
 export class UserResponse implements User {
-    @OpenapiProp([
-        {type: 'string'}
-    ])
+    @OpenapiProp({type: 'string'})
     id!: string
 
-    @OpenapiProp([
-        {type: 'string'}
-    ])
+    @OpenapiProp({type: 'string'})
     username!: string
 
-    @OpenapiProp([
-        {type: 'string'}
-    ], {required: false})
+    @OpenapiProp({type: 'string'}, {required: false})
     avatar!: string | null
 
-    @OpenapiProp([
-        {type: 'string'}
-    ], {required: false})
+    @OpenapiProp({type: 'string'}, {required: false})
     discriminator!: string
 
     @OpenapiProp([
@@ -83,8 +75,9 @@ export class UserResponse implements User {
     ], {required: false})
     locale: string | null = null
 
+    // pour les enums
     @OpenapiProp([
-        {type: PremiumTypesEnum, option: {type: 'object', enum: 'PremiumTypesEnum'}},
+        {type: 'object', option: {type: { type: PremiumTypesEnum, name: 'PremiumTypesEnum' }}},
         {type: 'null'},
     ], {required: false})
     premium_type: PremiumTypesEnum | null = null

@@ -21,7 +21,8 @@ export const createSchema = (schema: TypesCore.New | { name: string; type: Enum;
     }
     if (typeof schema === 'function' && schema) {
 
-        const { properties, required } = new OpenApiPropDecorator(schema)
+        const { metadata } = new OpenApiPropDecorator(schema)
+        const { properties, required } = metadata
 
         return {
             description: "",

@@ -9,14 +9,14 @@ export class MetadataProduce {
     schemas: Schema[] = []
 
     constructor( public readonly type: TypesCore.New ,public readonly statutCode: number = 200) {
-        const openApiArray = new OpenApiPropDecorator(type)
+        const openApiPropDecorator = new OpenApiPropDecorator(type)
 
         this.schema = { type, schema: createSchema(type), statutCode }
 
-        for (const type of openApiArray.schemas) {
+        for (const type of openApiPropDecorator.metadata.schemas) {
             this.schemas.push({ type, schema: createSchema(type), statutCode })
         }
-        for (const type of openApiArray.enums){
+        for (const type of openApiPropDecorator.metadata.enums){
             this.schemas.push({ type, schema: createSchema(type), statutCode })
         }
     }
