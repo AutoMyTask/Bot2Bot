@@ -10,7 +10,7 @@ type ArrayType = 'array'
 
 type ObjectType = 'object'
 
-export type PrimitiveType = 'integer' | 'number' | 'string' | 'boolean' | ObjectType
+export type PrimitiveType = 'integer' | 'number' | 'string' | 'boolean' | 'any' | ObjectType
 
 export type DefaultType = PrimitiveType | NullType
 export type EnumType = { type: Enum, name: string }
@@ -32,7 +32,7 @@ function isDefaultPropObject(value: any): value is DefaultPropObject {
 
 function isDefaultProp(value: any): value is DefaultProp {
     return value
-        && typeof value.type === 'string' && ['integer', 'number', 'string', 'boolean', 'null', 'object'].includes(value.type)
+        && typeof value.type === 'string' && ['integer', 'number', 'string', 'boolean', 'null', 'object', 'any'].includes(value.type)
         && value.option === undefined;
 }
 

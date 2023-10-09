@@ -8,7 +8,7 @@ export class PropertyDefault {
 
     // Default Type a supprimer
     constructor(type?: DefaultType, options?: { additionalProperties?: boolean }) {
-        this.property = {type, ...options}
+        this.property = type === 'any' ? {} : {type, ...options}
     }
 
     addUnion(property: SchemaObject | ReferenceObject) {
@@ -50,8 +50,12 @@ export class ArrayObjectProperty {
 
 
     private propertyFromItemType(itemType: ItemArrayObjectType): ReferenceObject | SchemaObject {
-        if (typeof itemType !== 'string' && (typeof itemType === 'function' || typeof itemType === 'object')){
+        if (typeof itemType !== 'string' &&  (typeof itemType === 'function' || typeof itemType === 'object')){
             return {$ref: `#/components/schemas/${itemType.name}`}
+        }
+
+        if (itemType === 'any'){
+            return {}
         }
 
         return {type: itemType}

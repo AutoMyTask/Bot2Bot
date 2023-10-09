@@ -31,13 +31,21 @@ enum LocationEnum {
 }
 
 
-// {type: "field", location: Location, path: string, value: any, msg: any}
 class ParamValidationError {
     @OpenapiProp({type: 'string'})
     type!: string
 
     @OpenapiProp({type: 'object', option: {type: {type: LocationEnum, name: 'LocationEnum'}}})
     location!: LocationEnum
+
+    @OpenapiProp({ type: 'string' })
+    path!: string
+
+    @OpenapiProp({ type: 'any' })
+    value: any
+
+    @OpenapiProp({ type: "any" })
+    msg: any
 }
 
 

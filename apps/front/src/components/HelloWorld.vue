@@ -44,7 +44,10 @@ export default defineComponent({
   setup() {
     onMounted(async () => {
       const { getAccessTokenSilently } = useAuth0();
-      const token = await getAccessTokenSilently();
+      const token = await getAccessTokenSilently().catch((err) => {
+        // eslint-disable-next-line max-len
+        console.log(err); // Peut se produire si des extensions bloque cette fonctionnalités (addBlock, BlockOrigine...)
+      });
       console.log(token);
       const response = await fetch(process.env.VUE_APP_APP_DOMAIN, {
         method: 'POST',

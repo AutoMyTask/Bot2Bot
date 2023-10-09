@@ -2,11 +2,10 @@ import {ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
 import {TypesCore} from "core-types";
 import {EnumType} from "../decorators/openapi.prop";
 import {OpenApiPropDecorator} from "../decorators/openapi.pro.decorator";
-import {MetadataProduce} from "../metadata/metadata.produce";
 
 export type Schema = { type: TypesCore.New | EnumType, schema: ReferenceObject | SchemaObject }
 
-export class SchemaStore {
+export class SchemaBuilder {
     private schemas: Map<string, Schema> = new Map<string, Schema>();
 
     get getSchemas(){
@@ -30,16 +29,26 @@ export class SchemaStore {
 
     private createSchema(schema: TypesCore.New | EnumType): SchemaObject | ReferenceObject {
         if ('type' in schema && 'name' in schema && typeof schema === 'object') {
-            const obj = schema
-            const entries = Object.entries(obj.type)
-            const secondHalf = entries.slice(entries.length / 2)
+
+            let type: 'number' | 'string'
+            let values: any[]
+
+            if (Object.values(schema.type).some(val => typeof val === 'number')){
+                const entries = Object.entries(schema.type)
+                values = entries.slice(entries.length / 2)
+                type = 'number'
+            } else {
+                values = Object.entries(schema.type)
+                type = 'string'
+            }
+
             return {
                 type: 'object',
                 properties: {
-                    [obj.name]: {
-                        type: 'number',
-                        enum: secondHalf.map(([_, val]) => val),
-                        description: secondHalf.map((entry) => entry.join(':')).join('\n')
+                    [schema.name]: {
+                        type,
+                        enum: values.map(([_, val]) => val),
+                        description: values.map((val) => val.join(':')).join('\n')
                     }
                 }
             }

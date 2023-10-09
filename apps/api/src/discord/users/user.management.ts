@@ -10,7 +10,6 @@ export class UserManagement {
     async getUser(sub: string): Promise<User> {
         const request = () => this.discordService.client.get('/users/@me')
         const {data} = await this.discordService.makeRequest(request, sub)
-
         return data
     }
 

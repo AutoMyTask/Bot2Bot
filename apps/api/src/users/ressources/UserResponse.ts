@@ -1,12 +1,5 @@
 import {OpenapiProp} from "openapi";
-import {User} from "../../discord/users/User";
-
-enum PremiumTypesEnum {
-    None,
-    NitroClassic,
-    Nitro,
-    NitroBasic
-}
+import {LocalesEnum, PremiumTypesEnum, User} from "../../discord/users/User";
 
 export class UserResponse implements User {
     @OpenapiProp({type: 'string'})
@@ -16,7 +9,7 @@ export class UserResponse implements User {
     username!: string
 
     @OpenapiProp({type: 'string'}, {required: false})
-    avatar!: string | null
+    avatar: string | null = null
 
     @OpenapiProp({type: 'string'}, {required: false})
     discriminator!: string
@@ -70,10 +63,10 @@ export class UserResponse implements User {
     mfa_enabled: boolean | null = null
 
     @OpenapiProp([
-        {type: 'string'},
+        {type: 'object', option: { type: { type: LocalesEnum, name:'LocalesEnum' } }},
         {type: 'null'}
     ], {required: false})
-    locale: string | null = null
+    locale: LocalesEnum | null = null
 
     @OpenapiProp([
         {type: 'object', option: {type: { type: PremiumTypesEnum, name: 'PremiumTypesEnum' }}},

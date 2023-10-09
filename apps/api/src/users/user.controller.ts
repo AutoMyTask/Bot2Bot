@@ -8,16 +8,15 @@ import {Query} from "../core/request/params/decorators/params.query.decorator";
 
 export class UserController {
     // Créer un paramètre pour populate les données provenant de discord
+    // identity: discord.user, .... (utiliser des enums)
     // Je pense que cela serra dans query via une chaine de caractére
     // Rajouter un 'include' en option dans userService
     public static async me(
         @Service() userService: UserService,
         @Params('id', 'int') id: number,
         @Map('auth') auth: Auth,
-        @Query('oneNumber', {required: true}) oneNumber?: number
+        @Query('oneNumber') oneNumber: number
     ): Promise<UserResponse> {
-        console.log(id)
-        console.log(id)
         return await userService.getUser(auth.payload.sub)
     }
 }

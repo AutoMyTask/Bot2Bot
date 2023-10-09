@@ -1,5 +1,4 @@
 import {TypesCore} from "core-types";
-import {SchemaStore} from "../store/schema.store";
 import {ReferenceObject, ResponseObject} from "openapi3-ts/oas31";
 
 export class MetadataProduce {

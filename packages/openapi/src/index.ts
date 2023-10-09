@@ -4,7 +4,7 @@ import {createRequestBody} from "./create.requestBody";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce} from "./metadata/metadata.produce";
 import {AppCore, RouteCore} from "core-types";
-import {SchemaStore} from "./store/schema.store";
+import {SchemaBuilder} from "./builders/schema.builder";
 
 
 /**
@@ -20,7 +20,7 @@ type GroupedMetadataTag = {
 
 function processRouteHandlers(
     openApiBuilder: OpenApiBuilder,
-    schemaStore: SchemaStore,
+    schemaStore: SchemaBuilder,
     conventions: RouteCore.IRouteConventions[]
 ) {
 
@@ -90,7 +90,7 @@ export {OpenapiProp} from './decorators/openapi.prop'
 
 export const openapi = (app: AppCore.IApp): void => {
     const openApiBuilder = app.services.get<OpenApiBuilder>(OpenApiBuilder)
-    const schemaStore = new SchemaStore()
+    const schemaStore = new SchemaBuilder()
 
     const {
         groupedMetadataTagCollection,

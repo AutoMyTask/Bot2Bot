@@ -28,6 +28,8 @@ import swaggerUi from 'swagger-ui-express'
  */
 
 /*
+    Configuration de docker/kubernetes
+
     Créer un custom database auth0
     Auto générer un sdk dans un package. Configurer la synchro des commandes turbo repos pour prendre en compte les changements
 
