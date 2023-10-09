@@ -1,5 +1,5 @@
 import axios from "axios";
-import {AxiosInstance, AxiosResponse} from "axios/index";
+import {AxiosInstance, AxiosResponse} from "axios";
 import {inject, injectable, interfaces} from "inversify";
 import {BadGatewayObject} from "../core/http/errors/BadGateway";
 import {Auth0Service} from "../auth0/auth0.service";

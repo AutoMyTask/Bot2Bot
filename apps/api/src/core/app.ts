@@ -100,8 +100,7 @@ export class App implements AppCore.IApp {
             const router = e.Router()
             router[convention.method](
                 convention.path,
-                ...[...convention.middlewares, convention.requestHandler.argsHandler],
-                convention.requestHandler.finalHandler
+                ...[...convention.middlewares, ...convention.request.handlers],
             )
             routers.push(router)
             return routers

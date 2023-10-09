@@ -41,9 +41,9 @@ type OpenapiPropOption = { required: boolean }
 
 // Avoir une separation claire des object et array (pas besoin des mêmes types)
 // Pour l'objet par exemple, il faut absolument un type object de base suivie des unions ou un 'additionalProperties'
-// Pour array on peut avoir un tableau de integer, string... on s'en fou.
+// Pour array on peut avoir un tableau de integer, string... on s'en fou à part null
 export function OpenapiProp(
-    types: DefaultPropObject|DefaultProp|ArrayObjectProp|(DefaultPropObject|DefaultProp|ArrayObjectProp)[],
+    types: DefaultPropObject | DefaultProp | ArrayObjectProp | (DefaultPropObject | DefaultProp | ArrayObjectProp)[],
     options: OpenapiPropOption = {required: true}
 ) {
 
@@ -75,17 +75,13 @@ export function OpenapiProp(
             }
 
             for (const itemType of itemTypes) {
-                if (typeof itemType === 'function') {
+                if (typeof itemType === 'function' || typeof itemType === 'object') {
                     openApiProp.addSchema(itemType)
-                }
-                if (typeof itemType === 'object' && typeof itemType !== 'function'){
-                    openApiProp.addEnum(itemType)
                 }
             }
 
             return new ArrayObjectProperty(prop.type, itemTypes)
         })
-
 
 
         const unionProp = new PropertyDefault()

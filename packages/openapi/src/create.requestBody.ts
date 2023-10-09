@@ -1,7 +1,7 @@
-import {ReferenceObject, RequestBodyObject} from "openapi3-ts/oas31";
+import {RequestBodyObject} from "openapi3-ts/oas31";
 import {TypesCore} from "core-types";
 
-export const createRequestBody = (schema: TypesCore.New): RequestBodyObject | ReferenceObject => {
+export const createRequestBody = (schema: TypesCore.New): RequestBodyObject  => {
     return {
         description: '',
         required: undefined,
@@ -12,5 +12,5 @@ export const createRequestBody = (schema: TypesCore.New): RequestBodyObject | Re
                 }
             }
         }
-    } as RequestBodyObject | ReferenceObject
+    }
 }

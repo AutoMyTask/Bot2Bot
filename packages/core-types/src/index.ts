@@ -34,15 +34,11 @@ export namespace RouteCore {
 
     export type HTTPMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
 
+    // Un type et non une interface
     export interface IRouteConventions {
-        requestHandler: RequestCore.IRequestHandlerBuilder,
+        request: RequestCore.IRequestConventions,
         prefixes: symbol[],
         middlewares: RequestHandler[],
-        params: {
-            path: RequestCore.Params.Param<RequestCore.Params.ParamPathType>[]
-            query: RequestCore.Params.Param<RequestCore.Params.ParamQueryType>[]
-        },
-        body?: TypesCore.New,
         path: string,
         method: HTTPMethod,
         auth?: {
@@ -112,6 +108,12 @@ export namespace RequestCore {
         export type ParamType = ParamBodyType | ParamPathType | ParamServiceType | ParamQueryType
         export type Param<T extends ParamType> = { name: string, type: T, required?: boolean }
 
+        export type ParamsConventions = {
+            path: RequestCore.Params.Param<ParamPathType>[]
+            query: RequestCore.Params.Param<ParamQueryType>[],
+            body?: RequestCore.Params.Param<ParamBodyType>
+        }
+
 
         export interface IParamsDecorator<T extends ParamType> {
             metadata: Record<number, Param<T> & { index: number }> // Utiliser un tableau et non un record
@@ -122,15 +124,20 @@ export namespace RequestCore {
             get values(): (Param<T> & { index: number })[]
         }
 
-        export interface IParamsBodyDecorator extends IParamsDecorator<TypesCore.New> { }
+        export interface IParamsBodyDecorator extends IParamsDecorator<TypesCore.New> {
+        }
 
-        export interface IParamsMapDecorator extends IParamsDecorator<any> { }
+        export interface IParamsMapDecorator extends IParamsDecorator<any> {
+        }
 
-        export interface IParamsPathDecorator extends IParamsDecorator<ParamPathType> { }
+        export interface IParamsPathDecorator extends IParamsDecorator<ParamPathType> {
+        }
 
-        export interface IParamsServiceDecorator extends IParamsDecorator<ParamServiceType> { }
+        export interface IParamsServiceDecorator extends IParamsDecorator<ParamServiceType> {
+        }
 
-        export interface IParamsQueryDecorator extends IParamsDecorator<ParamQueryType> { }
+        export interface IParamsQueryDecorator extends IParamsDecorator<ParamQueryType> {
+        }
 
 
         export interface IParamsBuilder {
@@ -152,15 +159,25 @@ export namespace RequestCore {
         }
     }
 
+
+    export type IRequestConventions = {
+        handlers: RequestHandler[]
+        params: Params.ParamsConventions
+    }
+
+
     export interface IRequestHandlerBuilder {
         paramsBuilder: Params.IParamsBuilder,
 
-        get argsHandler(): RequestHandler,
+        build(): IRequestConventions,
+        get argsHandler(): RequestHandler, // A supprimer
 
-        get finalHandler(): RequestHandler
+        get finalHandler(): RequestHandler, // A supprimer
     }
 }
 
 export type ConfigureServiceCallback = (services: IServiceCollection) => void
-export interface IServiceCollection extends interfaces.Container {}
+
+export interface IServiceCollection extends interfaces.Container {
+}
 

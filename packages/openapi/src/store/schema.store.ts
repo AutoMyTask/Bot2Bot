@@ -2,33 +2,29 @@ import {ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
 import {TypesCore} from "core-types";
 import {EnumType} from "../decorators/openapi.prop";
 import {OpenApiPropDecorator} from "../decorators/openapi.pro.decorator";
+import {MetadataProduce} from "../metadata/metadata.produce";
 
 export type Schema = { type: TypesCore.New | EnumType, schema: ReferenceObject | SchemaObject }
 
 export class SchemaStore {
-    private static schemas: Map<string, Schema> = new Map<string, Schema>();
+    private schemas: Map<string, Schema> = new Map<string, Schema>();
 
-    get schemas(){
-        return SchemaStore.schemas
+    get getSchemas(){
+        return this.schemas
     }
 
     addSchema(type: TypesCore.New | EnumType) {
-        if (SchemaStore.schemas.has(type.name)){
+        if (this.schemas.has(type.name)){
             return
         }
 
-        SchemaStore.schemas.set(type.name, {type, schema: this.createSchema(type)})
+        this.schemas.set(type.name, {type, schema: this.createSchema(type)})
 
         if (typeof type === 'function'){
-            const { metadata: { schemas, enums } } = new OpenApiPropDecorator(type)
+            const { metadata: { schemas } } = new OpenApiPropDecorator(type)
             for (const schema of schemas) {
                 this.addSchema(schema)
             }
-
-            for (const enum1 of enums) {
-                this.addSchema(enum1)
-            }
-
         }
     }
 

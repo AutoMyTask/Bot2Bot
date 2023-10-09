@@ -7,8 +7,10 @@ import {ParamsServiceDecorator} from "./params/decorators/params.service.decorat
 import {ParamsMapDecorator} from "./params/decorators/params.map.decorator";
 import {IServiceCollection, RequestCore, TypesCore} from "core-types";
 import {ParamsQueryDecorator} from "./params/decorators/params.query.decorator";
+import IRequestConventions = RequestCore.IRequestConventions;
 
 
+// Peut être avoir un resquestHandlerConventions avec les paramsConvention et les handlers
 export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder {
     public readonly paramsBuilder: RequestCore.Params.IParamsBuilder
 
@@ -25,6 +27,17 @@ export class RequestHandlerBuilder implements RequestCore.IRequestHandlerBuilder
             new ParamsQueryDecorator(controllerType, controllerFunction.name),
             this.services
         )
+    }
+
+    build(): IRequestConventions{
+        return {
+            params: {
+                path: this.paramsBuilder.paramsPath.values,
+                query: this.paramsBuilder.paramsQuery.values,
+                body: this.paramsBuilder.paramBody.values.at(0)
+            },
+            handlers: [ this.argsHandler, this.finalHandler ]
+        }
     }
 
     private tryHandler(buildFunction: CreateRequestHandler): RequestHandler {

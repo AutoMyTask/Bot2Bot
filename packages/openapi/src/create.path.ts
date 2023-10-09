@@ -1,64 +1,58 @@
 import {ParameterLocation, ParameterObject, PathItemObject} from "openapi3-ts/oas31";
 import {MetadataTag} from "./metadata/metadataTag";
-import {MetadataProduce} from "./metadata/metadataProduce";
+import {MetadataProduce} from "./metadata/metadata.produce";
 import {createResponsesObject} from "./create.responsesObject";
 import {entries} from "lodash";
 import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
 import {RequestCore, RouteCore, TypesCore} from "core-types";
 
 
-// Pas à mettre ici, mais de core type. Cela doit être construit par mon core
-type ParamsConventions = {
-    path: RequestCore.Params.Param<RequestCore.Params.ParamPathType>[]
-    query: RequestCore.Params.Param<RequestCore.Params.ParamQueryType>[]
-}
-
 // Remplacer par les types défini dans core-type
 const createFormat = (type: TypesCore.New | 'string' | 'number' | 'int' | 'float') => {
-    if (typeof type === 'string'){
+    if (typeof type === 'string') {
         return type
     }
-    if (typeof type === 'function'){
+    if (typeof type === 'function') {
         return type.name.toLowerCase()
     }
 
 }
 
 export const createPathItem = (
-    params: ParamsConventions,
+    params: RequestCore.Params.ParamsConventions,
     method: RouteCore.HTTPMethod,
     metadataTags: MetadataTag[],
     metadataProduces: MetadataProduce[],
-    schemes?: string[],
-    // Body devrait être dans param convention
-    body?: TypesCore.New,): PathItemObject => {
+    schemes?: string[]): PathItemObject => {
     const responses = createResponsesObject(metadataProduces)
     const tags = metadataTags.map(metadataTag => metadataTag.name)
     let parameters: ParameterObject[] = []
-    let security: SecurityRequirementObject[]  = []
+    let security: SecurityRequirementObject[] = []
 
-    if (schemes){
+    if (schemes) {
         security = schemes.reduce((security, scheme) => {
-            security.push({ [scheme]: [] })
+            security.push({[scheme]: []})
             return security
         }, [] as SecurityRequirementObject[])
     }
 
     entries(params).forEach(([key, params]) => {
-        for (let {name, type, required} of params) {
-            parameters.push({
-                name,
-                in: key as ParameterLocation,
-                required: required ?? true,
-                schema: {
-                    format: createFormat(type)
-                }
-            })
+        if (Array.isArray(params)) {
+            for (let {name, type, required} of params) {
+                parameters.push({
+                    name,
+                    in: key as ParameterLocation,
+                    required: required ?? true,
+                    schema: {
+                        format: createFormat(type)
+                    }
+                })
+            }
         }
     })
 
-    const requestBody = body ? {
-        $ref: `#/components/requestBodies/${body.name}`
+    const requestBody = params.body ? {
+        $ref: `#/components/requestBodies/${params.body.name}`
     } : undefined
 
     return {

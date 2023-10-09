@@ -12,8 +12,7 @@ export type Enum = Record<string, string | number>
 interface OpenApiPropMetadata {
     properties: Properties;
     required: string[];
-    schemas: TypesCore.New[];
-    enums: { name: string, type: Enum }[];
+    schemas: (TypesCore.New | EnumType)[]
 }
 
 
@@ -28,9 +27,8 @@ export class OpenApiPropDecorator {
         this.metadata = Reflect.getMetadata('properties', this.target) || {
             properties: {},
             required: [],
-            schemas: [],
-            enums: [],
-        };
+            schemas: []
+        }
     }
 
     addProp(propertyName: string, schemaObject: SchemaObject | ReferenceObject) {
@@ -44,15 +42,11 @@ export class OpenApiPropDecorator {
         this.metadata.required.push(propName)
     }
 
-    addSchema(type: TypesCore.New) {
+    addSchema(type: TypesCore.New | EnumType) {
         this.metadata.schemas.push(type)
     }
 
-    addEnum(type: EnumType) {
-        this.metadata.enums.push(type)
-    }
-
-    update(){
+    update() {
         Reflect.defineMetadata('properties', this.metadata, this.target)
     }
 }

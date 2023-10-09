@@ -13,10 +13,6 @@ export default {
   setup() {
     const { loginWithRedirect, logout } = useAuth0();
 
-    onMounted(() => {
-      console.log(process.env);
-    });
-
     return {
       login() {
         loginWithRedirect({

@@ -8,7 +8,7 @@ import {BadRequestObject} from "../../http/errors/BadRequest";
 import {ParamsMapDecorator} from "./decorators/params.map.decorator";
 import {IServiceCollection, RequestCore} from "core-types";
 import {ParamsQueryDecorator} from "./decorators/params.query.decorator";
-import {param, query, ValidationError} from "express-validator";
+import {param, query} from "express-validator";
 import {isEmpty} from "lodash";
 
 
@@ -17,7 +17,6 @@ type ValidatorType = 'isInt' | 'isFloat' | 'isNumeric';
 export class ParamsBuilder implements RequestCore.Params.IParamsBuilder {
     private args: RequestCore.Params.ArgHandler[] = []
 
-    // A déplacer dans une classe externe
     private validators: Record<string, { validator: ValidatorType, message: string, parser: (value: string) => number | string }> = {
         int: {
             validator: 'isInt',
