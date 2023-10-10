@@ -1,7 +1,12 @@
 import {OpenapiProp} from "openapi";
-import {LocalesEnum, PremiumTypesEnum, User} from "../../discord/users/User";
+import {LocalesEnum, PremiumTypesEnum, User} from "../../discord/users/User"; // Mettre discord dans une bibliothéque séparé
 
-export class UserResponse implements User {
+interface IDiscordUserResponse extends User {
+  //  guilds: Guild[]
+}
+
+
+class DiscordUserResponse implements IDiscordUserResponse {
     @OpenapiProp({type: 'string'})
     id!: string
 
@@ -63,13 +68,13 @@ export class UserResponse implements User {
     mfa_enabled: boolean | null = null
 
     @OpenapiProp([
-        {type: 'object', option: { type: { type: LocalesEnum, name:'LocalesEnum' } }},
+        {type: 'object', option: {type: {type: LocalesEnum, name: 'LocalesEnum'}}},
         {type: 'null'}
     ], {required: false})
     locale: LocalesEnum | null = null
 
     @OpenapiProp([
-        {type: 'object', option: {type: { type: PremiumTypesEnum, name: 'PremiumTypesEnum' }}},
+        {type: 'object', option: {type: {type: PremiumTypesEnum, name: 'PremiumTypesEnum'}}},
         {type: 'null'},
     ], {required: false})
     premium_type: PremiumTypesEnum | null = null
@@ -85,4 +90,18 @@ export class UserResponse implements User {
         {type: 'null'}
     ], {required: false})
     verified: boolean | null = null
+}
+
+
+export interface IUserResponse {
+    discord: IDiscordUserResponse | null
+}
+
+
+export class UserResponse implements IUserResponse {
+    @OpenapiProp([
+        { type: 'object', option: { type: DiscordUserResponse } },
+        { type: 'null' }
+    ])
+    discord: DiscordUserResponse | null = null
 }

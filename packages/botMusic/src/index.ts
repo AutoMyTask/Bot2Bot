@@ -4,7 +4,7 @@ import {Bot} from "./lib/bot";
 import {PingCommand} from "./app/ping/ping.command";
 import {GatewayIntentBits} from "discord-api-types/gateway";
 
-interface ConfigBotMusique {
+type ConfigBotMusique =  {
     tokenDiscord: string;
     tokenYoutube: string;
     clientId: string;

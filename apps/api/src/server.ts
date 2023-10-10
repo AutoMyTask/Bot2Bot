@@ -28,15 +28,46 @@ import swaggerUi from 'swagger-ui-express'
  */
 
 /*
-    Configuration de docker/kubernetes
+    Creer un dossier doc stockant le shema de la base de données
+    Monetisation : https://discord.com/developers/docs/monetization/entitlements#premiumrequired-interaction-response
+
+    Seed des ids ou non ?
+
+    Décorréler et mettre discord dans un package à part. Idem pour Auth0
+    Orchestrer les données 'discord/auth0' dans une classe à part. Dossier auth0 (dans app) discord, facebook....
 
     Créer un custom database auth0
     Auto générer un sdk dans un package. Configurer la synchro des commandes turbo repos pour prendre en compte les changements
 
-    Uniformiser les erreurs
+    Grosso modo, il va falloir se concentrer sur la logique de configuration globale des guilds, channels....
+    Il faudra avoir les connections aux différentes plateformes (youtube, instagram...)
+    Manager les permissions des bots (qui à le droit de pouvoir gérer les bots)
+
+    Pour determiner le design de la bdd, il faudra bien réfléchir à l'interface --> afficher les données (oublier la partie ui)
+
+    Chaque bot serra responsable de deployer et supprimer ses propres commandes. Cela se fera lors du processus d'invitation
+    du bot. Je dois avoir la possibilité de pouvoir, à partir de ces bots récupérer les commandes enregistrées dans discord
+    et les insérer dans la base de données.
+
+    Gérer le seeding (activation, désactivation des commandes par défaut)
+
+    Le bot n'est pas présent dans la guild ?
+    Seeder les commandes par défaut (POST)
+
+    Le bot est présent dans la guild ? (PATCH)
+    Ne rien faire, mis à part insérer les nouvelles commandes ajouté pour pas écraser les modifications des utilisateurs
 
     Va falloir que je sécurise les connections (application -> github, application -> openapi.json, user -> swagger))
+
+
+    ------ PRIORITE ---
+    Gestion des bots (niveau global --> fonctionnalité à spécifier)
+    bot modération
+    bot flux (gestion des flux rss, diffusion d'article wordpress, twitch....)
+    A voir pour le reste (bot community, bot messenger)
  */
+
+
 const builder = AppBuilder.createAppBuilder()
 
 builder.configure(configureOpenApi(builder => {
@@ -127,5 +158,6 @@ app
     .use(errorHandler)
 
 app.run({port: process.env.PORT})
+
 
 

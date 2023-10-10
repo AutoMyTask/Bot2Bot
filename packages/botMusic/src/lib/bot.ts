@@ -25,7 +25,6 @@ export class Bot {
     private readonly _rest: REST
 
     private readonly _commandManager = new CommandManager()
-
     private readonly _buttonManager = new ButtonManager()
     constructor(config: BotConfig) {
         this._client = new Client({intents: config.intents})
