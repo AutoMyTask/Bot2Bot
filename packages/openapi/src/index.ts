@@ -3,7 +3,7 @@ import {createPathItem} from "./create.path";
 import {createRequestBody} from "./create.requestBody";
 import {MetadataTag} from "./metadata/metadataTag";
 import {MetadataProduce} from "./metadata/metadata.produce";
-import {AppCore, RouteCore} from "core-types";
+import {AppCore, RouteCore} from "api-core-types";
 import {SchemaBuilder} from "./builders/schema.builder";
 
 
@@ -88,7 +88,7 @@ export {MetadataProduce} from './metadata/metadata.produce'
 
 export {OpenapiProp} from './decorators/openapi.prop'
 
-export const openapi = (app: AppCore.IApp): void => {
+export const openApi = (app: AppCore.IApp): void => {
     const openApiBuilder = app.services.get<OpenApiBuilder>(OpenApiBuilder)
     const schemaStore = new SchemaBuilder()
 
@@ -102,7 +102,7 @@ export const openapi = (app: AppCore.IApp): void => {
     }
 
 
-    // Type pas forcément à conserver (utiliser entries à la place)
+    // Type pas forcément à conserver (utiliser entries à la place). Cele evite une dupplication de données
     for (const {type, schema} of schemaStore.getSchemas.values()) {
         openApiBuilder.addSchema(type.name, schema)
     }

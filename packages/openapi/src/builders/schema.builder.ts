@@ -1,5 +1,5 @@
 import {ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
-import {TypesCore} from "core-types";
+import {TypesCore} from "api-core-types";
 import {EnumType} from "../decorators/openapi.prop";
 import {OpenApiPropDecorator} from "../decorators/openapi.pro.decorator";
 

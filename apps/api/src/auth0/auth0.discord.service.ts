@@ -1,0 +1,53 @@
+import {inject, injectable, interfaces} from "inversify";
+import {Auth0Service} from "auth0";
+import {DiscordService, User} from "discord";
+
+@injectable()
+export class Auth0DiscordService {
+    private sub?: string
+
+    constructor(
+        @inject(Auth0Service) private auth0Service: Auth0Service,
+        @inject(DiscordService) private discordService: DiscordService
+    ) {
+    }
+
+    public setSub(sub: string) {
+        this.sub = sub
+    }
+
+    get hasSub() {
+        return this.sub !== undefined
+    }
+
+    async getUser(): Promise<User> {
+        const request = () => this.discordService.user.getUser()
+        return await this.makeRequest(request)
+    }
+
+    async makeRequest(request: () => Promise<any>): Promise<any> {
+        if (!this.sub) {
+            throw new Error('Un erreur')
+        }
+
+        if (!this.discordService.hasToken) {
+
+            const userAuth0 = await this.auth0Service.user.getUser(this.sub)
+
+            const discordIdentity = userAuth0.getIdentityByConnection('discord')
+
+            if (!discordIdentity) {
+                throw new Error('trouver un message approprié')
+            }
+            const { refresh_token, access_token } = discordIdentity
+            this.discordService.setToken({ access_token, refresh_token, token_type: 'Bearer' })
+        }
+
+        return await request()
+    }
+}
+
+
+export const configureAuth0DiscordService = (services: interfaces.Container) => {
+    services.bind(Auth0DiscordService).toSelf().inSingletonScope()
+}

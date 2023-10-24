@@ -1,27 +1,27 @@
 import {inject, injectable} from "inversify";
-import {DiscordService} from "../discord";
 import {IUserResponse, UserResponse} from "./ressources/UserResponse";
+import {Auth0DiscordService} from "../auth0/auth0.discord.service";
 
 @injectable()
 export class UserService {
     private populate = {
         discord: {
-            user: (sub:string) => this.discordService.user.getUser(sub)
+            user: () => this.auth0DiscordService.getUser()
         }
     }
 
     constructor(
-        @inject(DiscordService) private discordService: DiscordService
+        @inject(Auth0DiscordService) private auth0DiscordService: Auth0DiscordService
     ) {
     }
 
 
-    async getUser(sub: string, populateIdentity?: string): Promise<UserResponse> {
+    async getUser(populateIdentity?: string): Promise<UserResponse> {
         let userResponse: IUserResponse = {
             discord: null
         }
 
-        userResponse.discord = await this.discordService.user.getUser(sub)
+        userResponse.discord = await this.auth0DiscordService.getUser()
 
         return userResponse
     }

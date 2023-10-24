@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "rootDir": "./src",
+    "baseUrl": "./",
+    "outDir": "./dist",
+    "experimentalDecorators": true
+  },
+  "files": [
+    "src/index.ts"
+  ],
+  "extends": "config/tsconfig.lib.json"
+}

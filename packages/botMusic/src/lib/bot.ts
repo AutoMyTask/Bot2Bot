@@ -26,7 +26,7 @@ export class Bot {
 
     private readonly _commandManager = new CommandManager()
     private readonly _buttonManager = new ButtonManager()
-    constructor(config: BotConfig) {
+    constructor(private config: BotConfig) {
         this._client = new Client({intents: config.intents})
 
         this._rest = new REST(configApiDiscord).setToken(config.token)
@@ -37,7 +37,7 @@ export class Bot {
     }
 
     async bootstrap(commandsClasses: any[], buttons: any[]): Promise<void> {
-        await this._client.login(process.env.TOKEN_DISCORD)
+        await this._client.login(this.config.token)
 
         this._commandManager.registerCommands(commandsClasses)
         this._buttonManager.registerButtons(buttons)
@@ -102,7 +102,7 @@ export class Bot {
 
         const body = commands.map(command => command.data.toJSON())
         await this._rest.put(
-            Routes.applicationGuildCommands(process.env.CLIENT_ID || '', process.env.GUI_ID || ''),
+            Routes.applicationGuildCommands(this.config.clientId || '', this.config.guiId || ''),
             {body},
         ).catch(error => {
             console.log(error)

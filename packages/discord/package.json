@@ -1,0 +1,27 @@
+{
+  "name": "discord",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "source": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "publish": "npm version patch && npm publish --access public"
+  },
+  "keywords": [],
+  "author": "François-Pierre ROUSSEAU",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.5.1",
+    "inversify": "^6.0.1"
+  },
+  "devDependencies": {
+    "api-core-types": "*"
+  }
+}

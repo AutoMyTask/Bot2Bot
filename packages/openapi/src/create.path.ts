@@ -4,7 +4,7 @@ import {MetadataProduce} from "./metadata/metadata.produce";
 import {createResponsesObject} from "./create.responsesObject";
 import {entries} from "lodash";
 import {SecurityRequirementObject} from "openapi3-ts/src/model/openapi31";
-import {RequestCore, RouteCore, TypesCore} from "core-types";
+import {RequestCore, RouteCore, TypesCore} from "api-core-types";
 
 
 // Remplacer par les types défini dans core-type

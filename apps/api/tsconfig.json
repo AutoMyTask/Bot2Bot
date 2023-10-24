@@ -19,6 +19,6 @@
   "include": ["src/**/*.ts", "jest.config.ts"],
   "exclude": ["node_modules", "node_modules/openapi3-ts/src"],
   "files": [
-    "src/express.d.ts"
+    "src/env.d.ts"
   ]
 }

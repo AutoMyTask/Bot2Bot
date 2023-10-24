@@ -1,5 +1,5 @@
 import {OpenapiProp} from "openapi";
-import {LocalesEnum, PremiumTypesEnum, User} from "../../discord/users/User"; // Mettre discord dans une bibliothéque séparé
+import {LocalesEnum, PremiumTypesEnum, User} from "discord/dist/users/user";
 
 interface IDiscordUserResponse extends User {
   //  guilds: Guild[]

@@ -1,7 +1,7 @@
 import {SchemaObject} from "openapi3-ts/dist/oas31";
 import {ReferenceObject} from "openapi3-ts/src/model/openapi31";
 import 'reflect-metadata'
-import {TypesCore} from "core-types";
+import {TypesCore} from "api-core-types";
 import {EnumType} from "./openapi.prop";
 
 type Properties = Record<string, SchemaObject>

@@ -1,10 +1,10 @@
 import {UserController} from "./user.controller";
 import {UserResponse} from "./ressources/UserResponse";
 import {Unauthorized} from "../http/errors/Unauthorized";
-import {StatutCodes} from "../core/http/StatutCodes";
 import {BadRequestObject} from "../http/errors/BadRequest";
-import {RouteCore} from "core-types";
+import {RouteCore} from "api-core-types";
 import {MetadataProduce, MetadataTag} from "openapi";
+import {StatutCodes} from "api-core";
 
 
 export const endpoints = (routeMapBuilder: RouteCore.IRouteMapBuilder) => {

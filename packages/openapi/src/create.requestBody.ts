@@ -1,5 +1,5 @@
 import {RequestBodyObject} from "openapi3-ts/oas31";
-import {TypesCore} from "core-types";
+import {TypesCore} from "api-core-types";
 
 export const createRequestBody = (schema: TypesCore.New): RequestBodyObject  => {
     return {

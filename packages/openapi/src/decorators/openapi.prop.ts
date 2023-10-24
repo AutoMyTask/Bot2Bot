@@ -1,6 +1,6 @@
 import 'reflect-metadata'
 import {OpenApiPropDecorator, Enum} from "./openapi.pro.decorator";
-import {TypesCore} from "core-types";
+import {TypesCore} from "api-core-types";
 import {ArrayObjectProperty, PropertyDefault} from "../builders/property.builder";
 
 

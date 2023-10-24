@@ -1,4 +1,4 @@
-import {TypesCore} from "core-types";
+import {TypesCore} from "api-core-types";
 import {ReferenceObject, ResponseObject} from "openapi3-ts/oas31";
 
 export class MetadataProduce {
