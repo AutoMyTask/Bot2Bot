@@ -22,10 +22,27 @@ import {AppBuilder, errorHandler} from "api-core";
 // VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
 // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
 
+// pg-promise: https://www.npmjs.com/package/pg-promise
+
+
 /*
+    First :
+    BDD TEST : Utilisation de la base de données de test
+    Installer et configurer MikroORM (premiéres migrations, tester...) User(id: primaryKey)
+    Créer une action Auth0 insérant les ids dans la bdd dans le table user en tant que clé primaire:
+    https://auth0.com/docs/customize/actions/write-your-first-action
+    https://auth0.com/docs/customize/actions/flows-and-triggers/post-user-registration-flow
+
+    Mettre à jour vue.js
+
     TDD:
-    Test d'integration : supertest (commencer par tester les routes au début avec swagger parser)
-    TU: vitest
+    Test d'integration / acceptances et end2end (principalement au niveau de l'UI) :
+      - outil supertest (commencer par tester les routes au début avec swagger parser)
+
+    TU:
+        - outil vitest
+        - mock, stubs servent à isoler et que le code n'interargisse pas avec les autres composants
+
  */
 
 
@@ -190,4 +207,4 @@ app.use(errorHandler)
 
 app.run({port: process.env.PORT})
 
-
+export { app }

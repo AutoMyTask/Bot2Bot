@@ -252,6 +252,7 @@ dist
 
 .env
 .env.development
+.env.test
 node_modules
 src/test-code.js
 src/test-code.ts
