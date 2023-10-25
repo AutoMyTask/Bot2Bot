@@ -17,6 +17,8 @@ import {AppCore} from "api-core-types";
 import {swaggerUi} from "./swaggerUi";
 import {OpenApiBuilder} from "openapi";
 import {AppBuilder, errorHandler} from "api-core";
+import {configureDb} from "./db/configure.db";
+import {requestContext} from "./db/middlewares/requestContext";
 
 
 // VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
@@ -158,7 +160,7 @@ builder.configure(configureOpenApi(builder => {
 ), configureDiscord(
     process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_ID ?? '',
     process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_SECRET ?? ''
-), configureUser, configureAuth0DiscordService)
+), configureUser, configureAuth0DiscordService, configureDb)
 
 builder.addAuthentification(auth({
     issuerBaseURL: process.env.AUTH0_ISSUER,
@@ -201,6 +203,7 @@ app
             helmet(),
         )
     })
+    .use(requestContext)
     .mapEndpoints()
 
 app.use(errorHandler)
