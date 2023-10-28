@@ -1,11 +1,7 @@
-import { app } from "../server";
 import {afterAll, beforeAll} from "@jest/globals";
 
-// L'idéeal c'est de configurer ici la bdd sur l'environement de test
-// L'autre serra utilisé sur l'environement de prod ou dev celon les besoins
 beforeAll(async () => {
-    console.log(process.env.PORT)
-    console.log('dddddddd')
+    process.env.AUTH0_ACCESS_TOKEN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik9CdjhXcXdKejdNMzVBNjhtV1YyMSJ9.eyJpc3MiOiJodHRwczovL2Rldi02czZzMGY0d3B1cng3Z213LmV1LmF1dGgwLmNvbS8iLCJzdWIiOiJvYXV0aDJ8ZGlzY29yZHwzMDI4MjAxMDg0ODM1NTk0MjUiLCJhdWQiOlsiaHR0cHM6Ly9hdXRvbXl0YXNrL2FwaSIsImh0dHBzOi8vZGV2LTZzNnMwZjR3cHVyeDdnbXcuZXUuYXV0aDAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTY5ODQxNzg3MCwiZXhwIjoxNjk4NTA0MjcwLCJhenAiOiJJdXNGdEV1dmdVT2ZTYlZxY01jNDVmQ1ZVQjhmRVFMTyIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwifQ.Vt7CL1u7i8Y2SYlJBVLImX1z1PB7vr9gRaZM-OxQNBnSI0t3f2cUUTm0A6YK3MaFXw46Mq71U7ti32luPpMbWfSRm0RRSzI5fFXYrgfoRlp6ZhFqw7b-PjDEhfnOnMP_mxhd1MoVE48uSnu-0YQZypxehsWO3HvnYRlQWHQn3QKDbnQyr9KZQ2c0j5DMqIrnZyNLMQmk44Dttx14Z2YA9_w3vT4q7yVsNrB9N9gwPnZmYIMjwCznaIbklSDr0K1yEx2V93KjD3tXNMydCOfSfmnEdqvROStNHMd7IkxbRg_JZf4xNe2In8knnBj0V5PeBEoPzz1-IoWoK4gvEoBe2A'
 })
 
 afterAll(async () => {

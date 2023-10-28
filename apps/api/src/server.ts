@@ -29,9 +29,7 @@ import {requestContext} from "./db/middlewares/requestContext";
 
 /*
     First :
-    BDD TEST : Utilisation de la base de données de test
-    Installer et configurer MikroORM (premiéres migrations, tester...) User(id: primaryKey)
-    Créer une action Auth0 insérant les ids dans la bdd dans le table user en tant que clé primaire:
+    Créer une action Auth0 insérant les ids dans la bdd dans la table user en tant que clé primaire:
     https://auth0.com/docs/customize/actions/write-your-first-action
     https://auth0.com/docs/customize/actions/flows-and-triggers/post-user-registration-flow
 
@@ -44,6 +42,8 @@ import {requestContext} from "./db/middlewares/requestContext";
     TU:
         - outil vitest
         - mock, stubs servent à isoler et que le code n'interargisse pas avec les autres composants
+
+    Créer des erreurs plus spécifique aux connection comme BadErrorConnection avec 401 et un objet {type: 'bearer', connection: 'discord'}
 
  */
 

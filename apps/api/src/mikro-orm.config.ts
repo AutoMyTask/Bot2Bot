@@ -4,14 +4,21 @@ import {PostgreSqlDriver} from "@mikro-orm/postgresql";
 
 const configDb: Options<PostgreSqlDriver> = {
     metadataProvider: TsMorphMetadataProvider,
-    entities: ['./dist/entities'],
-    entitiesTs: ['./src/entities'],
+    entities: [
+        './dist/users/entities'
+    ],
+    entitiesTs: [
+        './src/users/entities'
+    ],
     dbName: process.env.POSTGRESQL_DB,
     port: Number.parseInt(process.env.POSTGRESQL_PORT ?? '0'),
     password: process.env.POSTGRESQL_PASSWORD,
     host: process.env.POSTGRESQL_HOST,
     user: process.env.POSTGRESQL_USER,
-    type: 'postgresql'
+    type: 'postgresql',
+    migrations: {
+        disableForeignKeys: false
+    }
 }
 
 export default configDb
