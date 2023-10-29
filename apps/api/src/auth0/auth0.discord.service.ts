@@ -2,6 +2,7 @@ import {inject, injectable, interfaces} from "inversify";
 import {Auth0Service} from "auth0";
 import {DiscordService, User} from "discord";
 import {TestFile} from "../tests/utils/test.file";
+import {isEqual} from "lodash";
 
 @injectable()
 export class Auth0DiscordService {
@@ -33,10 +34,12 @@ export class Auth0DiscordService {
 
         const testFile = new TestFile('identity.discord')
 
+        if (process.env.NODE_ENV === 'test' && testFile.fileExist()) {
+            this.discordService.setToken(testFile.value)
+        }
+
+
         if (!this.discordService.hasToken) {
-
-            // Si environnement de test, et si un fichier identity.discord.json existe je set le token avec le fichier (comme une continuité de service)
-
             const userAuth0 = await this.auth0Service.user.getUser(this.sub)
 
             const discordIdentity = userAuth0.getIdentityByConnection('discord')
@@ -47,15 +50,14 @@ export class Auth0DiscordService {
 
             const {refresh_token, access_token} = discordIdentity
 
-
             this.discordService.setToken({access_token, refresh_token, token_type: 'Bearer'})
         }
 
-
         const response = await request()
 
-        // Je génére le fichier uniquement si environnement de test et que le file n'a pas encore été créée
-        testFile.generateTestFile(this.discordService.getToken())
+        if (process.env.NODE_ENV === 'test' && (!testFile.fileExist() || isEqual(testFile.value, this.discordService.getToken()))) {
+            testFile.generateTestFile(this.discordService.getToken())
+        }
 
         return response
     }

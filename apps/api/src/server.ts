@@ -43,7 +43,7 @@ import {requestContext} from "./db/middlewares/requestContext";
         - outil vitest
         - mock, stubs servent à isoler et que le code n'interargisse pas avec les autres composants
 
-    Créer des erreurs plus spécifique aux connection comme BadErrorConnection avec 401 et un objet {type: 'bearer', connection: 'discord'}
+    Créer des erreurs plus spécifique aux connection comme BadErrorConnection avec 401 et un objet {status: '400/401', message: 'error message', connection: 'discord'}
 
  */
 

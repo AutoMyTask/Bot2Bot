@@ -9,8 +9,20 @@ export class TestFile {
         this.createFolder()
     }
 
+    private get filePath(){
+        return path.join(this.folderPathData, `${this.nameFile}.json`)
+    }
+
     generateTestFile(jsonObj: Object): void {
-        jsonfile.writeFileSync(path.join(this.folderPathData, `${this.nameFile}.json`), jsonObj)
+        jsonfile.writeFileSync(this.filePath, jsonObj, {spaces: 2})
+    }
+
+    fileExist(): boolean {
+        return fs.existsSync(this.filePath)
+    }
+
+    get value(){
+        return jsonfile.readFileSync(this.filePath)
     }
 
     private createFolder(): void {
