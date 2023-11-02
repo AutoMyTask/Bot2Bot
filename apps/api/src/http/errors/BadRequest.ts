@@ -49,7 +49,7 @@ class ParamValidationError {
 }
 
 
-export class BadRequestObject {
+export class BadRequest {
     @OpenapiProp({type: 'string'}, {required: false})
     message?: string
 

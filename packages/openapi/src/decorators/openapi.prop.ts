@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import {OpenApiPropDecorator, Enum} from "./openapi.pro.decorator";
+import {OpenApiPropDecorator, Enum} from "./openapi.prop.decorator";
 import {TypesCore} from "api-core-types";
 import {ArrayObjectProperty, PropertyDefault} from "../builders/property.builder";
 
@@ -36,12 +36,10 @@ function isDefaultProp(value: any): value is DefaultProp {
         && value.option === undefined;
 }
 
-type OpenapiPropOption = { required: boolean }
+type OpenapiPropOption = {
+    required: boolean
+}
 
-
-// Avoir une separation claire des object et array (pas besoin des mêmes types)
-// Pour l'objet par exemple, il faut absolument un type object de base suivie des unions ou un 'additionalProperties'
-// Pour array on peut avoir un tableau de integer, string... on s'en fou à part null
 export function OpenapiProp(
     types: DefaultPropObject | DefaultProp | ArrayObjectProp | (DefaultPropObject | DefaultProp | ArrayObjectProp)[],
     options: OpenapiPropOption = {required: true}

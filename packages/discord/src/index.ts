@@ -1,10 +1,10 @@
-import axios, {AxiosError} from "axios";
+import axios from "axios";
 import {AxiosInstance, AxiosResponse} from "axios";
 import {inject, injectable} from "inversify";
 import {UserManager} from "./users/user.manager";
 import {Oauth2Manager} from "./oauth2/oauth2.manager";
-import {BadRequest, IServiceCollection} from "api-core-types";
-import {HttpError} from "http-errors";
+import {IServiceCollection, UnauthorizedErrorConnection} from "api-core-types";
+import isEqual from 'lodash/isEqual'
 
 type Token = {
     access_token?: string,
@@ -20,7 +20,7 @@ type Token = {
 export class DiscordService {
     private token?: Token
 
-    public client: AxiosInstance = axios.create({
+    public readonly client: AxiosInstance = axios.create({
         baseURL: 'https://discord.com/api/v10'
     })
     public user: UserManager = new UserManager(this)
@@ -33,54 +33,41 @@ export class DiscordService {
     }
 
     public async makeRequest(request: () => Promise<AxiosResponse<any>>): Promise<any> {
+
         if (!this.hasToken) {
             throw new Error('Error: Please log in or set an access_token.')
         }
 
         // A voir pour la conditions
-        if (!this.token?.timestamp || !this.token?.expires_in || !this.isAccessTokenExpired) {
-            await this.refresh().catch(async (err) => {
-                throw await this.handleErrorResponse(err)
-            })
+        if (!this.token?.timestamp || !this.token?.expires_in || this.isAccessTokenExpired) {
+            await this.refresh()
         }
 
-        this.updateAuthorizationHeader();
+        this.updateAuthorizationHeader()
 
-        return await request().catch(async (err) => {
-            throw await this.handleErrorResponse(err)
+        return await request().catch(err => {
+            if (err.response.status === 401) {
+                throw new UnauthorizedErrorConnection('Unauthorized', [{
+                    status: err.response.status,
+                    connection: 'discord'
+                }])
+            }
+
+            throw err
         })
     }
 
-    private handleErrorResponse(error: AxiosError): Promise<HttpError> {
-        const normaliseError = new AxiosError()
-
-        if (error.response){
-
-            if (error.response.status === 400) {
-                const data: any = error.response?.data
-                return Promise.reject(new BadRequest([data.error], 'In Discord API Error'))
-            }
-
-        } else if (error.request){
-
-        }
-
-        // retourne internelError....
-
-        return Promise.reject(normaliseError)
-    }
-
-    private updateAuthorizationHeader() {
+    private updateAuthorizationHeader(): void {
         const token = `${this.token!.token_type} ${this.token!.access_token}`
         if (
             this.client.defaults.headers.common['Authorization'] === undefined
-            || this.client.defaults.headers.common['Authorization'] !== token
+            || !isEqual(this.client.defaults.headers.common['Authorization'], token)
         ) {
             this.client.defaults.headers.common['Authorization'] = token
         }
     }
 
-    get isAccessTokenExpired() {
+    get isAccessTokenExpired(): boolean {
         if (!this.token?.timestamp && !this.token?.expires_in) {
             throw new Error('Error: Timestamp and expires_in of the token not set.');
         }
@@ -95,8 +82,23 @@ export class DiscordService {
             && this.token.token_type !== undefined
     }
 
-    public setToken(token: { access_token: string, refresh_token: string, token_type: string }) {
+    public setToken(token: {
+        access_token: string,
+        refresh_token: string,
+        token_type: string,
+        expires_in?: number,
+        scope?: string,
+        timestamp?: number
+    }): void {
         this.token = token
+        this.updateAuthorizationHeader()
+    }
+
+    public getToken(): Token {
+        if (!this.token) {
+            throw new Error('definr une meilleur erreur')
+        }
+        return this.token
     }
 
     private async refresh() {
@@ -117,6 +119,11 @@ export class DiscordService {
                 username: this.clientId,
                 password: this.clientSecret
             }
+        }).catch(err => {
+            throw new UnauthorizedErrorConnection('Unauthorized ', [{
+                status: err.response.status,
+                connection: 'discord'
+            }])
         })
 
         this.setToken(data)

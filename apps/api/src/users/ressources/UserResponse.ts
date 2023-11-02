@@ -1,11 +1,11 @@
-import {OpenapiProp} from "openapi";
+import {OpenapiObjectDescriptor, OpenapiProp} from "openapi";
 import {LocalesEnum, PremiumTypesEnum, User} from "discord/dist/users/user";
 
 interface IDiscordUserResponse extends User {
-  //  guilds: Guild[]
+    //  guilds: Guild[]
 }
 
-
+@OpenapiObjectDescriptor({ description: "Ressource provenant de l'api discord: https://discord.com/developers/docs/resources/user" })
 class DiscordUserResponse implements IDiscordUserResponse {
     @OpenapiProp({type: 'string'})
     id!: string
@@ -100,8 +100,11 @@ export interface IUserResponse {
 
 export class UserResponse implements IUserResponse {
     @OpenapiProp([
-        { type: 'object', option: { type: DiscordUserResponse } },
-        { type: 'null' }
-    ])
+        {
+            type: 'object',
+            option: {type: DiscordUserResponse}
+        },
+        {type: 'null'}
+    ], {required: false})
     discord: DiscordUserResponse | null = null
 }

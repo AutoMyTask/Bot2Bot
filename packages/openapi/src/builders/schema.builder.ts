@@ -1,7 +1,8 @@
 import {ReferenceObject, SchemaObject} from "openapi3-ts/oas31";
 import {TypesCore} from "api-core-types";
 import {EnumType} from "../decorators/openapi.prop";
-import {OpenApiPropDecorator} from "../decorators/openapi.pro.decorator";
+import {OpenApiPropDecorator} from "../decorators/openapi.prop.decorator";
+import {OpenapiObjectDescriptorDecorator} from "../decorators/openapi.object.descriptor.decorator";
 
 export type Schema = { type: TypesCore.New | EnumType, schema: ReferenceObject | SchemaObject }
 
@@ -22,13 +23,13 @@ export class SchemaBuilder {
         if (typeof type === 'function'){
             const { metadata: { schemas } } = new OpenApiPropDecorator(type)
             for (const schema of schemas) {
-                this.addSchema(schema)
+                this.addSchema(schema) // Récusivité
             }
         }
     }
 
     private createSchema(schema: TypesCore.New | EnumType): SchemaObject | ReferenceObject {
-        if ('type' in schema && 'name' in schema && typeof schema === 'object') {
+        if ('type' in schema && 'name' in schema && typeof schema === 'object') { // Identitie les enumTypes
 
             let type: 'number' | 'string'
             let values: any[]
@@ -54,14 +55,15 @@ export class SchemaBuilder {
             }
         }
 
-        if (typeof schema === 'function') {
+        if (typeof schema === 'function') { // Identifie les classes (is new)
             const {metadata: { properties, required }} = new OpenApiPropDecorator(schema)
+            const { metadata: { option } } =  new OpenapiObjectDescriptorDecorator(schema)
 
             return {
-                description: "",
                 type: 'object',
                 properties,
-                required
+                required,
+                ...option
             }
         }
 

@@ -1,4 +1,4 @@
-import e, {Application} from "express";
+import e, {Application, Handler} from "express";
 import _, {values} from "lodash";
 import {AuthentificationBuilder} from "./auth/authentification.builder";
 import {AllowAnonymousAttribute} from "./routes/metadata/AllowAnonymousAttribute";
@@ -15,10 +15,15 @@ export class App implements AppCore.IApp, RouteCore.IRouteMapBuilder {
     public readonly app: Application = express()
     public conventions: RouteCore.IRouteConventions[] = []
     public readonly routesBuilders: BaseRouteBuilder[] = []
+    private appMiddlewares: Handler[] = []
 
     constructor(
         public readonly services: IServiceCollection,
     ) {
+        this.app.use((req, res, next) => {
+            req.services = this.services
+            next()
+        })
     }
 
     run(config: AppCore.ConfigHost): void {
@@ -72,11 +77,6 @@ export class App implements AppCore.IApp, RouteCore.IRouteMapBuilder {
     }
 
     mapEndpoints(): void {
-        this.app.use((req, res, next) => {
-            req.services = this.services
-            next()
-        })
-
         const conventionsWithNullPrefix = this.conventions.filter(convention => convention.prefixes.length === 0)
         const endpointRouters = this.createEndpointRouters(conventionsWithNullPrefix)
         if (endpointRouters.length > 0) {

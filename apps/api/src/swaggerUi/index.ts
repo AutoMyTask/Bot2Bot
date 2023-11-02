@@ -1,8 +1,9 @@
 import {AppCore, IServiceCollection} from "api-core-types";
 import * as swaggerUiExpress from "swagger-ui-express";
+import {JsonObject} from "swagger-ui-express";
 
 
-type CallbackAddOpenApiJson = (services: IServiceCollection) => any
+type CallbackAddOpenApiJson = (services: IServiceCollection) => JsonObject
 
 export const swaggerUi = (addOpenapiJson: CallbackAddOpenApiJson) => (app: AppCore.IApp) => {
     const openAPISpec = addOpenapiJson(app.services)

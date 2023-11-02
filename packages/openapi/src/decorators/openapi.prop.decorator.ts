@@ -12,11 +12,9 @@ export type Enum = Record<string, string | number>
 interface OpenApiPropMetadata {
     properties: Properties;
     required: string[];
-    schemas: (TypesCore.New | EnumType)[]
+    schemas: (TypesCore.New | EnumType)[],
 }
 
-
-// Fusionner enum et schema dans un seul et même objet
 
 export class OpenApiPropDecorator {
     public metadata: OpenApiPropMetadata;

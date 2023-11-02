@@ -202,3 +202,4 @@ export interface IServiceCollection extends interfaces.Container {
 
 export {BadGateway} from './errors/bad.gateway'
 export {BadRequest} from './errors/bad.request'
+export {UnauthorizedErrorConnection} from './errors/unauthorized.error.connection'

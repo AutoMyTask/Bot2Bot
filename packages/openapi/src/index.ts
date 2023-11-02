@@ -88,6 +88,8 @@ export {MetadataProduce} from './metadata/metadata.produce'
 
 export {OpenapiProp} from './decorators/openapi.prop'
 
+export { OpenapiObjectDescriptor } from './decorators/openapi.object.descriptor.decorator'
+
 export const openApi = (app: AppCore.IApp): void => {
     const openApiBuilder = app.services.get<OpenApiBuilder>(OpenApiBuilder)
     const schemaStore = new SchemaBuilder()

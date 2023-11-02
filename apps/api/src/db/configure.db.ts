@@ -1,10 +1,9 @@
 import {MikroORM} from "@mikro-orm/core";
 import {PostgreSqlDriver} from "@mikro-orm/postgresql";
-import {ConfigureServiceCallback, IServiceCollection} from "api-core-types";
-import configDb from "../mikro-orm.config";
+import {IServiceCollection} from "api-core-types";
 
-export const configureDb: ConfigureServiceCallback = (services: IServiceCollection): void => {
+export const configureDb = (config: any) => (services: IServiceCollection): void => {
     services.bind(MikroORM<PostgreSqlDriver>).toDynamicValue((async () => {
-        return await MikroORM.init<PostgreSqlDriver>(configDb)
+        return await MikroORM.init<PostgreSqlDriver>(config)
     })).inSingletonScope()
 }
