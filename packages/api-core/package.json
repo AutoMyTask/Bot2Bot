@@ -5,6 +5,9 @@
   "main": "./dist/index.js",
   "source": "./src/index.ts",
   "types": "./dist/index.d.ts",
+  "dependencies": {
+    "api-core-types": "*"
+  },
   "files": [
     "dist/**"
   ],

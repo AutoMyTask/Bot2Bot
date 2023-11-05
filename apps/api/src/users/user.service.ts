@@ -1,6 +1,6 @@
 import {inject, injectable} from "inversify";
 import {IUserResponse, UserResponse} from "./ressources/UserResponse";
-import {Auth0DiscordService} from "../auth0/auth0.discord.service";
+import {Auth0IdentityDiscord} from "../auth0/auth0.identity.discord";
 
 @injectable()
 export class UserService {
@@ -11,7 +11,7 @@ export class UserService {
     }
 
     constructor(
-        @inject(Auth0DiscordService) private auth0DiscordService: Auth0DiscordService
+        @inject(Auth0IdentityDiscord) private auth0DiscordService: Auth0IdentityDiscord
     ) {
     }
 

@@ -1,6 +1,6 @@
 import {OpenapiProp} from "openapi";
 
 export class AuthOuiResponse {
-    @OpenapiProp('boolean')
+    @OpenapiProp({type: 'boolean'})
     public oui!: boolean
 }

@@ -17,7 +17,7 @@
   "author": "François-Pierre ROUSSEAU",
   "license": "ISC",
   "dependencies": {
-    "api-common": "*",
+    "api-core-types": "*",
     "openapi3-ts": "^4.1.2"
   },
   "devDependencies": {

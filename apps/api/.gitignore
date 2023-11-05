@@ -251,7 +251,7 @@ dist
 # End of https://www.toptal.com/developers/gitignore/api/node,intellij+all,visualstudiocode
 
 .env
-.env.development
+.env.dev
 .env.test
 node_modules
 src/test-code.js
@@ -259,3 +259,4 @@ src/test-code.ts
 src/tests/integrations/data
 yarn-error.log
 temp
+dist

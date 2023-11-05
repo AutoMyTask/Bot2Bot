@@ -5,7 +5,7 @@ import {TestFile} from "../tests/utils/test.file";
 import {isEqual} from "lodash";
 
 @injectable()
-export class Auth0DiscordService {
+export class Auth0IdentityDiscord {
     private sub?: string
 
     constructor(
@@ -64,6 +64,6 @@ export class Auth0DiscordService {
 }
 
 
-export const configureAuth0DiscordService = (services: interfaces.Container) => {
-    services.bind(Auth0DiscordService).toSelf().inSingletonScope()
+export const configureAuth0IdentityDiscord = (services: interfaces.Container) => {
+    services.bind(Auth0IdentityDiscord).toSelf().inSingletonScope()
 }

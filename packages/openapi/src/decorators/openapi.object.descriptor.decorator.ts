@@ -1,5 +1,4 @@
 import {TypesCore} from "api-core-types";
-import {log} from "config/dist";
 
 type OpenapiObjectDescriptorOption = { description: string }
 

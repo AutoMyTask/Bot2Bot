@@ -5,12 +5,12 @@ import {OpenapiProp} from "openapi";
 export class UserRequest {
     @IsInt()
     @IsNotEmpty()
-    @OpenapiProp(['number'], {required: true})
+    @OpenapiProp({type: 'number'})
     oui!: number
 
 
     @IsNotEmpty()
     @IsString()
-    @OpenapiProp(['string'], {required: true})
+    @OpenapiProp({type: 'string'})
     non!: string
 }

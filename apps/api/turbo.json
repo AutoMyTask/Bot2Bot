@@ -6,6 +6,9 @@
     },
     "dev": {
       "dotEnv": [".env.development"]
+    },
+    "dev:db:migrate": {
+      "cache": false
     }
   }
 }

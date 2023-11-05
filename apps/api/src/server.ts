@@ -1,4 +1,3 @@
-// ORM: https://github.com/mikro-orm/guide
 // Il y a des choses intéréssantes à utiliser dans mon code: https://fettblog.eu/advanced-typescript-guide/
 
 import express from "express";
@@ -11,7 +10,7 @@ import {endpoints as userEndpoints} from "./users/endpoints";
 import {configure as configureUser} from "./users/configure";
 import {configureOpenApi, openApi} from "openapi";
 import {configureAuth0} from "auth0";
-import {Auth0DiscordService, configureAuth0DiscordService} from "./auth0/auth0.discord.service";
+import {Auth0IdentityDiscord, configureAuth0IdentityDiscord} from "./auth0/auth0.identity.discord";
 import {configureDiscord} from "discord";
 import {AppCore} from "api-core-types";
 import {swaggerUi} from "./swaggerUi";
@@ -29,14 +28,42 @@ import configDb from "./mikro-orm.config";
 
 
 /*
-    Lorsque cela arrivera dans la CI supprimer tout les fichiers de configuration autogénérer....
+    Mon backend devra être totalement isolé et inaccessible depuis l'exterieur
+    Seul le front pourra être accéssible
+
+    Les commandes serront totalement indépendentes des "mondes". Elles pourront être customisé
+    à volonté. Je découple tout. Une api qui gére la customisation et la personnalisation
+    des commandes. Et lors du run des commandes, j'utilise les data musique par exemple
+    dans la bdd gérant la musique ect...
+
+    Priorité -> utiliser docker / docker.compose
+    https://www.youtube.com/watch?v=HUU-hvjhidM
+    https://github.com/vercel/turbo/blob/main/examples/with-docker/apps/api/Dockerfile
+
+    Pour le développement local, je veux synchroniser mes dossiers de dev avec les dossiers se trouvant
+    dans le container via un volume: https://docs.docker.com/language/nodejs/develop/#configure-and-run-a-development-container
+    Utiliser rsync
+
+    Voir comment auto générer un sdk directement un dossier api au démmarage du serveur front aprés
+    le démarrage du serveur api
+    Voir afficher l'ensemble des serveurs utilisateur et inviter le bot
+    Voir comment stocker l'ensemble des données de l'utilisateur discord (commandes, guild...)
+    sur dans ma propre base de données via une synchronisation.
+    Voir comment relier un utilisateur à des commandes
+    Voir comment customiser chaque commande
+    Voir comment permettre aux utilisateurs d'activer / désactiver les commandes
+    Voir comment permettre aux utilisateurs d'activer / désactiver un ensemble de commande
+    appartenant à un monde
+    Voir comment conserver les paramètres précédement enregistrer pour une commande qui a été réactivé
+    Avoir une vraie visualisation de comment implémenter des "mondes" pour spécialiser un enssemble
+    de commande. (monde musique, development...)
+
+
 
     First :
     Créer une action Auth0 insérant les ids dans la bdd dans la table user en tant que clé primaire:
     https://auth0.com/docs/customize/actions/write-your-first-action
     https://auth0.com/docs/customize/actions/flows-and-triggers/post-user-registration-flow
-
-    Mettre à jour vue.js
  */
 
 
@@ -46,7 +73,7 @@ import configDb from "./mikro-orm.config";
  */
 
 /*
-    Ce que je veux s'est offrir aux utilisateurs de customiser leurs commandes (commandes par défaut),
+    Ce que je veux s'est offrir aux utilisateurs de customiser leurs commandes,
     leur permettre de créer leurs commandes, et enfin répondre à des événements à l'aide de code.
 
     Supertest, jest correspond plus à la philosophie histoire de l'article : Story versus specification dans https://en.wikipedia.org/wiki/Behavior-driven_development
@@ -55,24 +82,20 @@ import configDb from "./mikro-orm.config";
     Nom de la classe suivi de la methode suivi de 'should X'
     Autrement BDD pour les aspects fonctionnels, test d'intégration...
 
-    Créer un bot de modération / diffusion d'actualité
     Bot modération existant: MEE6, YAGPDB, Dyno, Carl-bot,
 
-    S'intérésser au tdd et les mettre en oeuvre dans ce projet ...
-
-    Pour les autres APIs, créer un toaster indiquant qu'il faut une reconnection
+    Créer un toaster indiquant qu'il faut une reconnection
     Au niveau des bots, idem avec un bouton de reconnection
 
     Créer un package swagger ui
 
     Monetisation : https://discord.com/developers/docs/monetization/entitlements#premiumrequired-interaction-response
 
-    Seed des ids ou non ?
 
     Voir comment on peut mettre en place le concept de "linking" pour auth0
     Voir: https://auth0.com/docs/manage-users/user-accounts/user-account-linking
 
-    Vaux mieux que je crée un bot abstrayant les details des interactions. Le bot avant ses details et interargissent en fonction
+    Vaux mieux que je crée un bot abstrayant les details des interactions. Le bot avant ses details et interargit en fonction
     Les details se trouveront dans mon api. Comme cela je pourrais utiliser les différentes connection aux differentes plateforme.
     (linking)
 
@@ -82,21 +105,8 @@ import configDb from "./mikro-orm.config";
     Créer un custom database auth0
     Auto générer un sdk dans un package. Configurer la synchro des commandes turbo repos pour prendre en compte les changements
 
-    UI:
-    Grosso modo, il va falloir se concentrer sur la logique de configuration globale des guilds, channels....
-    Il faudra avoir les connections aux différentes plateformes (youtube, instagram...)
-    Manager les permissions des bots (qui à le droit de pouvoir gérer les bots)
-    Pour determiner le design de la bdd, il faudra bien réfléchir à l'interface --> afficher les données (oublier la partie ui)
 
-
-    Chaque bot serra responsable de deployer et supprimer ses propres commandes. Cela se fera lors du processus d'invitation
-    du bot. Je dois avoir la possibilité de pouvoir, à partir de ces bots récupérer les commandes enregistrées dans discord
-    et les insérer dans la base de données.
-
-    Gérer le seeding (activation, désactivation des commandes par défaut)
-
-    Workflow
-
+    --- WORKFLOW ---
     Un utilisateur arrive sur une page listant les serveurs. Un bouton apparaitra sous chaque serveur.
     Ce bouton aura deux états :
         - Configurer : cela veut dire que le bot est déjà présent dans le salon
@@ -104,24 +114,24 @@ import configDb from "./mikro-orm.config";
 
     En cliquant sur inviter : Invite le bot sur le serveur.
     En cliquant sur administrer :
-        Je récupère l'intégralité des commandes préexistantes enregistré en bdd,
+        Je récupère l'intégralité des commandes préexistantes enregistrées en bdd,
         J'ajoute les nouvelles et je PUT
+    Grosso modo, la synchro se fera uniquement à l'invitation et à l'administration du bot
 
-    Va falloir que je sécurise les connections (application -> github, application -> openapi.json, user -> swagger)
-
-    ------ PRIORITE ---
-    Gestion des connections aux réseaux sociaux ou différentes plateformes avec notifications de reconnection
+    ------ PRIORITE ----
+    Gestion des connexions aux réseaux sociaux ou différentes plateformes avec notifications de reconnection
     si une des plateformes perd la connection
-
-    Gestion des bots (niveau global --> fonctionnalité à spécifier)
+    section configuration (auth0, connection aux différentes plateformes externes: https://auth0.com/docs/manage-users/user-accounts/user-account-linking)
     section modération
-    section flux (gestion des flux rss, diffusion d'article wordpress, twitch....)
+    section actualités (gestion des flux rss, diffusion d'article wordpress, twitch....)
     section planification (se brancher à google calandar pour recevoir des notifs)
     section musique
     section ticketing
+    section developer
+    section customisation des commandes
  */
 
-
+console.log('sdddddddddddddd')
 const builder = AppBuilder.createAppBuilder()
 
 builder.configure(configureOpenApi(builder => {
@@ -167,7 +177,7 @@ builder.configure(configureOpenApi(builder => {
 ), configureDiscord(
     process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_ID ?? '',
     process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_SECRET ?? ''
-), configureUser, configureAuth0DiscordService, configureDb(configDb))
+), configureUser, configureAuth0IdentityDiscord, configureDb(configDb))
 
 builder.addAuthentification(auth({
     issuerBaseURL: process.env.AUTH0_ISSUER,
@@ -175,7 +185,7 @@ builder.addAuthentification(auth({
     tokenSigningAlg: process.env.AUTH0_SIGNING_ALG
 }), ['oauth2', 'bearer'], (builder) => { // Donner accés qu'à une interface pour builder.
     builder.onTokenValidated = (req, res, next) => {
-        const auth0DiscordService = req.services.get(Auth0DiscordService)
+        const auth0DiscordService = req.services.get(Auth0IdentityDiscord)
 
         if (req.auth?.payload.sub && !auth0DiscordService.hasSub) {
             auth0DiscordService.setSub(req.auth.payload.sub)
