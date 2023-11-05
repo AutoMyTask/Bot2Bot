@@ -131,7 +131,6 @@ import configDb from "./mikro-orm.config";
     section customisation des commandes
  */
 
-console.log('sdddddddddddddd')
 const builder = AppBuilder.createAppBuilder()
 
 builder.configure(configureOpenApi(builder => {
