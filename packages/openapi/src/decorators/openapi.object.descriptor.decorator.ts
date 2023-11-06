@@ -10,7 +10,6 @@ export class OpenapiObjectDescriptorDecorator {
     constructor(
         protected readonly target: TypesCore.New
     ) {
-
         this.metadata = Reflect.getMetadata('option', this.target) || {
             option: {}
         }

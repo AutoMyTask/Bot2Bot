@@ -132,7 +132,6 @@ import configDb from "./mikro-orm.config";
  */
 
 const builder = AppBuilder.createAppBuilder()
-
 builder.configure(configureOpenApi(builder => {
     const urlSearchParameters = new URLSearchParams({
         audience: process.env.AUTH0_AUDIENCE ?? '',

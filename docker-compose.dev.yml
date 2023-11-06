@@ -1,40 +1,38 @@
 version: "3"
 
 services:
-  front:
-    container_name: front
+  web:
+    container_name: web
     build:
       context: .
-      dockerfile: ./apps/front/Dockerfile
+      dockerfile: ./apps/web/Dockerfile
     env_file:
-      - apps/front/.env
+      - apps/web/.env
     restart: always
     ports:
-      - "8080:8080"
+      - "5173:5173"
     volumes:
-      - ./apps/front/src:/app/apps/front/src
-      - ./packages:/app/packages/*
+      - ./apps/web:/app/apps/web
     networks:
       - app_network
- # api:
- #   container_name: api
- #   build:
- #     context: .
- #     dockerfile: ./apps/api/Dockerfile.dev
- #   env_file:
- #     - apps/api/.env.dev
- #   restart: always
- #   ports:
- #     - "8000:8000"
- #   volumes:
- #     - ./apps/api/src:/app/apps/api/src
- #     - ./packages:/app/packages/*
- #   networks:
- #     - app_network
+  api:
+    container_name: api
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile.dev
+    env_file:
+      - apps/api/.env.dev
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - /app/apps/api/node_modules
+      - ./apps/api:/app/apps/api
+    networks:
+      - app_network
 
 # Define a network, which allows containers to communicate
 # with each other, by using their container name as a hostname
 networks:
   app_network:
     external: true
-
