@@ -33,11 +33,13 @@ export class App implements AppCore.IApp, RouteCore.IRouteMapBuilder {
     }
 
     addEndpoints(...callbackEndpointBuilders: RouteCore.CallbackRouteMapBuilder<RouteCore.IRouteMapBuilder>[]): AppCore.IApp {
+        // Throw si déja fait. Indiquer que cette appelle ne peut être exécuté qu'une seul fois
+        // Pour évité plein de this.buildEndpoint(). Si endpoints > 0 alors throw
         for (const callbackEndpointBuilder of callbackEndpointBuilders) {
             callbackEndpointBuilder(this)
         }
 
-        this.buildEndpoint() // Normalement devrait être effectué qu'une fois
+        this.buildEndpoint()
 
         return this
     }

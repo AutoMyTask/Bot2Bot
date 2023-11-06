@@ -28,6 +28,7 @@ import configDb from "./mikro-orm.config";
 
 
 /*
+    api-core-type doit être en dependance de dev et non dans les dependances principales
     Mon backend devra être totalement isolé et inaccessible depuis l'exterieur
     Seul le front pourra être accéssible
 
@@ -36,16 +37,15 @@ import configDb from "./mikro-orm.config";
     des commandes. Et lors du run des commandes, j'utilise les data musique par exemple
     dans la bdd gérant la musique ect...
 
-    Priorité -> utiliser docker / docker.compose
-    https://www.youtube.com/watch?v=HUU-hvjhidM
-    https://github.com/vercel/turbo/blob/main/examples/with-docker/apps/api/Dockerfile
-
-    Pour le développement local, je veux synchroniser mes dossiers de dev avec les dossiers se trouvant
-    dans le container via un volume: https://docs.docker.com/language/nodejs/develop/#configure-and-run-a-development-container
-    Utiliser rsync
+    Grosso modo, 0 duplication d'information. Tout les appels passeront par cette api
 
     Voir comment auto générer un sdk directement un dossier api au démmarage du serveur front aprés
-    le démarrage du serveur api
+    le démarrage du serveur api :
+        - Utiliser rsync (pour la partie front) car lors de l'auto génération du sdk, je veux
+          que le sdk soit visible depuis l'exterieur
+
+    Ce serra une interface
+
     Voir afficher l'ensemble des serveurs utilisateur et inviter le bot
     Voir comment stocker l'ensemble des données de l'utilisateur discord (commandes, guild...)
     sur dans ma propre base de données via une synchronisation.
