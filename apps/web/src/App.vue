@@ -1,6 +1,7 @@
 <template>
   <button @click="login">Login</button>
   <button @click="onLogout">Logout</button>
+  <h1>You did it!</h1>
   <router-view></router-view>
 </template>
 

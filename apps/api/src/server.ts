@@ -1,31 +1,32 @@
 // Il y a des choses intéréssantes à utiliser dans mon code: https://fettblog.eu/advanced-typescript-guide/
 
 import express from "express";
-import helmet from 'helmet';
+import helmet from "helmet";
 import cors from "cors";
-import 'reflect-metadata';
-import {auth} from "express-oauth2-jwt-bearer";
+import "reflect-metadata";
+import { auth } from "express-oauth2-jwt-bearer";
 import rateLimit from "express-rate-limit";
-import {endpoints as userEndpoints} from "./users/endpoints";
-import {configure as configureUser} from "./users/configure";
-import {configureOpenApi, openApi} from "openapi";
-import {configureAuth0} from "auth0";
-import {Auth0IdentityDiscord, configureAuth0IdentityDiscord} from "./auth0/auth0.identity.discord";
-import {configureDiscord} from "discord";
-import {AppCore} from "api-core-types";
-import {swaggerUi} from "./swaggerUi";
-import {OpenApiBuilder} from "openapi";
-import {AppBuilder, errorHandler} from "api-core";
-import {configureDb} from "./db/configure.db";
-import {requestContext} from "./db/middlewares/requestContext";
+import { endpoints as userEndpoints } from "./users/endpoints";
+import { configure as configureUser } from "./users/configure";
+import { configureOpenApi, openApi } from "openapi";
+import { configureAuth0 } from "auth0";
+import {
+  Auth0IdentityDiscord,
+  configureAuth0IdentityDiscord,
+} from "./auth0/auth0.identity.discord";
+import { configureDiscord } from "discord";
+import { AppCore } from "api-core-types";
+import { swaggerUi } from "./swaggerUi";
+import { OpenApiBuilder } from "openapi";
+import { AppBuilder, errorHandler } from "api-core";
+import { configureDb } from "./db/configure.db";
+import { requestContext } from "./db/middlewares/requestContext";
 import configDb from "./mikro-orm.config";
-
 
 // VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
 // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
 
 // pg-promise: https://www.npmjs.com/package/pg-promise
-
 
 /*
     api-core-type doit être en dependance de dev et non dans les dependances principales
@@ -38,6 +39,9 @@ import configDb from "./mikro-orm.config";
     dans la bdd gérant la musique ect...
 
     Grosso modo, 0 duplication d'information. Tout les appels passeront par cette api
+
+    Docker pour les tests
+    Connecter une BDD et gérer les migrations
 
     Voir comment auto générer un sdk directement un dossier api au démmarage du serveur front aprés
     le démarrage du serveur api :
@@ -65,7 +69,6 @@ import configDb from "./mikro-orm.config";
     https://auth0.com/docs/customize/actions/write-your-first-action
     https://auth0.com/docs/customize/actions/flows-and-triggers/post-user-registration-flow
  */
-
 
 /*
     Front end: afficher les erreurs
@@ -131,98 +134,111 @@ import configDb from "./mikro-orm.config";
     section customisation des commandes
  */
 
-const builder = AppBuilder.createAppBuilder()
-builder.configure(configureOpenApi(builder => {
+const builder = AppBuilder.createAppBuilder();
+builder.configure(
+  configureOpenApi((builder) => {
     const urlSearchParameters = new URLSearchParams({
-        audience: process.env.AUTH0_AUDIENCE ?? '',
-        connection: 'discord'
-    })
+      audience: process.env.AUTH0_AUDIENCE ?? "",
+      connection: "discord",
+    });
 
-    const authorizationUrl = `${process.env.AUTH0_DOMAIN}/authorize?${urlSearchParameters.toString()}`
+    const authorizationUrl = `${
+      process.env.AUTH0_DOMAIN
+    }/authorize?${urlSearchParameters.toString()}`;
     builder.addInfo({
-        title: 'Mon API',
-        version: '1.0.0',
-        description: 'Une description',
-        contact: {
-            name: 'François-Pierre ROUSSEAU',
-            url: 'mon linkldn',
-            email: 'francoispierrerousseau.44@gmail.com'
-        }
-    })
-    builder.addSecurityScheme('oauth2', {
+      title: "Mon API",
+      version: "1.0.0",
+      description: "Une description",
+      contact: {
+        name: "François-Pierre ROUSSEAU",
+        url: "mon linkldn",
+        email: "francoispierrerousseau.44@gmail.com",
+      },
+    });
+    builder
+      .addSecurityScheme("oauth2", {
         name: "Authorization",
         type: "oauth2",
         flows: {
-            authorizationCode: {
-                authorizationUrl,
-                scopes: {}
-            },
-            implicit: {
-                authorizationUrl,
-                scopes: {}
-            },
-        }
-    }).addSecurityScheme('bearer', {
-        description: 'JWT containing userid claim',
-        name: 'Authorization',
-        type: 'apiKey',
-        in: 'header',
-    })
-}), configureAuth0(
-    process.env.AUTH0_API_MANAGEMENT_CLIENT_ID ?? '',
-    process.env.AUTH0_API_MANAGEMENT_CLIENT_SECRET ?? '',
-    process.env.AUTH0_API_MANAGEMENT_AUDIENCE ?? ''
-), configureDiscord(
-    process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_ID ?? '',
-    process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_SECRET ?? ''
-), configureUser, configureAuth0IdentityDiscord, configureDb(configDb))
+          authorizationCode: {
+            authorizationUrl,
+            scopes: {},
+          },
+          implicit: {
+            authorizationUrl,
+            scopes: {},
+          },
+        },
+      })
+      .addSecurityScheme("bearer", {
+        description: "JWT containing userid claim",
+        name: "Authorization",
+        type: "apiKey",
+        in: "header",
+      });
+  }),
+  configureAuth0(
+    process.env.AUTH0_API_MANAGEMENT_CLIENT_ID ?? "",
+    process.env.AUTH0_API_MANAGEMENT_CLIENT_SECRET ?? "",
+    process.env.AUTH0_API_MANAGEMENT_AUDIENCE ?? "",
+  ),
+  configureDiscord(
+    process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_ID ?? "",
+    process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_SECRET ?? "",
+  ),
+  configureUser,
+  configureAuth0IdentityDiscord,
+  configureDb(configDb),
+);
 
-builder.addAuthentification(auth({
+builder.addAuthentification(
+  auth({
     issuerBaseURL: process.env.AUTH0_ISSUER,
     audience: process.env.AUTH0_AUDIENCE,
-    tokenSigningAlg: process.env.AUTH0_SIGNING_ALG
-}), ['oauth2', 'bearer'], (builder) => { // Donner accés qu'à une interface pour builder.
+    tokenSigningAlg: process.env.AUTH0_SIGNING_ALG,
+  }),
+  ["oauth2", "bearer"],
+  (builder) => {
+    // Donner accés qu'à une interface pour builder.
     builder.onTokenValidated = (req, res, next) => {
-        const auth0DiscordService = req.services.get(Auth0IdentityDiscord)
+      const auth0DiscordService = req.services.get(Auth0IdentityDiscord);
 
-        if (req.auth?.payload.sub && !auth0DiscordService.hasSub) {
-            auth0DiscordService.setSub(req.auth.payload.sub)
-        }
-        next()
-    }
-})
+      if (req.auth?.payload.sub && !auth0DiscordService.hasSub) {
+        auth0DiscordService.setSub(req.auth.payload.sub);
+      }
+      next();
+    };
+  },
+);
 
-
-const app = builder.build()
-
+const app = builder.build();
 
 app
-    .addEndpoints(userEndpoints)
-    .useAuthentification()
-    .use(openApi)
-    .use(swaggerUi(services => services.get(OpenApiBuilder).getSpec()))
-    .use((app: AppCore.IApp) => {
-        app
-            .app.use(
-            express.json({
-                limit: '1mb'
-            }),
-            express.urlencoded({extended: true}),
-            rateLimit({
-                windowMs: 60 * 60 * 60,
-                max: 100,
-            }),
-            cors({
-                origin: 'http://localhost:8080'
-            }),
-            helmet(),
-        )
-    })
-    .use(requestContext)
-    .mapEndpoints()
+  .addEndpoints(userEndpoints)
+  .useAuthentification()
+  .use(openApi)
+  .use(swaggerUi((services) => services.get(OpenApiBuilder).getSpec()))
+  .use((app: AppCore.IApp) => {
+    app.app.use(
+      express.json({
+        limit: "1mb",
+      }),
+      express.urlencoded({ extended: true }),
+      rateLimit({
+        windowMs: 60 * 60 * 60,
+        max: 100,
+      }),
+      cors({
+        origin: "http://localhost:8080",
+      }),
+      helmet(),
+    );
+  })
+  .use(requestContext)
+  .mapEndpoints();
 
-app.use(errorHandler)
+app.use(errorHandler);
 
-app.run({port: process.env.PORT})
+app.run({ port: process.env.PORT });
 
-export {app}
+export { app };

@@ -5,21 +5,33 @@ services:
     container_name: web
     build:
       context: .
-      dockerfile: ./apps/web/Dockerfile
+      dockerfile: apps/web/Dockerfile.Dev
     env_file:
       - apps/web/.env
     restart: always
     ports:
       - "5173:5173"
     volumes:
+      - /app/apps/web/node_modules
       - ./apps/web:/app/apps/web
     networks:
       - app_network
+  web-unit-test:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.Dev
+    env_file:
+      - apps/web/.env
+    restart: always
+    volumes:
+      - /app/apps/web/node_modules
+      - ./apps/web:/app/apps/web
+    command: ["yarn", "run", "test:unit:dev", "--filter=web"]
   api:
     container_name: api
     build:
       context: .
-      dockerfile: ./apps/api/Dockerfile.dev
+      dockerfile: apps/api/Dockerfile.Dev
     env_file:
       - apps/api/.env.dev
     restart: always
