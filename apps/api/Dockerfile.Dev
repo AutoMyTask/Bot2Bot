@@ -28,6 +28,10 @@ COPY turbo.json turbo.json
 FROM base AS runner
 WORKDIR /app
 
+# Pour la surveillance
+RUN apk update
+RUN apk add --no-cache curl
+
 COPY --from=installer /app .
 
 CMD yarn run dev --filter=api

@@ -1,13 +1,12 @@
 // Il y a des choses intéréssantes à utiliser dans mon code: https://fettblog.eu/advanced-typescript-guide/
 
-import express from "express";
+import express from "express"; // Supprimer ça et créer directement des use méthodes dans app
 import helmet from "helmet";
 import cors from "cors";
 import "reflect-metadata";
 import { auth } from "express-oauth2-jwt-bearer";
 import rateLimit from "express-rate-limit";
-import { endpoints as userEndpoints } from "./users/endpoints";
-import { configure as configureUser } from "./users/configure";
+import { userConfigure, userEndpoints } from "./users";
 import { configureOpenApi, openApi } from "openapi";
 import { configureAuth0 } from "auth0";
 import {
@@ -19,9 +18,9 @@ import { AppCore } from "api-core-types";
 import { swaggerUi } from "./swaggerUi";
 import { OpenApiBuilder } from "openapi";
 import { AppBuilder, errorHandler } from "api-core";
-import { configureDb } from "./db/configure.db";
-import { requestContext } from "./db/middlewares/requestContext";
+import { configureDb, requestContext } from "./db";
 import configDb from "./mikro-orm.config";
+import { healthcheckEndpoint } from "./healthcheck/healthcheck.endpoint";
 
 // VOIR LA SECTION METADONNEE POUR ELIMINE DANS LE FUTURE LA DEPENDANCE REFLECT METADATA
 // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/
@@ -29,6 +28,7 @@ import configDb from "./mikro-orm.config";
 // pg-promise: https://www.npmjs.com/package/pg-promise
 
 /*
+    Désactiver openApi à l'aide d'un metadata d'openApi
     api-core-type doit être en dependance de dev et non dans les dependances principales
     Mon backend devra être totalement isolé et inaccessible depuis l'exterieur
     Seul le front pourra être accéssible
@@ -86,7 +86,6 @@ import configDb from "./mikro-orm.config";
     Autrement BDD pour les aspects fonctionnels, test d'intégration...
 
     Bot modération existant: MEE6, YAGPDB, Dyno, Carl-bot,
-
     Créer un toaster indiquant qu'il faut une reconnection
     Au niveau des bots, idem avec un bouton de reconnection
 
@@ -155,6 +154,11 @@ builder.configure(
         email: "francoispierrerousseau.44@gmail.com",
       },
     });
+
+    builder.addServer({
+      url: "http://localhost:3050/api",
+    });
+
     builder
       .addSecurityScheme("oauth2", {
         name: "Authorization",
@@ -186,7 +190,7 @@ builder.configure(
     process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_ID ?? "",
     process.env.DISCORD_API_BOT_AUTOMYTASK_CLIENT_SECRET ?? "",
   ),
-  configureUser,
+  userConfigure,
   configureAuth0IdentityDiscord,
   configureDb(configDb),
 );
@@ -199,13 +203,16 @@ builder.addAuthentification(
   }),
   ["oauth2", "bearer"],
   (builder) => {
-    // Donner accés qu'à une interface pour builder.
     builder.onTokenValidated = (req, res, next) => {
-      const auth0DiscordService = req.services.get(Auth0IdentityDiscord);
+      const auth0IdentityDiscord = req.services.get(Auth0IdentityDiscord);
 
-      if (req.auth?.payload.sub && !auth0DiscordService.hasSub) {
-        auth0DiscordService.setSub(req.auth.payload.sub);
+      if (req.auth?.payload.sub && !auth0IdentityDiscord.hasSub) {
+        auth0IdentityDiscord.setSub(req.auth.payload.sub);
       }
+
+      // Effectuer la vérification du token discord ici.
+      // Autrement, j'aurais des routes spécifiques aux autres connections dans l'utilisation des routes
+
       next();
     };
   },
@@ -214,7 +221,7 @@ builder.addAuthentification(
 const app = builder.build();
 
 app
-  .addEndpoints(userEndpoints)
+  .addEndpoints(userEndpoints, healthcheckEndpoint)
   .useAuthentification()
   .use(openApi)
   .use(swaggerUi((services) => services.get(OpenApiBuilder).getSpec()))

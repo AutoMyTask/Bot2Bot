@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node-dev --poll src/server.ts",
-    "test": "dotenv -e .env.test jest --detectOpenHandles --verbose --watchAll --no-cache",
+    "test": "jest --detectOpenHandles --verbose --watchAll --no-cache",
     "dev:db:migrate": "dotenv -e .env.dev mikro-orm migration:up"
   },
   "jest": {

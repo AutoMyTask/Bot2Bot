@@ -1,42 +1,80 @@
 version: "3"
 
+# Créer un dossier infrastructure regroupant tout les dossier permettant
+# l'orchestration de l'infra
+
+# Via ngninx, je pourrais controller le point d'accés menant à ma documentation
+# Uniuqment en production
+
+# Documenter les .env.sample pour mener vers les liens pour la configuration
+# Voir docker secret à l'avenir pour configurer les variables d'env
+
+# Voir pour api-core-type et réorganiser les dépendances
+
+
+# Tarification gratuite amazon : https://aws.amazon.com/fr/ec2/pricing/
+# Définir un container spécifique pour le déploiement des migrations
+
 services:
+  postgres:
+    container_name: postgres
+    image: 'postgres:latest'
+    restart: always
+    env_file:
+      - envs/.env.db
+    networks:
+      - app_network
+  nginx:
+    container_name: nginx
+    restart: always
+    depends_on:
+      - api
+      - web
+    build:
+      dockerfile: nginx/Dockerfile.Dev
+    ports:
+      - "3050:80"
+    networks:
+      - app_network
   web:
     container_name: web
+    depends_on:
+      api:
+        condition: service_healthy
     build:
-      context: .
       dockerfile: apps/web/Dockerfile.Dev
     env_file:
-      - apps/web/.env
-    restart: always
-    ports:
-      - "5173:5173"
+      - apps/web/.env.dev
     volumes:
       - /app/apps/web/node_modules
       - ./apps/web:/app/apps/web
     networks:
       - app_network
   web-unit-test:
+    container_name: web-unit-test
+    depends_on:
+      api:
+        condition: service_healthy
     build:
-      context: .
       dockerfile: apps/web/Dockerfile.Dev
     env_file:
-      - apps/web/.env
-    restart: always
+      - apps/web/.env.dev
     volumes:
       - /app/apps/web/node_modules
       - ./apps/web:/app/apps/web
-    command: ["yarn", "run", "test:unit:dev", "--filter=web"]
+    command: [ "yarn", "run", "test:unit:dev", "--filter=web" ]
   api:
     container_name: api
     build:
-      context: .
       dockerfile: apps/api/Dockerfile.Dev
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://api:8000/healthcheck" ] #
+      interval: 30s
+      retries: 10
+      timeout: 10s
     env_file:
       - apps/api/.env.dev
-    restart: always
-    ports:
-      - "8000:8000"
+      - envs/.env.db
     volumes:
       - /app/apps/api/node_modules
       - ./apps/api:/app/apps/api
