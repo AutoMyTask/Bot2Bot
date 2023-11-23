@@ -1,16 +1,29 @@
 import { SchemaObject, ReferenceObject } from "openapi3-ts/dist/oas31";
-import { ItemArrayObjectType, DefaultType } from "../decorators/openapi.prop";
+import {
+  ItemArrayObjectType,
+  DefaultType,
+  EnumType,
+} from "../decorators/openapi.prop";
+import { TypesCore } from "api-core-types";
+
+export class PropertyObjectDefault {
+  public property: SchemaObject;
+
+  constructor(type: TypesCore.New | EnumType) {
+    this.property = {
+      type: "object",
+      items: { $ref: `#/components/schemas/${type.name}` },
+    };
+  }
+}
 
 export class PropertyDefault {
   public property: SchemaObject = {};
 
-  // Default Type a supprimer
-  // Erreur car type peut être undefenied
-  constructor(
-    type?: DefaultType,
-    options?: { additionalProperties?: boolean },
-  ) {
-    this.property = type === "any" ? {} : { type, ...options };
+  constructor(type?: DefaultType) {
+    if (type) {
+      this.property = type === "any" ? {} : { type };
+    }
   }
 
   addUnion(property: SchemaObject | ReferenceObject) {
@@ -55,7 +68,7 @@ export class ArrayObjectProperty {
   ): ReferenceObject | SchemaObject {
     if (
       typeof itemType !== "string" &&
-      (typeof itemType === "function" || typeof itemType === "object")
+      (typeof itemType === "function" || typeof itemType === "object") // IsEnumType
     ) {
       return { $ref: `#/components/schemas/${itemType.name}` };
     }

@@ -4,6 +4,7 @@ import { TypesCore } from "api-core-types";
 import {
   ArrayObjectProperty,
   PropertyDefault,
+  PropertyObjectDefault,
 } from "../builders/property.builder";
 
 export type NullType = "null";
@@ -27,7 +28,7 @@ export type ItemArrayObjectType = TypesCore.New | EnumType | PrimitiveType;
 
 type DefaultPropObject = {
   type: ObjectType;
-  option: { additionalProperties: boolean };
+  option: { type: TypesCore.New | EnumType };
 };
 type DefaultProp = { type: DefaultType };
 
@@ -41,7 +42,7 @@ function isDefaultPropObject(value: any): value is DefaultPropObject {
     value &&
     value.type === "object" &&
     typeof value.option === "object" &&
-    "additionalProperties" in value.option
+    (typeof value.option.type === "function" || isEnumType(value))
   );
 }
 
@@ -102,7 +103,8 @@ export function OpenapiProp(
 
     const propertyDefaults = props.map((prop) => {
       if (isDefaultPropObject(prop)) {
-        return new PropertyDefault(prop.type, prop.option);
+        openApiProp.addSchema(prop.option.type);
+        return new PropertyObjectDefault(prop.option.type);
       }
       if (isDefaultProp(prop)) {
         return new PropertyDefault(prop.type);

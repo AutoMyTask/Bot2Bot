@@ -70,6 +70,8 @@ export class SchemaBuilder {
         metadata: { option },
       } = new OpenapiObjectDescriptorDecorator(schema);
 
+      // Ici marqué un AdditionnalProperties
+
       return {
         type: "object",
         properties,
