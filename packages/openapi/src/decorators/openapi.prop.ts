@@ -37,7 +37,12 @@ type ArrayObjectProp = {
 };
 
 function isDefaultPropObject(value: any): value is DefaultPropObject {
-  return value && value.type === "object" && typeof value.option === "object";
+  return (
+    value &&
+    value.type === "object" &&
+    typeof value.option === "object" &&
+    "additionalProperties" in value.option
+  );
 }
 
 function isDefaultProp(value: any): value is DefaultProp {
@@ -83,9 +88,6 @@ export function OpenapiProp(
   options: OpenapiPropOption = { required: true },
 ) {
   return (target: Object, propName: string) => {
-    if (!isDefaultPropObject(types) && !isDefaultProp(types)) {
-    }
-
     const openApiProp = new OpenApiPropDecorator(
       target.constructor as TypesCore.New,
     );
