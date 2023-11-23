@@ -1,28 +1,30 @@
-import {CommandInteraction} from "discord.js";
+import { CommandInteraction } from "discord.js";
 import {
-    ActionRowBuilder,
-    SlashCommandBuilder
+  ActionRowBuilder,
+  ButtonBuilder,
+  SlashCommandBuilder,
 } from "@discordjs/builders";
-import {Command} from "../../lib/commands/decorators/command";
-import {BaseCommand} from "../../lib/commands/BaseCommand";
-import {YoutubeButton} from "./youtube.button";
+import { Command } from "../../lib/commands/decorators/command";
+import { BaseCommand } from "../../lib/commands/BaseCommand";
+import { YoutubeButton } from "./youtube.button";
 
 @Command({
-    data: new SlashCommandBuilder()
-        .setName('musique')
-        .setDescription('Gérer la playlist de musique'),
+  data: new SlashCommandBuilder()
+    .setName("musique")
+    .setDescription("Gérer la playlist de musique"),
 })
 export class PingCommand extends BaseCommand {
-    static youtubeButton = new YoutubeButton()
+  static youtubeButton = new YoutubeButton();
 
-    async run(interaction: CommandInteraction) {
-        const row = new ActionRowBuilder()
-            .addComponents(PingCommand.youtubeButton.data)
+  async run(interaction: CommandInteraction) {
+    const row = new ActionRowBuilder<any>().addComponents(
+      PingCommand.youtubeButton.data,
+    );
 
-        await interaction.reply({
-            content: 'Pong',
-            ephemeral: true,
-            components: [row]
-        });
-    }
+    await interaction.reply({
+      content: "Pong",
+      ephemeral: true,
+      components: [row],
+    });
+  }
 }

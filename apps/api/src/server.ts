@@ -28,6 +28,16 @@ import { healthcheckEndpoint } from "./healthcheck/healthcheck.endpoint";
 // pg-promise: https://www.npmjs.com/package/pg-promise
 
 /*
+    // CUSTOMISATION DES COMMANDES)
+    Les commandes ont un nom de commande unique. C'est comme cela que je vais pouvoir les identifier pour
+    personnaliser les commandes. Nom de commande associé au guildId
+    Je doit directement manipuler le package bot (bot-musique, community...) pour directement customiser les commandes
+    bot.update(nameCommande, data: object)...
+    bot.save()
+
+
+
+
     Désactiver openApi à l'aide d'un metadata d'openApi
     api-core-type doit être en dependance de dev et non dans les dependances principales
     Mon backend devra être totalement isolé et inaccessible depuis l'exterieur
@@ -150,13 +160,13 @@ builder.configure(
       description: "Une description",
       contact: {
         name: "François-Pierre ROUSSEAU",
-        url: "mon linkldn",
+        url: "http://monlinkldn.com",
         email: "francoispierrerousseau.44@gmail.com",
       },
     });
 
     builder.addServer({
-      url: "http://localhost:3050/api",
+      url: "http://localhost:3050/api", // la placer dans une variable d'environnement ? DEV/PROD
     });
 
     builder
@@ -167,10 +177,12 @@ builder.configure(
           authorizationCode: {
             authorizationUrl,
             scopes: {},
+            tokenUrl: "http://tokenurl.com",
           },
           implicit: {
             authorizationUrl,
             scopes: {},
+            tokenUrl: "http://tokenurl.com",
           },
         },
       })
@@ -236,7 +248,7 @@ app
         max: 100,
       }),
       cors({
-        origin: "http://localhost:8080",
+        origin: "http://localhost:8080", // A voir pour cors, cela à du changer
       }),
       helmet(),
     );
@@ -246,6 +258,6 @@ app
 
 app.use(errorHandler);
 
-app.run({ port: process.env.PORT });
+app.run({ port: process.env.PORT }); // Pouvoir passer un callback pour le listener
 
 export { app };

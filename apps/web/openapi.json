@@ -1,0 +1,515 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mon API",
+    "version": "1.0.0",
+    "description": "Une description",
+    "contact": {
+      "name": "François-Pierre ROUSSEAU",
+      "url": "http://monlinkldn.com",
+      "email": "francoispierrerousseau.44@gmail.com"
+    }
+  },
+  "paths": {
+    "/users/@me/{id}": {
+      "get": {
+        "description": "une description",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int"
+            }
+          },
+          {
+            "name": "populate_identity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "format": "string"
+            }
+          }
+        ],
+        "tags": [
+          "Users"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/UserResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "oauth2": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/healthcheck": {
+      "get": {
+        "description": "une description",
+        "parameters": [],
+        "tags": [],
+        "responses": {},
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "discord": {
+            "oneOf": [
+              {
+                "type": "object",
+                "items": {
+                  "$ref": "#/components/schemas/DiscordUserResponse"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": []
+      },
+      "DiscordUserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatar": {
+            "type": "string"
+          },
+          "discriminator": {
+            "type": "string"
+          },
+          "public_flags": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "flags": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "banner": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "accent_color": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "global_name": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "avatar_decoration_data": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "banner_color": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mfa_enabled": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locale": {
+            "oneOf": [
+              {
+                "type": "object",
+                "items": {
+                  "$ref": "#/components/schemas/LocalesEnum"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "premium_type": {
+            "oneOf": [
+              {
+                "type": "object",
+                "items": {
+                  "$ref": "#/components/schemas/PremiumTypesEnum"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verified": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ],
+        "description": "Ressource provenant de l'api discord: https://discord.com/developers/docs/resources/user"
+      },
+      "LocalesEnum": {
+        "type": "object",
+        "properties": {
+          "LocalesEnum": {
+            "type": "string",
+            "enum": [
+              "id",
+              "da",
+              "de",
+              "en-GB",
+              "en-US",
+              "es-ES",
+              "fr",
+              "hr",
+              "it",
+              "lt",
+              "hu",
+              "nl",
+              "no",
+              "pl",
+              "pt-BR",
+              "ro",
+              "fi",
+              "sv-SE",
+              "vi",
+              "tr",
+              "cs",
+              "el",
+              "bg",
+              "ru",
+              "uk",
+              "hi",
+              "th",
+              "zh-CN",
+              "ja",
+              "zh-TW",
+              "ko"
+            ],
+            "description": "Indonesian:id\nDanish:da\nGerman:de\nEnglishUK:en-GB\nEnglishUS:en-US\nSpanish:es-ES\nFrench:fr\nCroatian:hr\nItalian:it\nLithuanian:lt\nHungarian:hu\nDutch:nl\nNorwegian:no\nPolish:pl\nPortugueseBrazilian:pt-BR\nRomanianRomania:ro\nFinnish:fi\nSwedish:sv-SE\nVietnamese:vi\nTurkish:tr\nCzech:cs\nGreek:el\nBulgarian:bg\nRussian:ru\nUkrainian:uk\nHindi:hi\nThai:th\nChineseChina:zh-CN\nJapanese:ja\nChineseTaiwan:zh-TW\nKorean:ko"
+          }
+        }
+      },
+      "PremiumTypesEnum": {
+        "type": "object",
+        "properties": {
+          "PremiumTypesEnum": {
+            "type": "number",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "description": "None:0\nNitroClassic:1\nNitro:2\nNitroBasic:3"
+          }
+        }
+      },
+      "Unauthorized": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/UnauthorizedErrorConnectionError"
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "message",
+          "errors"
+        ]
+      },
+      "UnauthorizedErrorConnectionError": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "number"
+          },
+          "connection": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "connection"
+        ]
+      },
+      "BadRequest": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ObjectValidationError"
+                }
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ParamValidationError"
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "errors"
+        ]
+      },
+      "ObjectValidationError": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "object"
+          },
+          "property": {
+            "type": "string"
+          },
+          "value": {
+            "type": "object"
+          },
+          "constraints": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObjectValidationError"
+            }
+          },
+          "contexts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "property"
+        ]
+      },
+      "ParamValidationError": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "location": {
+            "type": "object",
+            "items": {
+              "$ref": "#/components/schemas/LocationEnum"
+            }
+          },
+          "path": {
+            "type": "string"
+          },
+          "value": {},
+          "msg": {}
+        },
+        "required": [
+          "type",
+          "location",
+          "path",
+          "value",
+          "msg"
+        ]
+      },
+      "LocationEnum": {
+        "type": "object",
+        "properties": {
+          "LocationEnum": {
+            "type": "string",
+            "enum": [
+              "body",
+              "cookies",
+              "headers",
+              "params",
+              "query"
+            ],
+            "description": "Body:body\nCookie:cookies\nHeaders:headers\nParams:params\nQuery:query"
+          }
+        }
+      }
+    },
+    "responses": {
+      "UserResponse": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UserResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Unauthorized"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BadRequest"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {},
+    "examples": {},
+    "requestBodies": {},
+    "headers": {},
+    "securitySchemes": {
+      "oauth2": {
+        "name": "Authorization",
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://dev-6s6s0f4wpurx7gmw.eu.auth0.com/authorize?audience=https%3A%2F%2Fautomytask%2Fapi&connection=discord",
+            "scopes": {},
+            "tokenUrl": "http://tokenurl.com"
+          },
+          "implicit": {
+            "authorizationUrl": "https://dev-6s6s0f4wpurx7gmw.eu.auth0.com/authorize?audience=https%3A%2F%2Fautomytask%2Fapi&connection=discord",
+            "scopes": {},
+            "tokenUrl": "http://tokenurl.com"
+          }
+        }
+      },
+      "bearer": {
+        "description": "JWT containing userid claim",
+        "name": "Authorization",
+        "type": "apiKey",
+        "in": "header"
+      }
+    },
+    "links": {},
+    "callbacks": {}
+  },
+  "tags": [
+    {
+      "name": "Users"
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:3050/api"
+    }
+  ]
+}

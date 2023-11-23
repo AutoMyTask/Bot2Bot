@@ -42,7 +42,7 @@ export type Identity = {
 export class Auth0Service {
   public client: AxiosInstance;
   private tokenEndpoint =
-    "https://dev-6s6s0f4wpurx7gmw.eu.auth0.com/oauth/token"; // Le domaine en dure
+    "https://dev-6s6s0f4wpurx7gmw.eu.auth0.com/oauth/token"; // Passer le domaine dans une variable
   private token?: Token & { timestamp: number };
   public readonly user: UserService = new UserService(this);
 
@@ -71,17 +71,19 @@ export class Auth0Service {
   }
 
   public async login(): Promise<void> {
-    const { data } = await this.client.post(this.tokenEndpoint, {
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
-      audience: this.audience,
-      grant_type: "client_credentials",
-    });
+    const { data }: { data: Token } = await this.client.post(
+      this.tokenEndpoint,
+      {
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        audience: this.audience,
+        grant_type: "client_credentials",
+      },
+    );
     this.client.defaults.headers.common[
       "Authorization"
     ] = `${data.token_type} ${data.access_token}`;
-    this.token = data;
-    this.token!.timestamp = Date.now();
+    this.token = { ...data, timestamp: Date.now() };
   }
 }
 

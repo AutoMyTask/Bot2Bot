@@ -20,8 +20,8 @@
     "api-core-types": "*",
     "openapi3-ts": "^4.1.2"
   },
+  "type": "commonjs",
   "devDependencies": {
-    "typescript": "^5.2.2"
-  },
-  "type": "commonjs"
+    "vitest": "^0.34.6"
+  }
 }

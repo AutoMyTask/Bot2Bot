@@ -33,15 +33,16 @@ export namespace AppCore {
   }
 
   export interface IAppBuilder {
-    configure: (
+    configure(
       ...configureServiceCallbacks: ConfigureServiceCallback[]
-    ) => IAppBuilder;
-    build: () => AppCore.IApp;
-    addAuthentification: (
+    ): IAppBuilder;
+    build(): AppCore.IApp;
+
+    addAuthentification(
       handler: RequestHandler,
       schemes: Auth.SecurityType[],
       callback?: Auth.AuthentificationBuilderCallback,
-    ) => IAppBuilder;
+    ): IAppBuilder;
   }
 }
 
@@ -51,13 +52,15 @@ export namespace RouteCore {
   ) => T;
 
   export interface IRouteMapBuilder {
-    map: (
+    map(
       path: string,
       methode: HTTPMethod,
       controllerType: New,
       controllerFunction: Function,
-    ) => IEndpointRouteBuilder;
-    mapGroup: (prefix: string) => IGroupedEndpointRouteBuilder;
+    ): IEndpointRouteBuilder;
+
+    mapGroup(prefix: string): IGroupedEndpointRouteBuilder;
+
     routesBuilders: IBaseRouteBuilder[];
   }
 
@@ -77,10 +80,13 @@ export namespace RouteCore {
   }
 
   export interface IEndpointRouteBuilder {
-    allowAnonymous: () => IEndpointRouteBuilder;
-    requireAuthorization: () => IEndpointRouteBuilder;
-    withMetadata: (...metadata: object[]) => IEndpointRouteBuilder;
-    withMiddleware: (middleware: RequestHandler) => IEndpointRouteBuilder;
+    allowAnonymous(): IEndpointRouteBuilder;
+
+    requireAuthorization(): IEndpointRouteBuilder;
+
+    withMetadata(...metadata: object[]): IEndpointRouteBuilder;
+
+    withMiddleware(middleware: RequestHandler): IEndpointRouteBuilder;
   }
 
   export interface IBaseRouteBuilder {
@@ -98,19 +104,22 @@ export namespace RouteCore {
   }
 
   export interface IGroupedEndpointRouteBuilder {
-    withMetadata: (metadata: object) => IGroupedEndpointRouteBuilder;
-    withMiddleware: (
-      middleware: RequestHandler,
-    ) => IGroupedEndpointRouteBuilder;
-    map: (
+    withMetadata(metadata: object): IGroupedEndpointRouteBuilder;
+
+    withMiddleware(middleware: RequestHandler): IGroupedEndpointRouteBuilder;
+
+    map(
       path: string,
       method: HTTPMethod,
       controllerType: New,
       controllerFunction: Function,
-    ) => IEndpointRouteBuilder;
-    mapGroup: (prefix: string) => IGroupedEndpointRouteBuilder;
-    allowAnonymous: () => IGroupedEndpointRouteBuilder;
-    requireAuthorization: () => IGroupedEndpointRouteBuilder;
+    ): IEndpointRouteBuilder;
+
+    mapGroup(prefix: string): IGroupedEndpointRouteBuilder;
+
+    allowAnonymous(): IGroupedEndpointRouteBuilder;
+
+    requireAuthorization(): IGroupedEndpointRouteBuilder;
   }
 
   export interface IMetadataCollection {
