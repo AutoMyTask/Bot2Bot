@@ -1,12 +1,14 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { isEnumType, OpenapiProp } from "../../decorators/openapi.prop";
+import { isEnumType } from "../../decorators/openapi.prop";
 import { OpenApiPropDecorator } from "../../decorators/openapi.prop.decorator";
 import { ReferenceObject, SchemaObject } from "openapi3-ts/oas30";
 import { ExampleRessource } from "../fixtures/ExampleRessource";
 import { EnumExample } from "../fixtures/enum.example";
 import { ObjectInExample } from "../fixtures/object.in.example";
+import { EmptyRessource } from "../fixtures/EmptyRessource";
 
 // Vérifier que les isArrayProp ect... Fonctionne correctement. C'est important
+// Vérifier que le decoraeur est initialisé avev la bonne structure de base
 // AditionnalProperty a ajouter au niveau global. Créer un decorateur spécifique
 // Refratorer le code de test et couvrir un maximum de cas
 
@@ -21,6 +23,15 @@ describe("OpenAPI Property Decorator", () => {
   function getPropertySchema(propertyName: string) {
     return openApiProp.metadata.properties![propertyName];
   }
+
+  it("should have default metadata properties", () => {
+    const { properties, required, schemas } = new OpenApiPropDecorator(
+      EmptyRessource,
+    ).metadata;
+    expect(properties).to.an("object").that.is.empty;
+    expect(required).to.an("array").that.is.empty;
+    expect(schemas).to.an("array").that.is.empty;
+  });
 
   it("should correctly define 'numberProp' as a 'number' type in OpenAPI metadata", function () {
     const schemaObject = getPropertySchema("numberProp");

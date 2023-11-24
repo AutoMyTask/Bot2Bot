@@ -1,7 +1,9 @@
 import { OpenapiProp } from "../../decorators/openapi.prop";
 import { EnumExample } from "./enum.example";
 import { ObjectInExample } from "./object.in.example";
+import { OpenapiObjectDescriptor } from "../../decorators/openapi.object.descriptor.decorator";
 
+@OpenapiObjectDescriptor({ description: "Description de ExampleRessource" })
 export class ExampleRessource {
   @OpenapiProp({ type: "number" })
   numberProp!: number;
