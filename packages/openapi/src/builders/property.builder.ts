@@ -1,8 +1,9 @@
 import { SchemaObject, ReferenceObject } from "openapi3-ts/dist/oas31";
 import {
-  ItemArrayObjectType,
+  ItemArrayType,
   DefaultType,
   EnumType,
+  isEnumType,
 } from "../decorators/openapi.prop";
 import { TypesCore } from "api-core-types";
 
@@ -37,7 +38,7 @@ export class ArrayObjectProperty {
 
   constructor(
     private readonly type: "array" | "object",
-    private readonly itemTypes: ItemArrayObjectType[],
+    private readonly itemTypes: ItemArrayType[],
   ) {
     this.property = { type };
 
@@ -64,13 +65,13 @@ export class ArrayObjectProperty {
   }
 
   private propertyFromItemType(
-    itemType: ItemArrayObjectType,
+    itemType: ItemArrayType,
   ): ReferenceObject | SchemaObject {
     if (
       typeof itemType !== "string" &&
-      (typeof itemType === "function" || typeof itemType === "object") // IsEnumType
+      (typeof itemType === "function" || isEnumType(itemType))
     ) {
-      return { $ref: `#/components/schemas/${itemType.name}` };
+      return { $ref: `#/components/schemas/${itemType.name}` }; // Pourrait être remplacé par un builder :)
     }
 
     if (itemType === "any") {

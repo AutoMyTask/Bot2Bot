@@ -24,7 +24,7 @@ export type PrimitiveType =
 export type DefaultType = PrimitiveType | NullType;
 export type EnumType = { type: Enum; name: string };
 
-export type ItemArrayObjectType = TypesCore.New | EnumType | PrimitiveType;
+export type ItemArrayType = TypesCore.New | EnumType | PrimitiveType;
 
 type DefaultPropObject = {
   type: ObjectType;
@@ -32,9 +32,9 @@ type DefaultPropObject = {
 };
 type DefaultProp = { type: DefaultType };
 
-type ArrayObjectProp = {
-  type: ArrayType | ObjectType; // Faut absolument séparer ^^
-  option: { type: ItemArrayObjectType | ItemArrayObjectType[] };
+type ArrayProp = {
+  type: ArrayType;
+  option: { type: ItemArrayType | ItemArrayType[] };
 };
 
 function isDefaultPropObject(value: any): value is DefaultPropObject {
@@ -42,7 +42,7 @@ function isDefaultPropObject(value: any): value is DefaultPropObject {
     value &&
     value.type === "object" &&
     typeof value.option === "object" &&
-    (typeof value.option.type === "function" || isEnumType(value))
+    (typeof value.option.type === "function" || isEnumType(value.option.type))
   );
 }
 
@@ -66,8 +66,10 @@ function isDefaultProp(value: any): value is DefaultProp {
 export function isEnumType(value: any): value is EnumType {
   return (
     value &&
+    typeof value === "object" &&
     "name" in value &&
     "type" in value &&
+    typeof value.type === "object" &&
     Object.keys(value.type).every(
       (key) =>
         typeof value.type[key] === "string" ||
@@ -84,8 +86,8 @@ export function OpenapiProp(
   types:
     | DefaultPropObject
     | DefaultProp
-    | ArrayObjectProp
-    | (DefaultPropObject | DefaultProp | ArrayObjectProp)[],
+    | ArrayProp
+    | (DefaultPropObject | DefaultProp | ArrayProp)[],
   options: OpenapiPropOption = { required: true },
 ) {
   return (target: Object, propName: string) => {
@@ -93,7 +95,7 @@ export function OpenapiProp(
       target.constructor as TypesCore.New,
     );
 
-    let props: (DefaultPropObject | DefaultProp | ArrayObjectProp)[] = [];
+    let props: (DefaultPropObject | DefaultProp | ArrayProp)[] = [];
 
     if (!Array.isArray(types)) {
       props.push(types);
@@ -102,6 +104,12 @@ export function OpenapiProp(
     }
 
     const propertyDefaults = props.map((prop) => {
+      if (!isDefaultPropObject(prop) && prop.type === "object") {
+        throw new Error(
+          "InvalidDefaultObjectTypeError: Invalid default property type definition for object. Type must conform to the expected structure: { type: 'object', option: { type: TypesCore.New | EnumType } }",
+        );
+      }
+
       if (isDefaultPropObject(prop)) {
         openApiProp.addSchema(prop.option.type);
         return new PropertyObjectDefault(prop.option.type);
@@ -110,7 +118,7 @@ export function OpenapiProp(
         return new PropertyDefault(prop.type);
       }
 
-      let itemTypes: ItemArrayObjectType[] = [];
+      let itemTypes: ItemArrayType[] = [];
 
       if (!Array.isArray(prop.option.type)) {
         itemTypes.push(prop.option.type);
