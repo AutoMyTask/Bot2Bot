@@ -8,7 +8,7 @@ import { ObjectInExample } from "../fixtures/object.in.example";
 
 // Vérifier que les isArrayProp ect... Fonctionne correctement. C'est important
 // AditionnalProperty a ajouter au niveau global. Créer un decorateur spécifique
-// Couvrir les arrayOfUnionProp
+// Refratorer le code de test et couvrir un maximum de cas
 
 describe("OpenAPI Property Decorator", () => {
   let openApiProp: OpenApiPropDecorator;
@@ -18,24 +18,12 @@ describe("OpenAPI Property Decorator", () => {
     openApiProp = new OpenApiPropDecorator(ExampleRessource);
   });
 
-  it("should throw an error for invalid default object type definition", function () {
-    const errorMessage =
-      "InvalidDefaultObjectTypeError: Invalid default property type definition for object. Type must conform to the expected structure: { type: 'object', option: { type: TypesCore.New | EnumType } }";
-    expect(() => {
-      OpenapiProp({
-        type: "object",
-        option: { type: { type: ExampleRessource, name: "ExampleRessource" } },
-      })(ExampleRessource);
-    }).to.throw(errorMessage);
-    expect(() => {
-      OpenapiProp({ type: "object", option: { type: EnumExample } })(
-        ExampleRessource,
-      );
-    }).to.throw(errorMessage);
-  });
+  function getPropertySchema(propertyName: string) {
+    return openApiProp.metadata.properties![propertyName];
+  }
 
   it("should correctly define 'numberProp' as a 'number' type in OpenAPI metadata", function () {
-    const schemaObject = openApiProp.metadata.properties["numberProp"];
+    const schemaObject = getPropertySchema("numberProp");
     expect(schemaObject.type).to.eq("number");
   });
 
@@ -52,7 +40,7 @@ describe("OpenAPI Property Decorator", () => {
   });
 
   it("should define 'objectClassProp' items as a ReferenceObject in OpenAPI metadata for object type indicator when using a class", function () {
-    const schemaObject = openApiProp.metadata.properties["objectClassProp"];
+    const schemaObject = getPropertySchema("objectClassProp");
     expect(schemaObject.type).to.eq("object");
     expect((schemaObject.items as ReferenceObject)?.["$ref"]).to.eq(
       `#/components/schemas/${ObjectInExample.name}`,
@@ -71,7 +59,7 @@ describe("OpenAPI Property Decorator", () => {
   });
 
   it("should define 'objectEnumProp' items as a ReferenceObject in OpenAPI metadata for object type indicator when using a EnumType", function () {
-    const schemaObject = openApiProp.metadata.properties["objectEnumProp"];
+    const schemaObject = getPropertySchema("objectEnumProp");
     expect(schemaObject.type).to.eq("object");
     expect((schemaObject.items as ReferenceObject)?.["$ref"]).to.eq(
       `#/components/schemas/EnumExample`,
@@ -79,12 +67,12 @@ describe("OpenAPI Property Decorator", () => {
   });
 
   it("should define 'anyProp' as an empty object in OpenAPI metadata for 'any' type indicator", function () {
-    const schemaObject = openApiProp.metadata.properties["anyProp"];
+    const schemaObject = getPropertySchema("anyProp");
     expect(schemaObject).to.be.an("object").that.is.empty;
   });
 
   it("should define 'arrayClassProp' as an 'array' type and set its items as a ReferenceObject ", function () {
-    const schemaObject = openApiProp.metadata.properties["arrayClassProp"];
+    const schemaObject = getPropertySchema("arrayClassProp");
     expect(schemaObject.type).to.eq("array");
     expect((schemaObject.items as ReferenceObject)?.$ref).to.eq(
       `#/components/schemas/${ObjectInExample.name}`,
@@ -92,7 +80,7 @@ describe("OpenAPI Property Decorator", () => {
   });
 
   it("should define 'arrayEnumTypeProp' as an 'array' type and set its items as a ReferenceObject ", function () {
-    const schemaObject = openApiProp.metadata.properties["arrayEnumTypeProp"];
+    const schemaObject = getPropertySchema("arrayEnumTypeProp");
     expect(schemaObject.type).to.eq("array");
     expect((schemaObject.items as ReferenceObject)?.$ref).to.eq(
       `#/components/schemas/EnumExample`,
@@ -100,14 +88,15 @@ describe("OpenAPI Property Decorator", () => {
   });
 
   it("should define 'arrayDefaultTypeProp' as an 'array' type and set its items as a SchemaObject ", function () {
-    const schemaObject =
-      openApiProp.metadata.properties["arrayDefaultTypeProp"];
+    const schemaObject = getPropertySchema("arrayDefaultTypeProp");
     expect(schemaObject.type).to.eq("array");
     expect((schemaObject.items as SchemaObject).type).to.eq("integer");
   });
 
   it("should define 'unionProp' as a union type containing number and object types in OpenAPI metadata ", function () {
-    const schemaObject = openApiProp.metadata.properties["unionProp"];
+    const schemaObject = getPropertySchema("unionProp");
+
+    expect(schemaObject.type).is.an("undefined");
     expect(schemaObject.oneOf).is.an("array");
     expect(schemaObject.oneOf).is.not.empty;
     expect(schemaObject.oneOf).is.length(2);
@@ -117,5 +106,30 @@ describe("OpenAPI Property Decorator", () => {
     ).to.eq(`#/components/schemas/${ObjectInExample.name}`);
   });
 
-  it("should ", function () {});
+  it("should define 'arrayOfUnionProp' as an 'array' type with various subtypes in OpenAPI metadata ", function () {
+    const schemaObject = getPropertySchema("arrayOfUnionProp");
+    expect(schemaObject.type).to.eq("array");
+    expect((schemaObject.items as SchemaObject).oneOf).is.not.empty;
+    expect((schemaObject.items as SchemaObject).oneOf).is.an("array");
+    expect((schemaObject.items as SchemaObject).oneOf).is.length(4);
+
+    expect(
+      ((schemaObject.items as SchemaObject).oneOf![0] as SchemaObject).type,
+    ).is.eq("number");
+    expect(
+      ((schemaObject.items as SchemaObject).oneOf![1] as ReferenceObject).$ref,
+    ).is.eq(`#/components/schemas/${ObjectInExample.name}`);
+    expect(
+      ((schemaObject.items as SchemaObject).oneOf![2] as SchemaObject).type,
+    ).is.eq("string");
+    expect(
+      ((schemaObject.items as SchemaObject).oneOf![3] as SchemaObject).type,
+    ).is.eq("array");
+    expect(
+      (
+        ((schemaObject.items as SchemaObject).oneOf![3] as SchemaObject)
+          .items as ReferenceObject
+      ).$ref,
+    ).is.eq(`#/components/schemas/${ObjectInExample.name}`);
+  });
 });

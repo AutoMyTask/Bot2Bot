@@ -34,7 +34,7 @@ type DefaultProp = { type: DefaultType };
 
 type ArrayProp = {
   type: ArrayType;
-  option: { type: ItemArrayType | ItemArrayType[] };
+  option: { type: (DefaultPropObject | DefaultProp | ArrayProp)[] };
 };
 
 function isDefaultPropObject(value: any): value is DefaultPropObject {
@@ -82,6 +82,24 @@ type OpenapiPropOption = {
   required: boolean;
 };
 
+function createProperties(
+  props: (DefaultPropObject | DefaultProp | ArrayProp)[],
+  openApiProp: OpenApiPropDecorator,
+): (PropertyObjectDefault | PropertyDefault | ArrayObjectProperty)[] {
+  return props.map((prop) => {
+    if (isDefaultPropObject(prop)) {
+      openApiProp.addSchema(prop.option.type);
+      return new PropertyObjectDefault(prop.option.type);
+    }
+    if (isDefaultProp(prop)) {
+      return new PropertyDefault(prop.type);
+    }
+
+    const propsArray = createProperties(prop.option.type, openApiProp);
+    return new ArrayObjectProperty("array", propsArray);
+  });
+}
+
 export function OpenapiProp(
   types:
     | DefaultPropObject
@@ -103,38 +121,7 @@ export function OpenapiProp(
       props = types;
     }
 
-    const propertyDefaults = props.map((prop) => {
-      if (!isDefaultPropObject(prop) && prop.type === "object") {
-        throw new Error(
-          "InvalidDefaultObjectTypeError: Invalid default property type definition for object. Type must conform to the expected structure: { type: 'object', option: { type: TypesCore.New | EnumType } }",
-        );
-      }
-
-      if (isDefaultPropObject(prop)) {
-        openApiProp.addSchema(prop.option.type);
-        return new PropertyObjectDefault(prop.option.type);
-      }
-      if (isDefaultProp(prop)) {
-        return new PropertyDefault(prop.type);
-      }
-
-      let itemTypes: ItemArrayType[] = [];
-
-      if (!Array.isArray(prop.option.type)) {
-        itemTypes.push(prop.option.type);
-      } else {
-        itemTypes = prop.option.type;
-      }
-
-      for (const itemType of itemTypes) {
-        if (typeof itemType === "function" || typeof itemType === "object") {
-          openApiProp.addSchema(itemType);
-        }
-      }
-
-      return new ArrayObjectProperty(prop.type, itemTypes);
-    });
-
+    const propertyDefaults = createProperties(props, openApiProp);
     const unionProp = new PropertyDefault();
 
     for (const propertyDefault of propertyDefaults) {

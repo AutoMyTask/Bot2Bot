@@ -6,6 +6,7 @@ import {
   isEnumType,
 } from "../decorators/openapi.prop";
 import { TypesCore } from "api-core-types";
+import { isReferenceObject, isSchemaObject } from "openapi3-ts/oas30";
 
 export class PropertyObjectDefault {
   public property: SchemaObject;
@@ -38,11 +39,14 @@ export class ArrayObjectProperty {
 
   constructor(
     private readonly type: "array" | "object",
-    private readonly itemTypes: ItemArrayType[],
+    private readonly props: (
+      | PropertyObjectDefault
+      | PropertyDefault
+      | ArrayObjectProperty
+    )[],
   ) {
     this.property = { type };
-
-    if (itemTypes.length > 1) {
+    if (this.props.length > 1) {
       this.generateUnionItems();
     } else {
       this.generateItem();
@@ -50,34 +54,29 @@ export class ArrayObjectProperty {
   }
 
   private generateItem() {
-    const itemType = this.itemTypes[0];
-    this.property.items = this.propertyFromItemType(itemType);
+    const prop = this.props[0];
+    const { items, type } = prop.property;
+
+    if (items && type === "object" && isReferenceObject(items)) {
+      this.property.items = items;
+    } else {
+      this.property.items = prop.property;
+    }
   }
 
   private generateUnionItems() {
-    const items: SchemaObject = { oneOf: [] };
+    const schemaObject: SchemaObject = { oneOf: [] };
 
-    for (let itemType of this.itemTypes) {
-      items.oneOf?.push(this.propertyFromItemType(itemType));
+    for (let prop of this.props) {
+      const { items, type } = prop.property;
+
+      if (items && type === "object" && isReferenceObject(items)) {
+        schemaObject.oneOf?.push(items);
+      } else {
+        schemaObject.oneOf?.push(prop.property);
+      }
     }
 
-    this.property.items = items;
-  }
-
-  private propertyFromItemType(
-    itemType: ItemArrayType,
-  ): ReferenceObject | SchemaObject {
-    if (
-      typeof itemType !== "string" &&
-      (typeof itemType === "function" || isEnumType(itemType))
-    ) {
-      return { $ref: `#/components/schemas/${itemType.name}` }; // Pourrait être remplacé par un builder :)
-    }
-
-    if (itemType === "any") {
-      return {};
-    }
-
-    return { type: itemType };
+    this.property.items = schemaObject;
   }
 }

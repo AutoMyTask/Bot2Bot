@@ -19,21 +19,31 @@ export class ExampleRessource {
     type: "object",
     option: { type: { type: EnumExample, name: "EnumExample" } },
   })
-  objectEnumProp: EnumExample;
+  objectEnumProp!: EnumExample;
 
   @OpenapiProp({ type: "any" })
   anyProp!: any;
 
-  @OpenapiProp({ type: "array", option: { type: ObjectInExample } })
+  @OpenapiProp({
+    type: "array",
+    option: { type: [{ type: "object", option: { type: ObjectInExample } }] },
+  })
   arrayClassProp!: ObjectInExample[];
 
   @OpenapiProp({
     type: "array",
-    option: { type: { type: EnumExample, name: "EnumExample" } },
+    option: {
+      type: [
+        {
+          type: "object",
+          option: { type: { type: EnumExample, name: "EnumExample" } },
+        },
+      ],
+    },
   })
-  arrayEnumTypeProp: EnumExample[];
+  arrayEnumTypeProp!: EnumExample[];
 
-  @OpenapiProp({ type: "array", option: { type: "integer" } })
+  @OpenapiProp({ type: "array", option: { type: [{ type: "integer" }] } })
   arrayDefaultTypeProp!: number[];
 
   @OpenapiProp([
@@ -42,6 +52,28 @@ export class ExampleRessource {
   ])
   unionProp!: ObjectInExample | string;
 
-  @OpenapiProp({ type: "array", option: { type: ["integer"] } })
-  arrayOfUnionProp!: (number | ObjectInExample | string)[];
+  @OpenapiProp({
+    type: "array",
+    option: {
+      type: [
+        {
+          type: "number",
+        },
+        {
+          type: "object",
+          option: { type: ObjectInExample },
+        },
+        {
+          type: "string",
+        },
+        {
+          type: "array",
+          option: {
+            type: [{ type: "object", option: { type: ObjectInExample } }],
+          },
+        },
+      ],
+    },
+  })
+  arrayOfUnionProp!: (number | ObjectInExample | string | ObjectInExample[])[];
 }
