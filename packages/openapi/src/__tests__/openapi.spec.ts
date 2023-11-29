@@ -6,11 +6,14 @@ import { endpoints } from "./fixtures/endpoints";
 import {
   isReferenceObject,
   OpenApiBuilder,
+  OperationObject,
   ParameterObject,
+  ResponsesObject,
 } from "openapi3-ts/oas31";
 import { openApi } from "../openapi";
-import { SchemaObject } from "openapi3-ts/oas30";
+import { ReferenceObject, SchemaObject } from "openapi3-ts/oas30";
 import HTTPMethod = RouteCore.HTTPMethod;
+import { ExampleRessource } from "./fixtures/ExampleRessource";
 
 describe("openapi", () => {
   let app: AppCore.IApp;
@@ -21,6 +24,7 @@ describe("openapi", () => {
   beforeAll(() => {
     // Create an error in app tests, if @params('parm'), the 'param' is not present in the path
     // Check the format of paths (/:param) to ({param})
+    // Creer des erreur dans app core, pour vérifier que les params sont dans le bon format
 
     const builder = AppBuilder.createAppBuilder();
     builder.configure(configureOpenApi((builder) => {}));
@@ -48,6 +52,10 @@ describe("openapi", () => {
     return openApiBuilder.rootDoc.paths[`${path}`][method].parameters.find(
       (param) => !isReferenceObject(param) && param.name === parameterName,
     ) as ParameterObject;
+  }
+
+  function findPath(path: string, method: HTTPMethod) {
+    return openApiBuilder.rootDoc.paths[path][method];
   }
 
   describe("Path Param", () => {
@@ -106,7 +114,7 @@ describe("openapi", () => {
       expect(schemaQueryParameterNumber.type).eq("number");
     });
 
-    it("The 'queryStringNotRequired' query parameter is not required in the path", function () {
+    it("The  query parameter is not required in the path", function () {
       const queryStringNotRequiredParameterPath = findPathParameter(
         "get",
         "/path/{paramInt}/{paramNumber}",
@@ -116,14 +124,66 @@ describe("openapi", () => {
       expect(queryStringNotRequiredParameterPath.required).eq(false);
     });
 
-    it("The 'queryStringRequired' query parameter is required by default", function () {
-      const queryStringRequiredParameterPath = findPathParameter(
-        "get",
-        "/path/{paramInt}/{paramNumber}",
-        "queryStringRequired",
+    it("The query parameter is required by default", function () {
+      expect(queryStringRequiredParameterPath.required).eq(true);
+    });
+  });
+
+  describe("Responses", () => {
+    let pathGet: OperationObject;
+
+    beforeAll(() => {
+      pathGet = findPath("/path/{paramInt}/{paramNumber}", "get");
+    });
+
+    it("should define a default status code of 200 when including MetadataProduce to specify a response", function () {
+      const response200 = pathGet.responses["200"] as ReferenceObject;
+      expect(response200).is.not.an("undefined");
+    });
+
+    it("should define a status code of 400 when including MetadataProduce to specify a response", function () {
+      const response200 = pathGet.responses["400"] as ReferenceObject;
+      expect(response200).is.not.an("undefined");
+    });
+
+    it("should reference the ExampleResource component in the responses path", function () {
+      const response200 = pathGet.responses["200"] as ReferenceObject;
+      expect(response200.$ref).eq(
+        `#/components/responses/${ExampleRessource.name}`,
       );
 
-      expect(queryStringRequiredParameterPath.required).eq(true);
+      // Voir pour la description.... responseComponent.description
+      // Peut être que cela serrai intéréssant justement de fournir une autre réponse que
+      // le schema, si j'ai des schema imbriqué
+      const responseComponent = openApiBuilder.rootDoc.components.responses[
+        ExampleRessource.name
+      ] as ResponsesObject;
+      expect(responseComponent.content["application/json"].schema.$ref).eq(
+        `#/components/schemas/${ExampleRessource.name}`,
+      );
+
+      const schema = openApiBuilder.rootDoc.components.schemas[
+        ExampleRessource.name
+      ] as SchemaObject;
+      expect(schema.type).eq("object");
+      expect(schema.properties).an("object");
+    });
+
+    describe("Tag", () => {
+      it("should be associated with the specified path ", function () {
+        const path =
+          openApiBuilder.rootDoc.paths["/path/{paramInt}/{paramNumber}"]["get"];
+        expect(path.tags.some((tag) => tag === "Tag")).eq(true);
+      });
+
+      it("should have the correct description for the specified tag", function () {
+        expect(
+          openApiBuilder.rootDoc.tags.some(
+            (tag) =>
+              tag.name === "Tag" && tag.description === "Une description",
+          ),
+        ).eq(true);
+      });
     });
   });
 });
