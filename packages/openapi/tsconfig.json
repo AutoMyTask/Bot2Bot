@@ -4,8 +4,17 @@
     "baseUrl": "./",
     "outDir": "./dist",
     "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": [
+      "reflect-metadata",
+    ]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "./src/__tests__"],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "./src/__tests__"
+  ],
   "extends": "config/tsconfig.lib.json"
 }

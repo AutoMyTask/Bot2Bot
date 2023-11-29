@@ -1,21 +1,28 @@
 import { SchemaObject, ReferenceObject } from "openapi3-ts/dist/oas31";
 import {
-  ItemArrayType,
   DefaultType,
-  EnumType,
-  isEnumType,
+  DefaultPropObject,
+  isDefaultPropObject,
+  isAnonymousObject,
+  AnonymousObject,
 } from "../decorators/openapi.prop";
-import { TypesCore } from "api-core-types";
-import { isReferenceObject, isSchemaObject } from "openapi3-ts/oas30";
+import { isReferenceObject } from "openapi3-ts/oas30";
 
 export class PropertyObjectDefault {
   public property: SchemaObject;
 
-  constructor(type: TypesCore.New | EnumType) {
-    this.property = {
-      type: "object",
-      items: { $ref: `#/components/schemas/${type.name}` },
-    };
+  constructor(prop: DefaultPropObject | AnonymousObject) {
+    this.property = { type: "object" };
+    if (isAnonymousObject(prop)) {
+      // @ts-ignore
+      this.property.additionalProperties = prop.option?.additionalProperties;
+    }
+
+    if (isDefaultPropObject(prop)) {
+      this.property.items = {
+        $ref: `#/components/schemas/${prop.option.type.name}`,
+      };
+    }
   }
 }
 

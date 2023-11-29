@@ -8,17 +8,14 @@ import { MetadataProduce } from "./metadata/metadata.produce";
 import { createResponsesObject } from "./create.responses.object";
 import { entries } from "lodash";
 import { SecurityRequirementObject } from "openapi3-ts/src/model/openapi31";
-import { RequestCore, RouteCore, TypesCore } from "api-core-types";
+import { RequestCore, RouteCore } from "api-core-types";
 
-// Remplacer par les types défini dans core-type
-const createFormat = (
-  type: TypesCore.New | "string" | "number" | "int" | "float",
-) => {
-  if (typeof type === "string") {
-    return type;
+const createType = (type: "string" | "number" | "int" | "float") => {
+  if (type === "number" || type === "int" || type === "float") {
+    return "number";
   }
-  if (typeof type === "function") {
-    return type.name.toLowerCase();
+  if (type === "string") {
+    return type;
   }
 };
 
@@ -44,14 +41,17 @@ export const createPathItem = (
   entries(params).forEach(([key, params]) => {
     if (Array.isArray(params)) {
       for (let { name, type, required } of params) {
-        parameters.push({
-          name,
-          in: key as ParameterLocation,
-          required: required ?? true,
-          schema: {
-            format: createFormat(type),
-          },
-        });
+        if (typeof type !== "function") {
+          parameters.push({
+            name,
+            in: key as ParameterLocation,
+            required: required ?? true,
+            schema: {
+              format: type === "number" || type === "string" ? undefined : type,
+              type: createType(type),
+            },
+          });
+        }
       }
     }
   });

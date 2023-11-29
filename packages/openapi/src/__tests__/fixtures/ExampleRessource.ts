@@ -78,4 +78,15 @@ export class ExampleRessource {
     },
   })
   arrayOfUnionProp!: (number | ObjectInExample | string | ObjectInExample[])[];
+
+  @OpenapiProp({ type: "object" })
+  object!: object;
+
+  @OpenapiProp(
+    { type: "object", option: { additionalProperties: true } },
+    { required: false },
+  )
+  anonymousObject: {
+    [type: string]: any;
+  };
 }

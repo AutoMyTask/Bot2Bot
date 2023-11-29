@@ -1,110 +1,98 @@
-import {OpenapiObjectDescriptor, OpenapiProp} from "openapi";
-import {LocalesEnum, PremiumTypesEnum, User} from "discord/dist/users/user";
+import { OpenapiObjectDescriptor, OpenapiProp } from "openapi";
+import { LocalesEnum, PremiumTypesEnum, User } from "discord/dist/users/user";
 
 interface IDiscordUserResponse extends User {
-    //  guilds: Guild[]
+  //  guilds: Guild[]
 }
 
-@OpenapiObjectDescriptor({ description: "Ressource provenant de l'api discord: https://discord.com/developers/docs/resources/user" })
+// Réfléchir à la suppression d'OpenapiObjectDescriptor et mettre la description
+// directement dans MetadataProduce
+@OpenapiObjectDescriptor({
+  description:
+    "Ressource provenant de l'api discord: https://discord.com/developers/docs/resources/user",
+})
 class DiscordUserResponse implements IDiscordUserResponse {
-    @OpenapiProp({type: 'string'})
-    id!: string
+  @OpenapiProp({ type: "string" })
+  id!: string;
 
-    @OpenapiProp({type: 'string'})
-    username!: string
+  @OpenapiProp({ type: "string" })
+  username!: string;
 
-    @OpenapiProp({type: 'string'}, {required: false})
-    avatar: string | null = null
+  @OpenapiProp({ type: "string" }, { required: false })
+  avatar: string | null = null;
 
-    @OpenapiProp({type: 'string'}, {required: false})
-    discriminator!: string
+  @OpenapiProp({ type: "string" }, { required: false })
+  discriminator!: string;
 
-    @OpenapiProp([
-        {type: 'integer'},
-        {type: 'null'}
-    ], {required: false})
-    public_flags: number | null = null
+  @OpenapiProp([{ type: "integer" }, { type: "null" }], { required: false })
+  public_flags: number | null = null;
 
-    @OpenapiProp([
-        {type: 'integer'},
-        {type: 'null'}
-    ], {required: false})
-    flags: number | null = null
+  @OpenapiProp([{ type: "integer" }, { type: "null" }], { required: false })
+  flags: number | null = null;
 
-    @OpenapiProp([
-        {type: 'string'},
-        {type: 'null'}
-    ], {required: false})
-    banner: string | null = null
+  @OpenapiProp([{ type: "string" }, { type: "null" }], { required: false })
+  banner: string | null = null;
 
-    @OpenapiProp([
-        {type: 'integer'},
-        {type: 'null'}
-    ], {required: false})
-    accent_color: number | null = null
+  @OpenapiProp([{ type: "integer" }, { type: "null" }], { required: false })
+  accent_color: number | null = null;
 
-    @OpenapiProp([
-        {type: 'string'},
-        {type: 'null'}
-    ], {required: false})
-    global_name: string | null = null
+  @OpenapiProp([{ type: "string" }, { type: "null" }], { required: false })
+  global_name: string | null = null;
 
-    @OpenapiProp([
-        {type: 'string'},
-        {type: 'null'}
-    ], {required: false})
-    avatar_decoration_data: string | null = null
+  @OpenapiProp([{ type: "string" }, { type: "null" }], { required: false })
+  avatar_decoration_data: string | null = null;
 
-    @OpenapiProp([
-        {type: 'string'},
-        {type: 'null'}
-    ], {required: false})
-    banner_color: string | null = null
+  @OpenapiProp([{ type: "string" }, { type: "null" }], { required: false })
+  banner_color: string | null = null;
 
-    @OpenapiProp([
-        {type: 'boolean'},
-        {type: 'null'}
-    ], {required: false})
-    mfa_enabled: boolean | null = null
+  @OpenapiProp([{ type: "boolean" }, { type: "null" }], { required: false })
+  mfa_enabled: boolean | null = null;
 
-    @OpenapiProp([
-        {type: 'object', option: {type: {type: LocalesEnum, name: 'LocalesEnum'}}},
-        {type: 'null'}
-    ], {required: false})
-    locale: LocalesEnum | null = null
+  @OpenapiProp(
+    [
+      {
+        type: "object",
+        option: { type: { type: LocalesEnum, name: "LocalesEnum" } },
+      },
+      { type: "null" },
+    ],
+    { required: false },
+  )
+  locale: LocalesEnum | null = null;
 
-    @OpenapiProp([
-        {type: 'object', option: {type: {type: PremiumTypesEnum, name: 'PremiumTypesEnum'}}},
-        {type: 'null'},
-    ], {required: false})
-    premium_type: PremiumTypesEnum | null = null
+  @OpenapiProp(
+    [
+      {
+        type: "object",
+        option: { type: { type: PremiumTypesEnum, name: "PremiumTypesEnum" } },
+      },
+      { type: "null" },
+    ],
+    { required: false },
+  )
+  premium_type: PremiumTypesEnum | null = null;
 
-    @OpenapiProp([
-        {type: 'string'},
-        {type: 'null'},
-    ], {required: false})
-    email: string | null = null
+  @OpenapiProp([{ type: "string" }, { type: "null" }], { required: false })
+  email: string | null = null;
 
-    @OpenapiProp([
-        {type: 'boolean'},
-        {type: 'null'}
-    ], {required: false})
-    verified: boolean | null = null
+  @OpenapiProp([{ type: "boolean" }, { type: "null" }], { required: false })
+  verified: boolean | null = null;
 }
-
 
 export interface IUserResponse {
-    discord: IDiscordUserResponse | null
+  discord: IDiscordUserResponse | null;
 }
 
-
 export class UserResponse implements IUserResponse {
-    @OpenapiProp([
-        {
-            type: 'object',
-            option: {type: DiscordUserResponse}
-        },
-        {type: 'null'}
-    ], {required: false})
-    discord: DiscordUserResponse | null = null
+  @OpenapiProp(
+    [
+      {
+        type: "object",
+        option: { type: DiscordUserResponse },
+      },
+      { type: "null" },
+    ],
+    { required: false },
+  )
+  discord: DiscordUserResponse | null = null;
 }

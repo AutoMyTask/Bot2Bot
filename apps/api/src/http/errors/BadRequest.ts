@@ -4,30 +4,40 @@ class ObjectValidationError {
   @OpenapiProp({ type: "object" }, { required: false })
   target?: object;
 
-  @OpenapiProp({ type: "string" })
+  @OpenapiProp({ type: "string" }, { required: false })
   property!: string;
 
   @OpenapiProp({ type: "object" }, { required: false })
   value?: object;
 
-  // @OpenapiProp(
-  //   { type: "object", option: { additionalProperties: true } },
-  //   { required: false },
-  // ) Revoir additionalProperties (je ne peux pas en avoir plusieurs en plus)
+  @OpenapiProp(
+    { type: "object", option: { additionalProperties: true } },
+    { required: false },
+  )
   constraints?: {
     [type: string]: any;
   };
 
   @OpenapiProp(
-    { type: "array", option: { type: ObjectValidationError } },
+    {
+      type: "array",
+      option: {
+        type: [
+          {
+            type: "object",
+            option: { type: ObjectValidationError },
+          },
+        ],
+      },
+    },
     { required: false },
   )
   children?: ObjectValidationError[];
 
-  // @OpenapiProp(
-  //   { type: "object", option: { additionalProperties: true } },
-  //   { required: false },
-  // ) Revoir additionalProperties
+  @OpenapiProp(
+    { type: "object", option: { additionalProperties: true } },
+    { required: false },
+  )
   contexts?: { [type: string]: any };
 }
 
@@ -64,9 +74,29 @@ export class BadRequest {
   message?: string;
 
   @OpenapiProp([
-    { type: "array", option: { type: ObjectValidationError } },
-    { type: "array", option: { type: "string" } },
-    { type: "array", option: { type: ParamValidationError } },
+    {
+      type: "array",
+      option: {
+        type: [
+          {
+            type: "object",
+            option: { type: ObjectValidationError },
+          },
+        ],
+      },
+    },
+    { type: "array", option: { type: [{ type: "string" }] } },
+    {
+      type: "array",
+      option: {
+        type: [
+          {
+            type: "object",
+            option: { type: ParamValidationError },
+          },
+        ],
+      },
+    },
   ])
   errors!: ObjectValidationError[] | string[] | ParamValidationError[];
 }

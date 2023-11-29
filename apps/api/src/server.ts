@@ -28,15 +28,27 @@ import { healthcheckEndpoint } from "./healthcheck/healthcheck.endpoint";
 // pg-promise: https://www.npmjs.com/package/pg-promise
 
 /*
-    // CUSTOMISATION DES COMMANDES)
+    Revoir l'auto génération du sdk avec: https://github.com/drwpow/openapi-typescript/tree/main/packages/openapi-fetch
+
+
+    // CUSTOMISATION DES COMMANDES
     Les commandes ont un nom de commande unique. C'est comme cela que je vais pouvoir les identifier pour
-    personnaliser les commandes. Nom de commande associé au guildId
-    Je doit directement manipuler le package bot (bot-musique, community...) pour directement customiser les commandes
-    bot.update(nameCommande, data: object)...
-    bot.save()
+    personnaliser les commandes. Nom de la commande associé au guildId
+    Je dois pouvoir directement manipuler le package bot (bot-musique, community...) pour directement customiser les commandes
+    Limité par les fonctionnalités proposées par discord.js
+    bot.update(nameCommande)...
+    bot.enable(nameCommand)
+    bot.disable(nameCommand)
+    bot.save() ect...
+    Au sein du bot, les différents builder de discord.js seront automatiquement mappés
+    aux commandes enregistrer dans la base de données (via des appels Axios)
+    je dois avoir la possibilité de customiser une et une seule et unique commande
+    avec ses boutons, l'embeded ect....
 
 
 
+    // LIER PLUSIEURS COMPTES EN MÊME TEMPS (YOUTUBE, GMAIL, GOOGLE....)
+    Voir: https://auth0.com/docs/manage-users/user-accounts/user-account-linking
 
     Désactiver openApi à l'aide d'un metadata d'openApi
     api-core-type doit être en dependance de dev et non dans les dependances principales
@@ -53,12 +65,6 @@ import { healthcheckEndpoint } from "./healthcheck/healthcheck.endpoint";
     Docker pour les tests
     Connecter une BDD et gérer les migrations
 
-    Voir comment auto générer un sdk directement un dossier api au démmarage du serveur front aprés
-    le démarrage du serveur api :
-        - Utiliser rsync (pour la partie front) car lors de l'auto génération du sdk, je veux
-          que le sdk soit visible depuis l'exterieur
-
-    Ce serra une interface
 
     Voir afficher l'ensemble des serveurs utilisateur et inviter le bot
     Voir comment stocker l'ensemble des données de l'utilisateur discord (commandes, guild...)
@@ -71,13 +77,6 @@ import { healthcheckEndpoint } from "./healthcheck/healthcheck.endpoint";
     Voir comment conserver les paramètres précédement enregistrer pour une commande qui a été réactivé
     Avoir une vraie visualisation de comment implémenter des "mondes" pour spécialiser un enssemble
     de commande. (monde musique, development...)
-
-
-
-    First :
-    Créer une action Auth0 insérant les ids dans la bdd dans la table user en tant que clé primaire:
-    https://auth0.com/docs/customize/actions/write-your-first-action
-    https://auth0.com/docs/customize/actions/flows-and-triggers/post-user-registration-flow
  */
 
 /*
@@ -86,6 +85,8 @@ import { healthcheckEndpoint } from "./healthcheck/healthcheck.endpoint";
  */
 
 /*
+
+
     Ce que je veux s'est offrir aux utilisateurs de customiser leurs commandes,
     leur permettre de créer leurs commandes, et enfin répondre à des événements à l'aide de code.
 
@@ -104,8 +105,6 @@ import { healthcheckEndpoint } from "./healthcheck/healthcheck.endpoint";
     Monetisation : https://discord.com/developers/docs/monetization/entitlements#premiumrequired-interaction-response
 
 
-    Voir comment on peut mettre en place le concept de "linking" pour auth0
-    Voir: https://auth0.com/docs/manage-users/user-accounts/user-account-linking
 
     Vaux mieux que je crée un bot abstrayant les details des interactions. Le bot avant ses details et interargit en fonction
     Les details se trouveront dans mon api. Comme cela je pourrais utiliser les différentes connection aux differentes plateforme.
@@ -171,18 +170,15 @@ builder.configure(
 
     builder
       .addSecurityScheme("oauth2", {
-        name: "Authorization",
         type: "oauth2",
         flows: {
           authorizationCode: {
             authorizationUrl,
             scopes: {},
-            tokenUrl: "http://tokenurl.com",
           },
           implicit: {
             authorizationUrl,
             scopes: {},
-            tokenUrl: "http://tokenurl.com",
           },
         },
       })

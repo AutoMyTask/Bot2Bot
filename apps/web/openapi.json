@@ -20,7 +20,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "format": "int"
+              "format": "int",
+              "type": "number"
             }
           },
           {
@@ -28,7 +29,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "format": "string"
+              "format": "string",
+              "type": "string"
             }
           }
         ],
@@ -392,9 +394,7 @@
             "additionalProperties": true
           }
         },
-        "required": [
-          "property"
-        ]
+        "required": []
       },
       "ParamValidationError": {
         "type": "object",
@@ -477,18 +477,15 @@
     "headers": {},
     "securitySchemes": {
       "oauth2": {
-        "name": "Authorization",
         "type": "oauth2",
         "flows": {
           "authorizationCode": {
             "authorizationUrl": "https://dev-6s6s0f4wpurx7gmw.eu.auth0.com/authorize?audience=https%3A%2F%2Fautomytask%2Fapi&connection=discord",
-            "scopes": {},
-            "tokenUrl": "http://tokenurl.com"
+            "scopes": {}
           },
           "implicit": {
             "authorizationUrl": "https://dev-6s6s0f4wpurx7gmw.eu.auth0.com/authorize?audience=https%3A%2F%2Fautomytask%2Fapi&connection=discord",
-            "scopes": {},
-            "tokenUrl": "http://tokenurl.com"
+            "scopes": {}
           }
         }
       },

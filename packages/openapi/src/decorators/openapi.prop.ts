@@ -19,14 +19,19 @@ export type PrimitiveType =
   | "string"
   | "boolean"
   | "any"
-  | ObjectType;
+  | NullType;
 
-export type DefaultType = PrimitiveType | NullType;
+export type AnonymousObject = {
+  type: ObjectType;
+  option?: { additionalProperties: boolean };
+};
+
+export type DefaultType = PrimitiveType;
 export type EnumType = { type: Enum; name: string };
 
-export type ItemArrayType = TypesCore.New | EnumType | PrimitiveType;
+export type ItemArrayType = TypesCore.New | EnumType | DefaultType;
 
-type DefaultPropObject = {
+export type DefaultPropObject = {
   type: ObjectType;
   option: { type: TypesCore.New | EnumType };
 };
@@ -34,10 +39,22 @@ type DefaultProp = { type: DefaultType };
 
 type ArrayProp = {
   type: ArrayType;
-  option: { type: (DefaultPropObject | DefaultProp | ArrayProp)[] };
+  option: {
+    type: (DefaultPropObject | DefaultProp | ArrayProp | AnonymousObject)[];
+  };
 };
 
-function isDefaultPropObject(value: any): value is DefaultPropObject {
+export function isAnonymousObject(value: any): value is AnonymousObject {
+  return (
+    value &&
+    value.type === "object" &&
+    (value.option === undefined ||
+      (typeof value.option === "object" &&
+        "additionalProperties" in value.option))
+  );
+}
+
+export function isDefaultPropObject(value: any): value is DefaultPropObject {
   return (
     value &&
     value.type === "object" &&
@@ -83,13 +100,16 @@ type OpenapiPropOption = {
 };
 
 function createProperties(
-  props: (DefaultPropObject | DefaultProp | ArrayProp)[],
+  props: (DefaultPropObject | DefaultProp | ArrayProp | AnonymousObject)[],
   openApiProp: OpenApiPropDecorator,
 ): (PropertyObjectDefault | PropertyDefault | ArrayObjectProperty)[] {
   return props.map((prop) => {
     if (isDefaultPropObject(prop)) {
       openApiProp.addSchema(prop.option.type);
-      return new PropertyObjectDefault(prop.option.type);
+    }
+
+    if (isDefaultPropObject(prop) || isAnonymousObject(prop)) {
+      return new PropertyObjectDefault(prop);
     }
     if (isDefaultProp(prop)) {
       return new PropertyDefault(prop.type);
@@ -105,7 +125,8 @@ export function OpenapiProp(
     | DefaultPropObject
     | DefaultProp
     | ArrayProp
-    | (DefaultPropObject | DefaultProp | ArrayProp)[],
+    | AnonymousObject
+    | (DefaultPropObject | DefaultProp | ArrayProp | AnonymousObject)[],
   options: OpenapiPropOption = { required: true },
 ) {
   return (target: Object, propName: string) => {
@@ -113,7 +134,12 @@ export function OpenapiProp(
       target.constructor as TypesCore.New,
     );
 
-    let props: (DefaultPropObject | DefaultProp | ArrayProp)[] = [];
+    let props: (
+      | DefaultPropObject
+      | DefaultProp
+      | ArrayProp
+      | AnonymousObject
+    )[] = [];
 
     if (!Array.isArray(types)) {
       props.push(types);

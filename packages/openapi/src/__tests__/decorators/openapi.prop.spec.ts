@@ -8,8 +8,10 @@ import { ObjectInExample } from "../fixtures/object.in.example";
 import { EmptyRessource } from "../fixtures/EmptyRessource";
 
 // Vérifier que les isArrayProp ect... Fonctionne correctement. C'est important
-// Vérifier que le decoraeur est initialisé avev la bonne structure de base
-// AditionnalProperty a ajouter au niveau global. Créer un decorateur spécifique
+// Revoir additionnalProperty:
+//    additionnalProperties pourra prendre des new, enumetype, primitive type ect...
+//    et le mettre en tant que defaultType sans option ({additionnalProperties: boolean, new...)
+//    et supprimer anonymous object
 // Refratorer le code de test et couvrir un maximum de cas
 
 describe("OpenAPI Property Decorator", () => {
@@ -36,6 +38,14 @@ describe("OpenAPI Property Decorator", () => {
   it("should correctly define 'numberProp' as a 'number' type in OpenAPI metadata", function () {
     const schemaObject = getPropertySchema("numberProp");
     expect(schemaObject.type).to.eq("number");
+  });
+
+  it("should correctly define 'object' as a 'object' type in OpenAPI metadata", function () {
+    const schemaObject = getPropertySchema("object");
+    expect(schemaObject.type).to.eq("object");
+    expect(schemaObject.items).to.eq(undefined);
+    expect(schemaObject.properties).to.eq(undefined);
+    expect(schemaObject.additionalProperties).to.eq(undefined);
   });
 
   it("should mark 'numberProp' as a required property in OpenAPI metadata", function () {
@@ -117,30 +127,29 @@ describe("OpenAPI Property Decorator", () => {
     ).to.eq(`#/components/schemas/${ObjectInExample.name}`);
   });
 
+  it("should correctly define 'anonymousObject' as a 'object' type with additionalProperties in OpenAPI metadata", function () {
+    const schemaObject = getPropertySchema("anonymousObject");
+    expect(schemaObject.type).to.eq("object");
+    expect(schemaObject.additionalProperties).to.an("boolean");
+  });
+
   it("should define 'arrayOfUnionProp' as an 'array' type with various subtypes in OpenAPI metadata ", function () {
     const schemaObject = getPropertySchema("arrayOfUnionProp");
-    expect(schemaObject.type).to.eq("array");
-    expect((schemaObject.items as SchemaObject).oneOf).is.not.empty;
-    expect((schemaObject.items as SchemaObject).oneOf).is.an("array");
-    expect((schemaObject.items as SchemaObject).oneOf).is.length(4);
+    const { oneOf } = schemaObject.items as SchemaObject;
 
-    expect(
-      ((schemaObject.items as SchemaObject).oneOf![0] as SchemaObject).type,
-    ).is.eq("number");
-    expect(
-      ((schemaObject.items as SchemaObject).oneOf![1] as ReferenceObject).$ref,
-    ).is.eq(`#/components/schemas/${ObjectInExample.name}`);
-    expect(
-      ((schemaObject.items as SchemaObject).oneOf![2] as SchemaObject).type,
-    ).is.eq("string");
-    expect(
-      ((schemaObject.items as SchemaObject).oneOf![3] as SchemaObject).type,
-    ).is.eq("array");
-    expect(
-      (
-        ((schemaObject.items as SchemaObject).oneOf![3] as SchemaObject)
-          .items as ReferenceObject
-      ).$ref,
-    ).is.eq(`#/components/schemas/${ObjectInExample.name}`);
+    expect(schemaObject.type).to.eq("array");
+    expect(oneOf).is.not.empty;
+    expect(oneOf).is.an("array");
+    expect(oneOf).is.length(4);
+
+    expect((oneOf![0] as SchemaObject).type).is.eq("number");
+    expect((oneOf![1] as ReferenceObject).$ref).is.eq(
+      `#/components/schemas/${ObjectInExample.name}`,
+    );
+    expect((oneOf![2] as SchemaObject).type).is.eq("string");
+    expect((oneOf![3] as SchemaObject).type).is.eq("array");
+    expect(((oneOf![3] as SchemaObject).items as ReferenceObject).$ref).is.eq(
+      `#/components/schemas/${ObjectInExample.name}`,
+    );
   });
 });

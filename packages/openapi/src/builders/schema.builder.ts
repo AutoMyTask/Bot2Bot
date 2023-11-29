@@ -37,6 +37,7 @@ export class SchemaBuilder {
     schema: TypesCore.New | EnumType,
   ): SchemaObject | ReferenceObject {
     if ("type" in schema && "name" in schema && typeof schema === "object") {
+      // IsEnumType
       let type: "number" | "string";
       let values: any[];
 
@@ -62,15 +63,12 @@ export class SchemaBuilder {
     }
 
     if (typeof schema === "function") {
-      // Identifie les classes (is new)
       const {
         metadata: { properties, required },
       } = new OpenApiPropDecorator(schema);
       const {
         metadata: { option },
       } = new OpenapiObjectDescriptorDecorator(schema);
-
-      // Ici marqué un AdditionnalProperties
 
       return {
         type: "object",
