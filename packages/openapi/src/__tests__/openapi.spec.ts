@@ -170,7 +170,7 @@ describe("openapi", () => {
     });
 
     describe("Tag", () => {
-      it("should be associated with the specified path ", function () {
+      it("should be associated a tag with the specified path ", function () {
         const path =
           openApiBuilder.rootDoc.paths["/path/{paramInt}/{paramNumber}"]["get"];
         expect(path.tags.some((tag) => tag === "Tag")).eq(true);
