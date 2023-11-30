@@ -20,16 +20,48 @@ describe("openapi", () => {
   let openApiBuilder: OpenApiBuilder;
   let paramIntParameterPath: ParameterObject;
   let queryStringRequiredParameterPath: ParameterObject;
+  let pathGet: OperationObject;
 
   beforeAll(() => {
-    // Create an error in app tests, if @params('parm'), the 'param' is not present in the path
+    // Create an error in app tests, if @params('parm'), the '/:param' is not present in the path
     // Check the format of paths (/:param) to ({param})
     // Creer des erreur dans app core, pour vérifier que les params sont dans le bon format
+    // Vérifier que les securities sont null quand app n'a pas ajouter la securité
 
     const builder = AppBuilder.createAppBuilder();
-    builder.configure(configureOpenApi((builder) => {}));
+    builder.configure(
+      configureOpenApi((builder) => {
+        builder.addSecurityScheme("oauth2", {
+          type: "oauth2",
+          flows: {
+            authorizationCode: {
+              authorizationUrl: "url",
+              scopes: {},
+            },
+            implicit: {
+              authorizationUrl: "url",
+              scopes: {},
+            },
+          },
+        });
+        builder.addSecurityScheme("bearer", {
+          description: "JWT containing userid claim",
+          name: "Authorization",
+          type: "apiKey",
+          in: "header",
+        });
+      }),
+    );
+
+    builder.addAuthentification(
+      (req, res, next) => {
+        next();
+      },
+      ["bearer", "oauth2"],
+    );
+
     app = builder.build();
-    app.addEndpoints(endpoints).use(openApi);
+    app.addEndpoints(endpoints).useAuthentification().use(openApi);
     openApiBuilder = app.services.get(OpenApiBuilder);
     paramIntParameterPath = findPathParameter(
       "get",
@@ -42,6 +74,7 @@ describe("openapi", () => {
       "/path/{paramInt}/{paramNumber}",
       "queryStringRequired",
     );
+    pathGet = findPath("/path/{paramInt}/{paramNumber}", "get");
   });
 
   function findPathParameter(
@@ -130,20 +163,14 @@ describe("openapi", () => {
   });
 
   describe("Responses", () => {
-    let pathGet: OperationObject;
-
-    beforeAll(() => {
-      pathGet = findPath("/path/{paramInt}/{paramNumber}", "get");
-    });
-
     it("should define a default status code of 200 when including MetadataProduce to specify a response", function () {
       const response200 = pathGet.responses["200"] as ReferenceObject;
       expect(response200).is.not.an("undefined");
     });
 
     it("should define a status code of 400 when including MetadataProduce to specify a response", function () {
-      const response200 = pathGet.responses["400"] as ReferenceObject;
-      expect(response200).is.not.an("undefined");
+      const response400 = pathGet.responses["400"] as ReferenceObject;
+      expect(response400).is.not.an("undefined");
     });
 
     it("should reference the ExampleResource component in the responses path", function () {
@@ -184,6 +211,13 @@ describe("openapi", () => {
           ),
         ).eq(true);
       });
+    });
+  });
+
+  describe("Path Security", () => {
+    it("should have a bearer and a oauth2 security", function () {
+      expect(pathGet.security.some((security) => security.oauth2)).eq(true);
+      expect(pathGet.security.some((security) => security.bearer)).eq(true);
     });
   });
 });
