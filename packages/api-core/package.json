@@ -19,5 +19,9 @@
   "keywords": [],
   "author": "François-Pierre ROUSSEAU",
   "license": "MIT",
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "unplugin-swc": "^1.4.3",
+    "vitest": "^0.34.6"
+  }
 }

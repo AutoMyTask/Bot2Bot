@@ -8,5 +8,9 @@
   "files": [
     "src/index.ts"
   ],
-  "extends": "config/tsconfig.lib.json"
+    "exclude": [
+     "node_modules",
+    "./src/__tests__"
+  ],
+  "extends": "config/tsconfig.lib.json",
 }
