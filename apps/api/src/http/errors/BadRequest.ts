@@ -1,52 +1,102 @@
-import {BadRequest} from "http-errors";
-import {ValidationError} from "class-validator";
-import {OpenapiProp} from "../../openapi/decorators/openapi.prop";
-import {OpenapiPropArray} from "../../openapi/decorators/openapi.prop.array";
+import { OpenapiProp } from "openapi";
 
+class ObjectValidationError {
+  @OpenapiProp({ type: "object" }, { required: false })
+  target?: object;
 
+  @OpenapiProp({ type: "string" }, { required: false })
+  property!: string;
 
-class OpenApiValidationError {
-    @OpenapiProp('object', { required: false })
-    target?: object
+  @OpenapiProp({ type: "object" }, { required: false })
+  value?: object;
 
-    @OpenapiProp('string')
-    property!: string
+  @OpenapiProp(
+    { type: "object", option: { additionalProperties: true } },
+    { required: false },
+  )
+  constraints?: {
+    [type: string]: any;
+  };
 
-    @OpenapiProp('object', { required: false })
-    value?: any
+  @OpenapiProp(
+    {
+      type: "array",
+      option: {
+        type: [
+          {
+            type: "object",
+            option: { type: ObjectValidationError },
+          },
+        ],
+      },
+    },
+    { required: false },
+  )
+  children?: ObjectValidationError[];
 
-    @OpenapiProp('object', {required: false ,additionalProperties: true })
-    constraints?: {
-        [type: string]: string;
-    }
-
-    @OpenapiPropArray(OpenApiValidationError, { required: false}) // Je dois pouvoir faire référence à lui même. Il va donc faloir le faire dans le décorateur à mon avis
-    children?: OpenApiValidationError[]
-
-    @OpenapiProp('object', { required: false, additionalProperties: true })
-    contexts?: { [type: string]: any }
+  @OpenapiProp(
+    { type: "object", option: { additionalProperties: true } },
+    { required: false },
+  )
+  contexts?: { [type: string]: any };
 }
 
-
-
-
-
-// Mettre la class suivante totalement en dehors du module http
-// elle servira surtout pour openApi. Je ne la placerai pas dans open api mais plutôt dans mon app principal
-export class OpenApiBadRequestObject {
-    @OpenapiProp('string', { required: false })
-    message?: string
-
-    @OpenapiPropArray(OpenApiValidationError)
-    errors!: OpenApiValidationError[]
+enum LocationEnum {
+  Body = "body",
+  Cookie = "cookies",
+  Headers = "headers",
+  Params = "params",
+  Query = "query",
 }
 
+class ParamValidationError {
+  @OpenapiProp({ type: "string" })
+  type!: string;
 
-export class BadRequestObject extends BadRequest{
-    errors: ValidationError[] | string[]
-    constructor(message: string, errors: ValidationError[] | string[]) {
-        super(message);
-        this.errors = errors
-        this.name = 'BadRequestObject'
-    }
+  @OpenapiProp({
+    type: "object",
+    option: { type: { type: LocationEnum, name: "LocationEnum" } },
+  })
+  location!: LocationEnum;
+
+  @OpenapiProp({ type: "string" })
+  path!: string;
+
+  @OpenapiProp({ type: "any" })
+  value: any;
+
+  @OpenapiProp({ type: "any" })
+  msg: any;
+}
+
+export class BadRequest {
+  @OpenapiProp({ type: "string" }, { required: false })
+  message?: string;
+
+  @OpenapiProp([
+    {
+      type: "array",
+      option: {
+        type: [
+          {
+            type: "object",
+            option: { type: ObjectValidationError },
+          },
+        ],
+      },
+    },
+    { type: "array", option: { type: [{ type: "string" }] } },
+    {
+      type: "array",
+      option: {
+        type: [
+          {
+            type: "object",
+            option: { type: ParamValidationError },
+          },
+        ],
+      },
+    },
+  ])
+  errors!: ObjectValidationError[] | string[] | ParamValidationError[];
 }

@@ -1,0 +1,28 @@
+{
+  "name": "api-core-types",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "source": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "François-Pierre ROUSSEAU",
+  "license": "MIT",
+  "dependencies": {
+    "config": "*",
+    "http-errors": "^2.0.0",
+    "inversify": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.18"
+  },
+  "type": "commonjs"
+}

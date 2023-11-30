@@ -4,44 +4,74 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "dotenv -e .env.development nodemon --watch src/**/* --exec ts-node src/server.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "dev": "ts-node-dev --poll src/server.ts",
+    "test": "jest --detectOpenHandles --verbose --watchAll --no-cache",
+    "dev:db:migrate": "dotenv -e .env.dev mikro-orm migration:up"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "./src/tests/setup.ts"
+    ]
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@types/express": "^4.17.17",
-    "@types/knex": "^0.16.1",
-    "@types/pg": "^8.6.6",
+    "@mikro-orm/cli": "^5.9.0",
+    "@mikro-orm/core": "^5.9.0",
+    "@mikro-orm/migrations": "^5.9.0",
+    "@mikro-orm/postgresql": "^5.9.0",
+    "@mikro-orm/reflection": "^5.9.0",
+    "api-core": "*",
+    "auth0": "*",
+    "axios": "^1.5.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "cors": "^2.8.5",
+    "discord": "*",
     "express": "^4.18.2",
     "express-ip": "^1.0.4",
     "express-oauth2-jwt-bearer": "^1.4.1",
     "express-rate-limit": "^6.7.0",
+    "express-validator": "^7.0.1",
     "helmet": "^6.1.5",
-    "http-errors": "^2.0.0",
     "inversify": "^6.0.1",
-    "inversify-express-utils": "^6.4.3",
-    "knex": "^2.4.2",
+    "jsonfile": "^6.1.0",
     "lodash": "^4.17.21",
-    "objection": "^3.0.1",
-    "openapi3-ts": "^4.1.2",
-    "pg": "^8.10.0",
+    "openapi": "*",
     "reflect-metadata": "^0.1.13",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^4.6.2",
-    "typescript-json-schema": "^0.56.0"
+    "swagger-ui-express": "^4.6.2"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@types/cors": "^2.8.13",
-    "@types/swagger-jsdoc": "^6.0.1",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.7",
+    "@types/jsonfile": "^6.1.3",
+    "@types/lodash": "^4.14.200",
+    "@types/node": "^20.8.10",
+    "@types/reflect-metadata": "^0.1.0",
+    "@types/supertest": "^2.0.15",
     "@types/swagger-ui-express": "^4.1.3",
+    "api-core-types": "*",
     "dotenv-cli": "^7.3.0",
-    "nodemon": "^2.0.22",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
-    "typescript": "^5.1.6"
+    "ts-node-dev": "^2.0.0"
   },
-  "packageManager": "yarn@2.0.0-rc.30"
+  "mikro-orm": {
+    "useTsNode": true,
+    "configPaths": [
+      "./src/mikro-orm.config.ts",
+      "./dist/mikro-orm.config.js"
+    ]
+  },
+  "packageManager": "yarn@2.0.0-rc.30",
+  "volta": {
+    "node": "20.10.0"
+  }
 }

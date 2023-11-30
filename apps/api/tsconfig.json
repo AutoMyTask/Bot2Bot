@@ -1,24 +1,25 @@
 {
   "compilerOptions": {
-    "target": "es6",
+    "noUncheckedIndexedAccess": true,
+    "target": "ES2022",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "module": "commonjs",
-    "rootDir": "./",
+    "rootDir": "./src",
     "moduleResolution": "node",
     "types": [
-      "reflect-metadata"
+      "reflect-metadata",
+      "jest"
     ],
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "paths": {
-      //  "~/*": ["./src/*"],
-      // "@openapi/*": ["./src/openapi/*"]
-    }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*.ts", "jest.config.ts"],
+  "exclude": ["node_modules", "node_modules/openapi3-ts/src"],
+  "files": [
+    "src/env.d.ts"
+  ]
 }

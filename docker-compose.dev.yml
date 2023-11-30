@@ -1,0 +1,97 @@
+version: "3"
+
+# Dans la finalité l'idéal serait de pouvoir avoir un unique docker.compose
+
+# Résoudre le probléme de websocket (vue.js)
+
+# Important ! Tester les packages ! Si je n'ai pas un controle parfait sur
+# leurs utilisations, je pourrais connaitre des problèmes en terme d'évolutivités
+
+# Créer un dossier infrastructure regroupant tous les dossiers permettant
+# l'orchestration de l'infra
+
+# Via ngninx, je pourrais controller le point d'accés menant à ma documentation et swagger.json
+# Uniuqment en production
+
+# Documenter les .env.sample pour mener vers les liens pour la configuration
+# Voir docker secret à l'avenir pour configurer les variables d'env
+
+# Voir pour api-core-type et réorganiser les dépendances
+
+# Voir pour les migration et l'autogénération des sdk
+
+# Tarification gratuite amazon : https://aws.amazon.com/fr/ec2/pricing/
+# Définir un container spécifique pour le déploiement des migrations
+
+services:
+  postgres:
+    container_name: postgres
+    image: 'postgres:latest'
+    restart: always
+    env_file:
+      - infra/envs/.env.db
+    networks:
+      - app_network
+  nginx:
+    container_name: nginx
+    restart: always
+    depends_on:
+      - api
+      - web
+    build:
+      dockerfile: infra/nginx/Dockerfile.Dev
+    ports:
+      - "3050:80"
+    networks:
+      - app_network
+  web:
+    container_name: web
+    depends_on:
+      api:
+        condition: service_healthy
+    build:
+      dockerfile: apps/web/Dockerfile.Dev
+    env_file:
+      - apps/web/.env.dev
+    volumes:
+      - /app/apps/web/node_modules
+      - ./apps/web:/app/apps/web
+    networks:
+      - app_network
+  web-unit-test:
+    container_name: web-unit-test
+    depends_on:
+      api:
+        condition: service_healthy
+    build:
+      dockerfile: apps/web/Dockerfile.Dev
+    env_file:
+      - apps/web/.env.dev
+    volumes:
+      - /app/apps/web/node_modules
+      - ./apps/web:/app/apps/web
+    command: [ "yarn", "run", "test:unit:dev", "--filter=web" ]
+  api:
+    container_name: api
+    build:
+      dockerfile: apps/api/Dockerfile.Dev
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://api:8000/healthcheck" ] #
+      interval: 30s
+      retries: 10
+      timeout: 10s
+    env_file:
+      - apps/api/.env.dev
+      - infra/envs/.env.db
+    volumes:
+      - /app/apps/api/node_modules
+      - ./apps/api:/app/apps/api
+    networks:
+      - app_network
+
+
+# Define a network, which allows containers to communicate
+# with each other, by using their container name as a hostname
+networks:
+  app_network:
+    external: true
