@@ -5,6 +5,11 @@ import IAppBuilder = AppCore.IAppBuilder;
 import { EmptyService } from "./fixtures/EmptyService";
 import { App } from "../app";
 import IApp = AppCore.IApp;
+import { AuthentificationBuilder } from "../auth/authentification.builder";
+import e, { Handler } from "express";
+
+// Se baser sur cela pour concevoir l'ajout de l'authentification
+// https://devblogs.microsoft.com/dotnet/whats-new-with-identity-in-dotnet-8/?utm_source=csharpdigest&utm_medium&utm_campaign=1732
 
 describe("app.builder", () => {
   let builder: IAppBuilder;
@@ -31,16 +36,36 @@ describe("app.builder", () => {
   });
 
   describe("addAuthentification", () => {
-    it("should ", function () {
-      const handler = (req, res, next) => {
+    let handler: Handler;
+    let onTokenValidated: Handler;
+
+    beforeAll(() => {
+      handler = (req, res, next) => {
         next();
       };
+      onTokenValidated = (req, res, next) => {
+        console.log("onTokenValidated");
+        next();
+      };
+      builder.addAuthentification(handler, ["bearer"], (builder) => {
+        builder.onTokenValidated = onTokenValidated;
+      });
+    });
 
-      builder.addAuthentification(
-        (req, res, next) => {
-          next();
-        },
-        ["bearer"], // Le soucis c'est comment vérifier que les schemes sont bien présent dans les convention ? Je le fait ici ?
+    it("should ensure the presence of AuthenticationBuilder within dependency injection", function () {
+      const app = builder.build();
+      expect(app.services.isBound(AuthentificationBuilder)).eq(true);
+    });
+
+    it("should correctly add the handler to AuthenticationBuilder", function () {
+      const app = builder.build();
+      expect(app.services.get(AuthentificationBuilder).handler).eq(handler);
+    });
+
+    it("should add an event after the token is validated", function () {
+      const app = builder.build();
+      expect(app.services.get(AuthentificationBuilder).onTokenValidated).eq(
+        onTokenValidated,
       );
     });
   });
