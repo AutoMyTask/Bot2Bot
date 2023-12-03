@@ -5,6 +5,9 @@ import { AppBuilder } from "../app.builder";
 import { EndpointsController } from "./fixtures/endpoints";
 import IRouteConventions = RouteCore.IRouteConventions;
 
+// Peut être créer des parambuilder spécifique aux different type de params ?
+// a voir
+
 describe("app", () => {
   let app: IApp;
 
@@ -15,7 +18,7 @@ describe("app", () => {
 
   describe("IApp", () => {
     describe("addEndpoints", () => {
-      it("should add get convention to IRouteConventions array", function () {
+      it("should add convention to IRouteConventions array", function () {
         app.addEndpoints((routeMapBuilder) => {
           routeMapBuilder.map(
             "/addEndpoint",
@@ -37,10 +40,16 @@ describe("app", () => {
 
         expect(convention.auth).an("undefined");
 
-        // Dans requestHandlerBuilder, je crée un middleware pour la construction des params
-        // et un autre pour exécuter la requête final. Est-ce que je rajoute la construction
-        // des params si pas de params ? (build(): IRequestConventions)
+        // Par défaut 2 middlewares. Un pour la création des params et l'autre pour l'exécution de
+        // la requête final donc deux handlers
         expect(convention.request.handlers.length).eq(2);
+        expect(convention.request.params.path.length).eq(0);
+        expect(convention.request.params.body).an("undefined");
+        expect(convention.request.params.query.length).eq(0);
+        expect(convention.auth).an("undefined");
+        expect(convention.prefixes.length).eq(0);
+        expect(convention.middlewares.length).eq(0);
+        expect(convention.metadataCollection.items.length).eq(0);
       });
     });
   });
