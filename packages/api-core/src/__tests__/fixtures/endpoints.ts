@@ -18,6 +18,10 @@ export function expectEmptyEndpointConvention(convention: IRouteConventions) {
   expect(convention.metadataCollection.items.length).eq(0);
 }
 
+export function isEmptyEndpoint({ path, method, prefixes }: IRouteConventions) {
+  return path === "/addEndpoint" && method === "get" && prefixes.length === 0;
+}
+
 export class EndpointsController {
   static emptyEndpoint(): true {
     return true;

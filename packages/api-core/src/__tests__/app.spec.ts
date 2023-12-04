@@ -5,6 +5,7 @@ import { AppBuilder } from "../app.builder";
 import {
   EndpointsController,
   expectEmptyEndpointConvention,
+  isEmptyEndpoint,
 } from "./fixtures/endpoints";
 import IRouteConventions = RouteCore.IRouteConventions;
 
@@ -35,13 +36,7 @@ describe("app", () => {
 
         expect(app.conventions.length).eq(1);
 
-        const convention = app.conventions.find(
-          ({ path, method, prefixes }: IRouteConventions) =>
-            path === "/addEndpoint" &&
-            method === "get" &&
-            prefixes.length === 0,
-        );
-
+        const convention = app.conventions.find(isEmptyEndpoint);
         expectEmptyEndpointConvention(convention);
       });
     });
