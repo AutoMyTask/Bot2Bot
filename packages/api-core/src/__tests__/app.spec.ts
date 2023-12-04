@@ -2,14 +2,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { AppCore, RouteCore } from "api-core-types";
 import IApp = AppCore.IApp;
 import { AppBuilder } from "../app.builder";
-import { EndpointsController } from "./fixtures/endpoints";
+import {
+  EndpointsController,
+  expectEmptyEndpointConvention,
+} from "./fixtures/endpoints";
 import IRouteConventions = RouteCore.IRouteConventions;
-import { App } from "../app";
-import { ap } from "vitest/dist/reporters-5f784f42";
-import IRouteMapBuilder = RouteCore.IRouteMapBuilder;
 
-// Peut être créer des parambuilder spécifique aux different type de params ?
-// a voir
+// Peut-être créer des parambuilder spécifiques aux different type de params ?
+// à voir. Manque le test d'app avec l'ajout des metadatatas. Mais cela
+// correspond plus à des tests d'intégration
 
 describe("app", () => {
   let app: IApp;
@@ -27,7 +28,7 @@ describe("app", () => {
             "/addEndpoint",
             "get",
             EndpointsController,
-            EndpointsController.getAddEndpoint,
+            EndpointsController.emptyEndpoint,
           );
           return routeMapBuilder;
         });
@@ -41,30 +42,7 @@ describe("app", () => {
             prefixes.length === 0,
         );
 
-        expect(convention.auth).an("undefined");
-
-        // Par défaut 2 middlewares. Un pour la création des params et l'autre pour l'exécution de
-        // la requête final donc deux handlers
-        expect(convention.request.handlers.length).eq(2);
-        expect(convention.request.params.path.length).eq(0);
-        expect(convention.request.params.body).an("undefined");
-        expect(convention.request.params.query.length).eq(0);
-        expect(convention.auth).an("undefined");
-        expect(convention.prefixes.length).eq(0);
-        expect(convention.middlewares.length).eq(0);
-        expect(convention.metadataCollection.items.length).eq(0);
-      });
-    });
-
-    describe("IRouteMapBuilder", () => {
-      it("should be an instance of App corresponding to IRouteMapBuilder interface", function () {
-        let iRouteMapBuilder: IRouteMapBuilder;
-        app.addEndpoints((routeMapBuilder) => {
-          iRouteMapBuilder = routeMapBuilder;
-          return routeMapBuilder;
-        });
-
-        expect(iRouteMapBuilder instanceof App).eq(true);
+        expectEmptyEndpointConvention(convention);
       });
     });
   });

@@ -4,7 +4,6 @@ import { AppCore } from "api-core-types";
 import IAppBuilder = AppCore.IAppBuilder;
 import { EmptyService } from "./fixtures/EmptyService";
 import { App } from "../app";
-import IApp = AppCore.IApp;
 import { AuthentificationBuilder } from "../auth/authentification.builder";
 import e, { Handler } from "express";
 
@@ -52,18 +51,10 @@ describe("app.builder", () => {
       });
     });
 
-    it("should ensure the presence of AuthenticationBuilder within dependency injection", function () {
+    it("should correctly configure and add authentication to the app", function () {
       const app = builder.build();
       expect(app.services.isBound(AuthentificationBuilder)).eq(true);
-    });
-
-    it("should correctly add the handler to AuthenticationBuilder", function () {
-      const app = builder.build();
       expect(app.services.get(AuthentificationBuilder).handler).eq(handler);
-    });
-
-    it("should add an event after the token is validated", function () {
-      const app = builder.build();
       expect(app.services.get(AuthentificationBuilder).onTokenValidated).eq(
         onTokenValidated,
       );
