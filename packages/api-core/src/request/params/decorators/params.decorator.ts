@@ -1,5 +1,6 @@
 import { values } from "lodash";
 import { RequestCore, TypesCore } from "api-core-types";
+import "reflect-metadata";
 import * as expressValidators from "express-validator";
 
 export abstract class ParamsDecorator<

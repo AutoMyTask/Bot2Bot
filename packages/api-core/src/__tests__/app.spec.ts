@@ -2,12 +2,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { AppCore, RouteCore } from "api-core-types";
 import IApp = AppCore.IApp;
 import { AppBuilder } from "../app.builder";
+import { EndpointsController } from "./fixtures/endpoints.controller";
 import {
-  EndpointsController,
   expectEmptyEndpointConvention,
   isEmptyEndpoint,
-} from "./fixtures/endpoints";
-import IRouteConventions = RouteCore.IRouteConventions;
+} from "./fixtures/endpoints.empty";
 
 // Peut-être créer des parambuilder spécifiques aux different type de params ?
 // à voir. Manque le test d'app avec l'ajout des metadatatas. Mais cela
