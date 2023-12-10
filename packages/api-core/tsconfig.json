@@ -3,14 +3,18 @@
     "rootDir": "./src",
     "baseUrl": "./",
     "outDir": "./dist",
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": [
+      "reflect-metadata"
+    ]
   },
   "files": [
     "src/index.ts"
   ],
-    "exclude": [
-     "node_modules",
+  "exclude": [
+    "node_modules",
     "./src/__tests__"
   ],
-  "extends": "config/tsconfig.lib.json",
+  "extends": "config/tsconfig.lib.json"
 }
